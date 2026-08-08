@@ -6,7 +6,8 @@
 <title>FantaOracle — Teatro dell'Asta</title>
 <style>
 /* ============================================================
-   FantaOracle Replay — tema Catppuccin Mocha
+   FantaOracle — teatro dell'asta · "notturno da stadio"
+   Catppuccin Mocha + verde campo (#a6e3a1) + oro (#f9e2af)
    ============================================================ */
 :root{
   --base:#1e1e2e; --mantle:#181825; --crust:#11111b;
@@ -37,8 +38,16 @@ header{
 }
 .brand{display:flex; align-items:baseline; gap:12px; white-space:nowrap;}
 .brand h1{font-size:26px; font-weight:800; letter-spacing:.5px;}
-.brand h1 .accent{color:var(--mauve);}
-.brand .sub{color:var(--overlay1); font-size:13px;}
+.brand h1 .accent{color:var(--yellow); text-shadow:0 0 26px rgba(249,226,175,.35);}
+.brand .sub{color:var(--overlay1); font-size:13px; letter-spacing:.5px;}
+.home-btn{
+  display:flex; align-items:center; justify-content:center;
+  width:38px; height:38px; border-radius:10px; flex:0 0 auto;
+  background:var(--surface0); border:1px solid var(--surface1);
+  color:var(--subtext1); font-size:19px; text-decoration:none;
+  transition:background .18s, color .18s;
+}
+.home-btn:hover{background:var(--surface1); color:var(--yellow);}
 
 .phase-box{display:flex; align-items:center; gap:14px; flex:0 0 auto;}
 .phase-pills{display:flex; gap:6px;}
@@ -67,7 +76,7 @@ header{
 .ctl:hover{background:var(--surface1);}
 .ctl:active{transform:scale(.94);}
 .ctl:disabled{opacity:.35; cursor:default;}
-.ctl.play{font-size:17px; padding:8px 18px; background:var(--mauve); color:var(--crust); border-color:var(--mauve); font-weight:800;}
+.ctl.play{font-size:17px; padding:8px 18px; background:var(--yellow); color:var(--crust); border-color:var(--yellow); font-weight:800;}
 .ctl.play:hover{filter:brightness(1.1);}
 .speed-group{display:flex; border:1px solid var(--surface1); border-radius:8px; overflow:hidden;}
 .speed-group .ctl{border:none; border-radius:0; font-size:12.5px; font-weight:700; padding:8px 10px;}
@@ -101,13 +110,13 @@ input[type=range].scrubber::-webkit-slider-runnable-track{
 input[type=range].scrubber::-webkit-slider-thumb{
   -webkit-appearance:none; appearance:none;
   width:15px; height:15px; margin-top:-5px; border-radius:50%;
-  background:var(--mauve); border:2px solid var(--crust);
-  box-shadow:0 0 8px -1px var(--mauve);
+  background:var(--yellow); border:2px solid var(--crust);
+  box-shadow:0 0 8px -1px var(--yellow);
 }
 input[type=range].scrubber::-moz-range-track{height:5px; background:var(--surface0); border-radius:3px;}
 input[type=range].scrubber::-moz-range-thumb{
   width:13px; height:13px; border-radius:50%;
-  background:var(--mauve); border:2px solid var(--crust);
+  background:var(--yellow); border:2px solid var(--crust);
 }
 .evt-counter{font-size:12px; color:var(--overlay1); font-variant-numeric:tabular-nums; white-space:nowrap; min-width:130px; text-align:right;}
 
@@ -129,9 +138,11 @@ main{
   overflow:hidden;
   box-shadow:0 8px 30px -12px var(--crust);
 }
-#stage::before{ /* faro di scena */
+#stage::before{ /* riflettore di scena: cono dall'alto + riverbero sul palco */
   content:""; position:absolute; inset:0;
-  background:radial-gradient(ellipse 65% 90% at 50% 0%, color-mix(in srgb, var(--role-glow, var(--mauve)) 13%, transparent), transparent 70%);
+  background:
+    radial-gradient(ellipse 58% 88% at 50% -8%, color-mix(in srgb, var(--role-glow, var(--yellow)) 20%, transparent), transparent 68%),
+    radial-gradient(ellipse 46% 26% at 50% 104%, color-mix(in srgb, var(--role-glow, var(--yellow)) 8%, transparent), transparent 72%);
   pointer-events:none; transition:background .5s;
 }
 .lot-card{position:relative; text-align:center; padding:26px 40px; width:100%;}
@@ -152,7 +163,8 @@ main{
 .lot-price.pulse{animation:pricePulse .45s ease-out;}
 @keyframes pricePulse{
   0%{transform:scale(1);}
-  30%{transform:scale(1.22); color:#fff; text-shadow:0 0 46px var(--yellow);}
+  30%{transform:scale(1.22); color:#fff;
+      text-shadow:0 0 55px var(--yellow), 0 0 120px color-mix(in srgb, var(--yellow) 55%, transparent);}
   100%{transform:scale(1);}
 }
 .lot-leader{font-size:17px; color:var(--subtext1);}
@@ -175,22 +187,28 @@ main{
 .deal-badge.good{background:var(--green); box-shadow:0 0 18px -4px var(--green);}
 .deal-badge.bad{background:var(--red); box-shadow:0 0 18px -4px var(--red);}
 
-/* martelletto */
+/* martelletto: arco di caduta + flash d'impatto */
 #hammerFx{
   position:absolute; top:8%; right:14%; font-size:84px; z-index:5;
   pointer-events:none; opacity:0;
   transform-origin:85% 85%;
 }
-#hammerFx.go{animation:hammerHit .9s ease-in-out forwards;}
+#hammerFx.go{animation:hammerHit 1s cubic-bezier(.5,0,.6,1) forwards;}
 @keyframes hammerHit{
-  0%{opacity:0; transform:rotate(-70deg) translateY(-25px);}
-  25%{opacity:1; transform:rotate(-55deg);}
-  45%{transform:rotate(18deg);}
-  52%{transform:rotate(8deg);}
-  60%{transform:rotate(14deg);}
-  80%{opacity:1;}
-  100%{opacity:0; transform:rotate(10deg);}
+  0%{opacity:0; transform:translate(56px,-84px) rotate(-85deg);}
+  26%{opacity:1; transform:translate(22px,-30px) rotate(-50deg);}
+  48%{transform:translate(0,0) rotate(18deg);}
+  56%{transform:translate(0,-7px) rotate(3deg);}
+  64%{transform:translate(0,0) rotate(14deg);}
+  84%{opacity:1;}
+  100%{opacity:0; transform:translate(0,0) rotate(11deg);}
 }
+#stageFlash{ /* lampo oro al colpo di martelletto */
+  position:absolute; inset:0; z-index:4; pointer-events:none; opacity:0;
+  background:radial-gradient(ellipse 62% 55% at 63% 26%, color-mix(in srgb, var(--yellow) 50%, transparent), transparent 72%);
+}
+#stageFlash.go{animation:impactFlash .4s ease-out;}
+@keyframes impactFlash{0%{opacity:0;} 18%{opacity:.95;} 100%{opacity:0;}}
 #stage.shake{animation:stageShake .35s ease-out;}
 @keyframes stageShake{
   0%,100%{transform:translateY(0);}
@@ -201,7 +219,7 @@ main{
 /* card che vola verso la squadra */
 .fly-card{
   position:fixed; z-index:60; pointer-events:none;
-  background:var(--base); border:1px solid var(--mauve);
+  background:var(--base); border:1px solid var(--yellow);
   border-radius:12px; padding:10px 18px;
   font-weight:800; font-size:15px; text-align:center;
   box-shadow:0 6px 26px -6px var(--crust);
@@ -278,7 +296,7 @@ main{
 /* ---------- Tavolo squadre ---------- */
 #teams{
   background:var(--base); border:1px solid var(--surface0); border-radius:14px;
-  padding:12px 14px; display:flex; flex-direction:column; gap:7px;
+  padding:13px 14px; display:flex; flex-direction:column; gap:9px;
   position:sticky; top:12px;
 }
 #teams h3{font-size:12px; letter-spacing:2px; color:var(--overlay1); font-weight:800; margin-bottom:2px;}
@@ -286,11 +304,11 @@ main{
   display:grid;
   grid-template-columns:10px 1fr auto;
   grid-template-areas:"dot head credits" "dot bar bar" "dot slots slots";
-  column-gap:10px; row-gap:4px;
-  padding:7px 10px; border-radius:10px;
+  column-gap:10px; row-gap:5px;
+  padding:9px 11px; border-radius:11px;
   background:var(--mantle);
   border:1px solid transparent;
-  transition:border-color .2s, background .2s;
+  transition:border-color .2s, background .2s, box-shadow .2s;
 }
 .team-row .dot{grid-area:dot; width:10px; height:10px; border-radius:50%; align-self:center;}
 .team-row .head{grid-area:head; display:flex; align-items:baseline; gap:7px; min-width:0;}
@@ -298,13 +316,13 @@ main{
 .team-row .head .tid{font-size:11px; color:var(--overlay0); font-weight:700;}
 .team-row .credits{grid-area:credits; font-size:16px; font-weight:900; font-variant-numeric:tabular-nums;}
 .team-row .bar{grid-area:bar; height:6px; border-radius:3px; background:var(--surface0); overflow:hidden;}
-.team-row .bar i{display:block; height:100%; border-radius:3px; transition:width .3s, background .3s;}
+.team-row .bar i{display:block; height:100%; border-radius:3px; transition:width .3s;}
 .team-row .slots{grid-area:slots; display:flex; gap:8px;}
 .slot-group{display:flex; gap:2.5px; align-items:center;}
 .slot-group .rl{font-size:9px; font-weight:800; color:var(--overlay0); margin-right:1px;}
 .sq{width:9px; height:9px; border-radius:2.5px; background:var(--surface0);}
-.team-row.bidding{border-color:var(--peach); background:color-mix(in srgb, var(--peach) 8%, var(--mantle));}
-.team-row.leading{border-color:var(--green); background:color-mix(in srgb, var(--green) 9%, var(--mantle));}
+.team-row.bidding{border-color:var(--peach); background:color-mix(in srgb, var(--peach) 9%, var(--mantle)); box-shadow:0 0 12px -6px var(--peach);}
+.team-row.leading{border-color:var(--green); background:color-mix(in srgb, var(--green) 11%, var(--mantle)); box-shadow:0 0 14px -5px var(--green);}
 .team-row.leading .head b::after{content:" 🔝"; font-size:11px;}
 .team-row.flash{animation:rowFlash .8s ease-out;}
 @keyframes rowFlash{
@@ -367,33 +385,34 @@ main{
   padding:56px 72px; text-align:center; max-width:640px;
   transition:border-color .2s, background .2s;
 }
-#dropOverlay.dragging .panel{border-color:var(--mauve); background:color-mix(in srgb, var(--mauve) 8%, var(--base));}
+#dropOverlay.dragging .panel{border-color:var(--yellow); background:color-mix(in srgb, var(--yellow) 7%, var(--base));}
 #dropOverlay .big{font-size:56px; margin-bottom:14px;}
 #dropOverlay h2{font-size:26px; font-weight:900; margin-bottom:8px;}
-#dropOverlay h2 .accent{color:var(--mauve);}
+#dropOverlay h2 .accent{color:var(--yellow); text-shadow:0 0 26px rgba(249,226,175,.3);}
 #dropOverlay p{color:var(--subtext0); font-size:14px; line-height:1.6; margin-bottom:18px;}
 #dropOverlay code{background:var(--surface0); padding:1px 7px; border-radius:6px; font-size:12.5px;}
 #dropOverlay .err{color:var(--red); font-size:13px; margin-top:14px; min-height:18px;}
 .file-btn{
-  display:inline-block; background:var(--mauve); color:var(--crust);
+  display:inline-block; background:var(--yellow); color:var(--crust);
   font-weight:800; font-size:15px; padding:11px 26px; border-radius:10px;
   cursor:pointer; border:none;
 }
 .file-btn:hover{filter:brightness(1.1);}
 #fileInput{display:none;}
 
-/* barra flash di fase */
+/* splash di cambio fase: a tutto palco, ~700ms pieni poi dissolve */
 #phaseFlash{
-  position:fixed; top:38%; left:0; right:0; z-index:50; pointer-events:none;
-  text-align:center; font-size:54px; font-weight:900; letter-spacing:6px;
-  color:var(--crust); padding:22px 0; opacity:0;
+  position:absolute; inset:0; z-index:7; pointer-events:none;
+  display:flex; align-items:center; justify-content:center;
+  font-size:88px; font-weight:900; letter-spacing:14px; text-transform:uppercase;
+  opacity:0; white-space:nowrap;
 }
-#phaseFlash.go{animation:phaseIn 1.4s ease-in-out forwards;}
-@keyframes phaseIn{
-  0%{opacity:0; transform:translateY(20px);}
-  18%{opacity:1; transform:translateY(0);}
-  80%{opacity:1;}
-  100%{opacity:0;}
+#phaseFlash.go{animation:phaseSplash 1.5s cubic-bezier(.2,.7,.3,1) forwards;}
+@keyframes phaseSplash{
+  0%{opacity:0; transform:scale(.84);}
+  9%{opacity:1; transform:scale(1);}
+  56%{opacity:1; transform:scale(1.03);}
+  100%{opacity:0; transform:scale(1.09);}
 }
 
 /* ============================================================
@@ -427,8 +446,8 @@ body.live .live-pill{display:flex;}
 #liveBanner.hidden{display:none;}
 
 /* squadra umana al tavolo */
-.team-row.human{border-color:var(--mauve); box-shadow:0 0 10px -4px var(--mauve);}
-.team-row.human .head b{color:var(--mauve);}
+.team-row.human{border-color:var(--yellow); box-shadow:0 0 12px -4px var(--yellow);}
+.team-row.human .head b{color:var(--yellow);}
 .team-row.human.bidding{border-color:var(--peach);}
 .team-row.human.leading{border-color:var(--green);}
 
@@ -437,20 +456,20 @@ body.live .live-pill{display:flex;}
   position:fixed; left:0; right:0; bottom:0; z-index:80;
   background:color-mix(in srgb, var(--crust) 94%, transparent);
   backdrop-filter:blur(12px);
-  border-top:2px solid var(--mauve);
-  box-shadow:0 -14px 44px -10px rgba(0,0,0,.85), 0 -2px 24px -8px var(--mauve);
+  border-top:2px solid var(--yellow);
+  box-shadow:0 -14px 44px -10px rgba(0,0,0,.85), 0 -2px 24px -8px var(--yellow);
   transform:translateY(112%);
   transition:transform .3s cubic-bezier(.2,.9,.3,1.04);
 }
 #humanBar.show{transform:translateY(0);}
 .hb-tag{
   position:absolute; top:-14px; left:50%; transform:translateX(-50%);
-  background:var(--mauve); color:var(--crust);
+  background:var(--yellow); color:var(--crust);
   font-weight:900; font-size:11.5px; letter-spacing:2.5px;
   padding:4px 18px; border-radius:999px; white-space:nowrap;
   animation:tagPulse 1.8s ease-in-out infinite;
 }
-@keyframes tagPulse{0%,100%{box-shadow:0 0 16px -2px var(--mauve);} 50%{box-shadow:0 0 30px 1px var(--mauve);}}
+@keyframes tagPulse{0%,100%{box-shadow:0 0 16px -2px var(--yellow);} 50%{box-shadow:0 0 30px 1px var(--yellow);}}
 #hbHint{
   display:flex; align-items:center; gap:22px; flex-wrap:wrap;
   padding:9px 26px; border-bottom:1px solid var(--surface0);
@@ -459,7 +478,7 @@ body.live .live-pill{display:flex;}
 #hbHint.closed{display:none;}
 .hint-chip{font-size:12.5px; color:var(--subtext0); white-space:nowrap;}
 .hint-chip b{color:var(--text); font-size:14px; font-variant-numeric:tabular-nums;}
-.hint-chip.max b{color:var(--mauve); font-size:17px;}
+.hint-chip.max b{color:var(--yellow); font-size:17px;}
 .hint-chip.heat b{color:var(--peach);}
 .hint-verdict{font-style:italic; color:var(--subtext1); font-size:12.5px; margin-left:auto;}
 .hb-main{display:flex; align-items:center; gap:20px; padding:16px 26px 6px;}
@@ -484,7 +503,7 @@ body.live .live-pill{display:flex;}
 .hb-btn.raise{background:var(--green); border-color:var(--green); color:var(--crust);}
 .hb-btn.pass{background:var(--red); border-color:var(--red); color:var(--crust);}
 .hb-btn.auto{background:var(--teal); border-color:var(--teal); color:var(--crust);}
-.hb-btn.call{background:var(--mauve); border-color:var(--mauve); color:var(--crust); font-size:18px;}
+.hb-btn.call{background:var(--yellow); border-color:var(--yellow); color:var(--crust); font-size:18px;}
 .hb-custom{display:flex; align-items:center; gap:6px; background:var(--surface0); border:1px solid var(--surface1); border-radius:11px; padding:4px 6px 4px 12px;}
 .hb-custom input{
   width:76px; background:transparent; border:none; outline:none;
@@ -507,7 +526,7 @@ body.live .live-pill{display:flex;}
 .hb-sub{font-size:12.5px; color:var(--subtext0); margin-top:6px; line-height:1.6;}
 .hb-sub b{color:var(--subtext1);}
 .hb-search{width:100%; background:var(--surface0); border:1px solid var(--surface1); border-radius:10px; color:var(--text); font-size:15px; padding:10px 14px; outline:none;}
-.hb-search:focus{border-color:var(--mauve);}
+.hb-search:focus{border-color:var(--yellow);}
 .hb-results{margin-top:8px; max-height:212px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; scrollbar-width:thin; scrollbar-color:var(--surface1) transparent;}
 .hb-row{
   display:grid; grid-template-columns:66px minmax(0,1fr) 96px 72px 96px; gap:8px; align-items:center;
@@ -516,7 +535,7 @@ body.live .live-pill{display:flex;}
 }
 .hb-row.nomedia{grid-template-columns:66px minmax(0,1fr) 72px 96px;}
 .hb-row:hover{background:var(--surface0);}
-.hb-row.sel{border-color:var(--mauve); background:color-mix(in srgb, var(--mauve) 10%, var(--mantle));}
+.hb-row.sel{border-color:var(--yellow); background:color-mix(in srgb, var(--yellow) 9%, var(--mantle));}
 .hb-row .pn{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:800;}
 .hb-row .sq2{color:var(--overlay1); font-size:12px; font-weight:400;}
 .hb-row .num{text-align:right; font-variant-numeric:tabular-nums; color:var(--subtext0); font-size:12.5px;}
@@ -539,7 +558,7 @@ body.season-open #endview{display:none !important;}
 body.season-open #humanBar{display:none;}
 .sv-head{display:flex; align-items:baseline; gap:14px; margin:6px 0 16px;}
 .sv-head h2{font-size:30px; font-weight:900;}
-.sv-head h2 .accent{color:var(--mauve);}
+.sv-head h2 .accent{color:var(--yellow); text-shadow:0 0 26px rgba(249,226,175,.3);}
 .sv-head .sub{color:var(--subtext0); font-size:13.5px;}
 .sv-head .ctl{margin-left:auto;}
 .sv-top{display:grid; grid-template-columns:1fr 410px; gap:16px; align-items:start;}
@@ -548,20 +567,25 @@ body.season-open #humanBar{display:none;}
 table.sv-table{width:100%; border-collapse:collapse; font-size:13.5px;}
 .sv-table th{text-align:right; padding:6px 10px; color:var(--overlay1); font-size:10.5px; letter-spacing:1.5px; font-weight:800; border-bottom:1px solid var(--surface0);}
 .sv-table th.name{text-align:left;}
-.sv-table td{padding:6.5px 10px; text-align:right; font-variant-numeric:tabular-nums; border-top:1px solid var(--surface0);}
+.sv-table td{padding:7px 10px; text-align:right; font-variant-numeric:tabular-nums; border-top:1px solid var(--surface0);}
 .sv-table tr:first-child td{border-top:none;}
 .sv-table td.pos{font-weight:900; color:var(--overlay1); width:44px; text-align:center;}
 .sv-table td.name{text-align:left; font-weight:800; white-space:nowrap;}
-.sv-table td.pts{font-weight:900; font-size:15px;}
+.sv-table td.pts{font-weight:900; font-size:16.5px;}
 .sv-table td.fanta{color:var(--subtext0);}
-.sv-table tr.human td{background:color-mix(in srgb, var(--mauve) 9%, transparent);}
-.sv-table tr.human td.name{color:var(--mauve);}
+.sv-table tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--mantle) 65%, transparent);}
+.sv-table tr.podio1 td{background:color-mix(in srgb, var(--yellow) 9%, transparent);}
+.sv-table tr.podio2 td{background:color-mix(in srgb, var(--subtext1) 7%, transparent);}
+.sv-table tr.podio3 td{background:color-mix(in srgb, var(--peach) 7%, transparent);}
 .sv-table tr.podio1 td.pos{color:var(--yellow); font-size:15px;}
 .sv-table tr.podio2 td.pos{color:var(--subtext1); font-size:15px;}
 .sv-table tr.podio3 td.pos{color:var(--peach); font-size:15px;}
-#svSpark{display:block; width:100%; height:150px;}
+.sv-table tr.human td{background:color-mix(in srgb, var(--yellow) 8%, transparent);}
+.sv-table tr.human td:first-child{box-shadow:inset 3px 0 0 var(--yellow);}
+.sv-table tr.human td.name{color:var(--yellow);}
+#svSpark{display:block; width:100%; height:200px;}
 .sv-spark-note{font-size:11.5px; color:var(--overlay1); margin-top:6px; line-height:1.5;}
-.sv-spark-note b{color:var(--mauve);}
+.sv-spark-note b{color:var(--yellow);}
 .sv-nav{display:flex; align-items:center; gap:14px; margin:22px 0 12px;}
 .sv-nav .gtitle{font-size:20px; font-weight:900; min-width:200px; text-align:center;}
 .sv-nav select{background:var(--surface0); color:var(--text); border:1px solid var(--surface1); border-radius:8px; padding:7px 10px; font-size:13px; font-weight:700;}
@@ -573,18 +597,19 @@ table.sv-table{width:100%; border-collapse:collapse; font-size:13.5px;}
   transition:border-color .15s, transform .12s;
 }
 .match-card:hover{transform:translateY(-2px); border-color:var(--surface2);}
-.match-card.sel{border-color:var(--mauve); box-shadow:0 0 14px -6px var(--mauve);}
-.match-card.human{background:color-mix(in srgb, var(--mauve) 6%, var(--base));}
+.match-card.sel{border-color:var(--yellow); box-shadow:0 0 16px -6px var(--yellow);}
+.match-card.human{background:color-mix(in srgb, var(--yellow) 5%, var(--base));}
 .match-card .mteams{display:flex; justify-content:space-between; gap:6px; font-size:12.5px; font-weight:800;}
 .match-card .mteams span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:48%;}
-.match-card .mscore{font-size:26px; font-weight:900; margin:4px 0 2px; font-variant-numeric:tabular-nums;}
+.match-card .mscore{font-size:31px; font-weight:900; margin:4px 0 2px; font-variant-numeric:tabular-nums;}
 .match-card .mfanta{font-size:11.5px; color:var(--overlay1); font-variant-numeric:tabular-nums;}
 .sv-detail{margin-top:14px;}
 .sv-dhead{text-align:center; font-size:15px; color:var(--subtext0); margin-bottom:10px;}
-.sv-dhead b{font-size:22px; color:var(--text);}
+.sv-dhead b{font-size:26px; color:var(--text);}
 .sv-forms{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
 .form-panel{background:var(--base); border:1px solid var(--surface0); border-radius:14px; padding:12px 16px;}
-.form-panel.human{border-color:color-mix(in srgb, var(--mauve) 55%, var(--surface0));}
+.form-panel.human{border-color:color-mix(in srgb, var(--yellow) 50%, var(--surface0)); box-shadow:0 0 22px -12px var(--yellow);}
+.form-panel .pitch{display:block; width:100%; height:auto; margin-top:4px;}
 .form-head{display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--surface0); padding-bottom:8px; margin-bottom:8px; flex-wrap:wrap;}
 .form-head b{font-size:16px;}
 .form-head .mod{font-size:12px; color:var(--subtext0); font-weight:800; background:var(--surface0); border-radius:6px; padding:2px 8px;}
@@ -599,7 +624,7 @@ table.sv-table{width:100%; border-collapse:collapse; font-size:13.5px;}
 .form-row.assente{opacity:.42;}
 .form-row.assente .nm{text-decoration:line-through; font-weight:400;}
 .form-row.sub .nm::before{content:"↷ "; color:var(--sapphire); font-weight:900;}
-.season-btn{background:var(--mauve) !important; color:var(--crust) !important; border-color:var(--mauve) !important; font-weight:900; font-size:16px !important; padding:12px 26px !important;}
+.season-btn{background:var(--yellow) !important; color:var(--crust) !important; border-color:var(--yellow) !important; font-weight:900; font-size:16px !important; padding:12px 26px !important;}
 .season-wait{color:var(--overlay1); font-size:13.5px;}
 
 /* ---------- stemmi club (cerchio con sigla, zero immagini) ---------- */
@@ -637,14 +662,71 @@ body.season-open #fullPassPill{display:none;}
   border-radius:10px; padding:9px 8px; font-size:12.5px; font-weight:700;
   outline:none; cursor:pointer; max-width:170px;
 }
-.hb-select:focus{border-color:var(--mauve);}
+.hb-select:focus{border-color:var(--yellow);}
+
+/* ---------- popover rosa squadra (click su una riga del tavolo) ---------- */
+.team-row{cursor:pointer;}
+#teamPopover{
+  position:fixed; z-index:70; width:340px; max-height:72vh; overflow-y:auto;
+  background:var(--base); border:1px solid var(--surface1); border-radius:14px;
+  box-shadow:0 18px 50px -16px rgba(0,0,0,.9);
+  padding:12px 14px;
+}
+#teamPopover.hidden{display:none;}
+#teamPopover.human{border-color:var(--yellow); box-shadow:0 18px 50px -16px rgba(0,0,0,.9), 0 0 22px -10px var(--yellow);}
+body.season-open #teamPopover{display:none;}
+.tpop-head{display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--surface0); padding-bottom:8px;}
+.tpop-head .dot{width:10px; height:10px; border-radius:50%; flex:0 0 auto;}
+.tpop-head b{font-size:15px;}
+.tpop-head .tid{font-size:11px; color:var(--overlay0); font-weight:700;}
+.tpop-x{
+  margin-left:auto; background:none; border:none; color:var(--overlay1);
+  font-size:15px; cursor:pointer; padding:2px 6px; border-radius:6px;
+}
+.tpop-x:hover{color:var(--red); background:var(--surface0);}
+.tpop-sub{font-size:10.5px; color:var(--overlay1); letter-spacing:1.5px; text-transform:uppercase; font-weight:800; margin:7px 0 2px;}
+.tpop-sec{margin-top:7px;}
+.tpop-role{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-size:11px; font-weight:900; letter-spacing:1.5px;
+  border-bottom:1px dashed var(--surface0); padding-bottom:3px; margin-bottom:3px;
+}
+.tpop-row{display:flex; align-items:center; gap:8px; padding:2.5px 0; font-size:13px;}
+.tpop-row .nm{font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1;}
+.tpop-pr{
+  background:var(--yellow); color:var(--crust); font-weight:900;
+  border-radius:6px; padding:1px 8px; font-size:11.5px; font-variant-numeric:tabular-nums;
+}
+.tpop-empty{color:var(--overlay0); font-size:12px; padding:2px 0 3px;}
+.tpop-foot{
+  display:flex; justify-content:space-between; margin-top:10px; padding-top:8px;
+  border-top:1px solid var(--surface0); font-size:13px; color:var(--subtext0);
+}
+.tpop-foot b{font-size:15px; color:var(--text); font-variant-numeric:tabular-nums;}
+
+/* ---------- micro-polish: scrollbar, focus, reduced motion ---------- */
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-thumb{background:var(--surface1); border-radius:5px;}
+::-webkit-scrollbar-thumb:hover{background:var(--surface2);}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-corner{background:transparent;}
+*{scrollbar-width:thin; scrollbar-color:var(--surface1) transparent;}
+:focus-visible{outline:2px solid var(--yellow); outline-offset:2px; border-radius:4px;}
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{
+    animation-duration:.001s !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001s !important;
+  }
+}
 </style>
 </head>
 <body>
 
 <header>
+  <a class="home-btn" href="index.html" title="menu FantaOracle">⌂</a>
   <div class="brand">
-    <h1>🔨 Fanta<span class="accent">Bot</span></h1>
+    <h1>🔮 Fanta<span class="accent">Oracle</span></h1>
     <span class="sub">il teatro dell'asta</span>
   </div>
   <div class="phase-box">
@@ -683,7 +765,9 @@ body.season-open #fullPassPill{display:none;}
   <div class="left-col">
     <section id="stage">
       <div id="stageInner"><div class="stage-empty"><div class="big">🎭</div>Carica un log per iniziare lo spettacolo</div></div>
+      <div id="stageFlash"></div>
       <div id="hammerFx">🔨</div>
+      <div id="phaseFlash"></div>
     </section>
     <section id="tickerBox">
       <h3>RILANCI</h3>
@@ -710,9 +794,9 @@ body.season-open #fullPassPill{display:none;}
 
 <section id="seasonView"></section>
 
-<div id="phaseFlash"></div>
-
 <div id="liveBanner" class="hidden">⚠️ Server live non raggiungibile — riprovo…</div>
+
+<div id="teamPopover" class="hidden"></div>
 
 <div id="humanBar"></div>
 
@@ -721,7 +805,7 @@ body.season-open #fullPassPill{display:none;}
 <div id="dropOverlay">
   <div class="panel">
     <div class="big">🎭</div>
-    <h2>Fanta<span class="accent">Bot</span> — Replay dell'asta</h2>
+    <h2>Fanta<span class="accent">Oracle</span> — Replay dell'asta</h2>
     <p>Trascina qui un event log <code>.jsonl</code> oppure selezionalo.<br>
     In alternativa apri la pagina con <code>?log=percorso/del/log.jsonl</code>.</p>
     <label class="file-btn" for="fileInput">Scegli file…</label>
@@ -828,10 +912,10 @@ const CLUBS = {
   prefetched: false,
 };
 function loadClubCache(){
-  try{ Object.assign(CLUBS.byPid, JSON.parse(localStorage.getItem("fantabot_clubs") || "{}")); }catch(e){}
+  try{ Object.assign(CLUBS.byPid, JSON.parse(localStorage.getItem("fantaoracle_clubs") || localStorage.getItem("fantabot_clubs") || "{}")); }catch(e){}
 }
 function saveClubCache(){
-  try{ localStorage.setItem("fantabot_clubs", JSON.stringify(CLUBS.byPid)); }catch(e){}
+  try{ localStorage.setItem("fantaoracle_clubs", JSON.stringify(CLUBS.byPid)); }catch(e){}
 }
 loadClubCache();
 /* registra squadre/club dai risultati di /players; true se compaiono sigle nuove */
@@ -1045,7 +1129,7 @@ function renderHeader(st){
 function renderStage(st){
   const el = $("stageInner");
   document.getElementById("stage").style.setProperty("--role-glow",
-    st.lot ? ROLE_COLOR[st.lot.role] : (st.lastSold ? ROLE_COLOR[st.lastSold.role] : "var(--mauve)"));
+    st.lot ? ROLE_COLOR[st.lot.role] : (st.lastSold ? ROLE_COLOR[st.lastSold.role] : "var(--yellow)"));
 
   if(st.lot){
     const lot = st.lot;
@@ -1135,15 +1219,102 @@ function renderTeams(st){
       return `<span class="slot-group"><span class="rl">${r}</span>${sq}</span>`;
     }).join("");
     const cls = (tid===humanTid?"human ":"") + (tid===leader?"leading ":"") + (tid===bidding&&tid!==leader?"bidding ":"");
+    // barra come indicatore di carburante: gradiente rosso→oro→verde ancorato
+    // all'intera corsa, la punta visibile racconta il livello del budget
+    const f = Math.max(0, Math.min(1, frac));
+    const barStyle = `width:${(f*100).toFixed(1)}%; `
+      + `background:linear-gradient(90deg, var(--red), var(--yellow) 55%, var(--green)); `
+      + `background-size:${f > 0.01 ? (100/f).toFixed(1) : 10000}% 100%;`;
     return `<div class="team-row ${cls}" data-team="${tid}">
       <span class="dot" style="background:${t.color}"></span>
       <div class="head"><b>${esc(t.bot)}</b><span class="tid">${tid}</span></div>
       <span class="credits" style="color:${budgetColor(frac)}">${t.budget_left}</span>
-      <div class="bar"><i style="width:${Math.max(0,frac*100)}%; background:${budgetColor(frac)}"></i></div>
+      <div class="bar"><i style="${barStyle}"></i></div>
       <div class="slots">${slots}</div>
     </div>`;
   }).join("");
+  updateTeamPopover(st);   // se il popover rosa è aperto, si aggiorna live
 }
+
+/* ============================================================
+ * POPOVER ROSA — click su una riga del tavolo (replay E live)
+ * ============================================================ */
+let popTeam = null;   // team_id della rosa aperta, o null
+
+function humanTidOf(st){
+  if(app.mode !== "live") return null;
+  let tid = app.live && app.live.me ? app.live.me.team_id : null;
+  if(!tid) for(const x of Object.values(st.teams)) if(x.bot === "TU") tid = x.id;
+  return tid;
+}
+
+function updateTeamPopover(st){
+  const box = $("teamPopover");
+  if(!popTeam) { box.classList.add("hidden"); return; }
+  const t = st.teams[popTeam];
+  const mainHidden = $("mainView").style.display === "none";
+  if(!t || !st.started || mainHidden){ popTeam = null; box.classList.add("hidden"); return; }
+  box.classList.toggle("human", popTeam === humanTidOf(st));
+  const secs = ROLE_ORDER.map(r => {
+    const rows = t.roster[r] || [];                    // già in ordine d'acquisto
+    const spent = rows.reduce((a, p) => a + p[1], 0);
+    const items = rows.map(p =>
+      `<div class="tpop-row">${clubOfPid(p[0], "sm")}<span class="nm">${esc(playerLabel(p[2] || p[0]))}</span><span class="tpop-pr">${p[1]}</span></div>`
+    ).join("") || `<div class="tpop-empty">nessun acquisto ancora</div>`;
+    return `<div class="tpop-sec">
+      <div class="tpop-role" style="color:${ROLE_COLOR[r]}"><span>${r} · ${rows.length}/${st.quotas[r] || 0}</span><span>${spent} cr</span></div>
+      ${items}
+    </div>`;
+  }).join("");
+  const spentTot = ROLE_ORDER.reduce((a, r) => a + (t.roster[r] || []).reduce((x, p) => x + p[1], 0), 0);
+  box.innerHTML = `
+    <div class="tpop-head">
+      <span class="dot" style="background:${t.color}"></span>
+      <b>${esc(t.bot)}</b><span class="tid">${popTeam}</span>
+      <button class="tpop-x" id="tpopClose" title="chiudi (Esc)">✕</button>
+    </div>
+    <div class="tpop-sub">rosa finora · in ordine d'acquisto</div>
+    ${secs}
+    <div class="tpop-foot">
+      <span>speso <b>${spentTot}</b></span>
+      <span>residuo <b style="color:${budgetColor(t.budget_left / st.budget)}">${t.budget_left}</b></span>
+    </div>`;
+  $("tpopClose").onclick = closeTeamPopover;
+  box.classList.remove("hidden");
+  positionTeamPopover();
+}
+
+function positionTeamPopover(){
+  const box = $("teamPopover");
+  const row = document.querySelector(`.team-row[data-team="${popTeam}"]`);
+  const teams = document.getElementById("teams");
+  if(!row || !teams) return;
+  const w = 340;
+  let left = teams.getBoundingClientRect().left - w - 14;
+  if(left < 8) left = 8;
+  box.style.left = left + "px";
+  const h = box.offsetHeight;
+  let top = row.getBoundingClientRect().top;
+  if(top + h > innerHeight - 10) top = Math.max(10, innerHeight - 10 - h);
+  box.style.top = top + "px";
+}
+
+function closeTeamPopover(){
+  popTeam = null;
+  $("teamPopover").classList.add("hidden");
+}
+
+$("teamRows").addEventListener("click", e => {
+  const row = e.target.closest(".team-row");
+  if(!row || !row.dataset.team) return;
+  popTeam = (popTeam === row.dataset.team) ? null : row.dataset.team;
+  updateTeamPopover(app.state);
+});
+document.addEventListener("click", e => {
+  if(!popTeam) return;
+  if(e.target.closest("#teamPopover") || e.target.closest(".team-row")) return;
+  closeTeamPopover();
+});
 
 /* --- sparkline inflazione: media mobile di prezzo/apertura --- */
 function renderSparkline(st){
@@ -1185,10 +1356,10 @@ function renderSparkline(st){
   }
   const baseline = `<line x1="4" y1="${y(1).toFixed(1)}" x2="${W-4}" y2="${y(1).toFixed(1)}" stroke="var(--overlay0)" stroke-width="0.6" stroke-dasharray="2 5" opacity="${(1>=lo-pad && 1<=hi+pad)?0.7:0}"/>`;
   const lastX = x(smooth.length-1), lastY = y(smooth[smooth.length-1]);
-  const area = `<polygon points="${x(0).toFixed(1)},${H-4} ${pts} ${lastX.toFixed(1)},${H-4}" fill="var(--mauve)" opacity="0.10"/>`;
+  const area = `<polygon points="${x(0).toFixed(1)},${H-4} ${pts} ${lastX.toFixed(1)},${H-4}" fill="var(--green)" opacity="0.10"/>`;
   svg.innerHTML = `${seps}${labels}${baseline}${area}
-    <polyline points="${pts}" fill="none" stroke="var(--mauve)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3.2" fill="var(--peach)"/>`;
+    <polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="3.2" fill="var(--yellow)"/>`;
   $("inflVal").textContent = "×" + smooth[smooth.length-1].toFixed(2);
 }
 
@@ -1293,12 +1464,16 @@ function fxBid(){
 function fxPhase(role){
   const f = $("phaseFlash");
   f.textContent = ROLE_NAME[role].toUpperCase();
-  f.style.background = `linear-gradient(90deg, transparent, ${ROLE_COLOR[role]}, transparent)`;
+  f.style.color = ROLE_COLOR[role];
+  f.style.textShadow = `0 0 70px ${ROLE_COLOR[role]}, 0 0 24px color-mix(in srgb, ${ROLE_COLOR[role]} 60%, transparent)`;
+  f.style.background = `radial-gradient(ellipse 75% 75% at 50% 50%, color-mix(in srgb, var(--crust) 78%, transparent), color-mix(in srgb, var(--crust) 30%, transparent) 75%, transparent)`;
   f.classList.remove("go"); void f.offsetWidth; f.classList.add("go");
 }
 function fxHammer(ev){
   const h = $("hammerFx");
   h.classList.remove("go"); void h.offsetWidth; h.classList.add("go");
+  const fl = $("stageFlash");
+  fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go");
   const stage = document.getElementById("stage");
   stage.classList.remove("shake"); void stage.offsetWidth; stage.classList.add("shake");
   // card che vola verso la riga della squadra vincitrice
@@ -1470,10 +1645,24 @@ $("fileInput").addEventListener("change", e => {
 });
 $("btnLoad").addEventListener("click", () => { pause(); $("dropOverlay").classList.remove("hidden"); });
 
-/* querystring: ?live=http://host:porta → Modalità Sedia;
+/* querystring: ?droplog=1 → log passato da index.html via sessionStorage;
+   ?live=http://host:porta → Modalità Sedia;
    ?log=path → fetch relativo del log (funziona da server statico) */
 (async function tryQuery(){
   const qs = new URLSearchParams(location.search);
+  if(qs.has("droplog")){
+    try{
+      const raw = sessionStorage.getItem("fantaoracle_droplog");
+      if(raw){
+        const d = JSON.parse(raw);
+        sessionStorage.removeItem("fantaoracle_droplog");
+        loadLog(d.text, d.name);
+        return;
+      }
+      showLoadError("Nessun log in transito dal menu: ritrascinalo qui.");
+    }catch(e){ showLoadError("Log trascinato non recuperabile (" + e.message + ")"); }
+    return;
+  }
   const liveBase = qs.get("live");
   if(liveBase){ startLive(liveBase); return; }
   const p = qs.get("log");
@@ -1508,6 +1697,7 @@ $("speedGroup").addEventListener("click", e => {
 document.addEventListener("keydown", e => {
   if(e.target.tagName === "INPUT" && e.target.type !== "range") return;
   if(e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA") return;
+  if(e.key === "Escape" && popTeam){ e.preventDefault(); closeTeamPopover(); return; }
   if(document.body.classList.contains("season-open")){      // viewer stagione: ←/→ = giornate
     if(e.key === "ArrowLeft"){ e.preventDefault(); seasonNav(-1); }
     else if(e.key === "ArrowRight"){ e.preventDefault(); seasonNav(1); }
@@ -2082,7 +2272,7 @@ function buildSeasonSkeleton(d){
   $("seasonView").innerHTML = `
     <div class="sv-head">
       <h2>🏆 La <span class="accent">stagione</span></h2>
-      <span class="sub">${d.giornate.length} giornate coi fantavoti reali · calendario round-robin · la tua squadra: <b style="color:var(--mauve)">${esc(human)}</b></span>
+      <span class="sub">${d.giornate.length} giornate coi fantavoti reali · calendario round-robin · la tua squadra: <b style="color:var(--yellow)">${esc(human)}</b></span>
       <button class="ctl" data-sact="back">⟲ Riepilogo asta</button>
     </div>
     <div class="sv-top">
@@ -2107,29 +2297,31 @@ function buildSeasonSkeleton(d){
 function drawSeasonSpark(d){
   const svg = $("svSpark");
   if(!svg) return;
-  const W = svg.clientWidth || 378, H = 150;
+  const W = svg.clientWidth || 378, H = 200;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   const N = seasonUI.posByG.length, nT = d.teams.length;
-  const x = i => 28 + (W - 40) * (N === 1 ? 0 : i / (N - 1));
-  const y = p => 12 + (H - 40) * ((p - 1) / (nT - 1));
+  const x = i => 30 + (W - 42) * (N === 1 ? 0 : i / (N - 1));
+  const y = p => 12 + (H - 44) * ((p - 1) / (nT - 1));
   let grid = "";
-  for(const p of [1, Math.round(nT / 2), nT]){
-    grid += `<line x1="28" y1="${y(p).toFixed(1)}" x2="${W - 10}" y2="${y(p).toFixed(1)}" stroke="var(--surface0)" stroke-width="1" stroke-dasharray="3 5"/>
-             <text x="20" y="${(y(p) + 3.5).toFixed(1)}" fill="var(--overlay0)" font-size="10" text-anchor="end" font-weight="700">${p}º</text>`;
+  for(let p = 1; p <= nT; p++){                 // asse 1..10 completo
+    const major = p === 1 || p === Math.round(nT / 2) || p === nT;
+    grid += `<line x1="30" y1="${y(p).toFixed(1)}" x2="${W - 10}" y2="${y(p).toFixed(1)}" stroke="var(--surface0)" stroke-width="1" stroke-dasharray="${major ? "" : "2 6"}" opacity="${major ? .9 : .45}"/>`;
+    grid += `<text x="22" y="${(y(p) + 3.2).toFixed(1)}" fill="var(--overlay0)" font-size="${major ? 10 : 8.5}" text-anchor="end" font-weight="${major ? 800 : 400}">${p}º</text>`;
   }
   let ticks = "";
   for(const g of [1, 10, 19, 29, N]){
     if(g > N) continue;
-    ticks += `<text x="${x(g - 1).toFixed(1)}" y="${H - 6}" fill="var(--overlay0)" font-size="9" text-anchor="middle">G${g}</text>`;
+    ticks += `<text x="${x(g - 1).toFixed(1)}" y="${H - 6}" fill="var(--overlay0)" font-size="9" text-anchor="middle" font-weight="700">G${g}</text>`;
   }
   const pts = seasonUI.posByG.map((p, i) => `${x(i).toFixed(1)},${y(p).toFixed(1)}`).join(" ");
+  const area = `<polygon points="${x(0).toFixed(1)},${y(nT).toFixed(1)} ${pts} ${x(N - 1).toFixed(1)},${y(nT).toFixed(1)}" fill="var(--green)" opacity="0.13"/>`;
   const dots = seasonUI.posByG.map((p, i) =>
-    `<circle cx="${x(i).toFixed(1)}" cy="${y(p).toFixed(1)}" r="2" fill="var(--mauve)"><title>G${i + 1}: ${p}º</title></circle>`).join("");
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(p).toFixed(1)}" r="2.3" fill="var(--green)"><title>G${i + 1}: ${p}º</title></circle>`).join("");
   const lx = x(N - 1), ly = y(seasonUI.posByG[N - 1]);
-  svg.innerHTML = `${grid}${ticks}
-    <polyline points="${pts}" fill="none" stroke="var(--mauve)" stroke-width="2" stroke-linejoin="round"/>
+  svg.innerHTML = `${grid}${ticks}${area}
+    <polyline points="${pts}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round"/>
     ${dots}
-    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="var(--peach)"/>`;
+    <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4.5" fill="var(--yellow)"/>`;
 }
 
 function renderSeasonDay(){
@@ -2161,26 +2353,104 @@ function renderSeasonDay(){
     <div class="sv-detail">${matchDetailHTML(gg, seasonUI.sel, human)}</div>`;
 }
 
+/* ---------- mini-campi SVG: la formazione disposta secondo il modulo ---------- */
+function fvBand(fv){                 // [riempimento badge, colore testo]
+  if(fv == null) return ["var(--surface2)", "var(--text)"];
+  if(fv < 6)     return ["var(--red)", "var(--crust)"];
+  if(fv < 6.5)   return ["var(--surface2)", "var(--text)"];
+  if(fv <= 8)    return ["var(--green)", "var(--crust)"];
+  return ["var(--yellow)", "var(--crust)"];
+}
+function initials3(name){
+  const letters = String(name || "").replace(/[^A-Za-zÀ-ÿ]/g, "").toUpperCase();
+  return letters.slice(0, 3) || "?";
+}
+function shortName(name){
+  const base = String(name || "").replace(/\s+[A-Z][a-z]?\.\s*$/, "");
+  return base.length > 11 ? base.slice(0, 10) + "…" : base;
+}
+function pitchToken(x, y, f){
+  const cs = CLUB_STYLE[CLUBS.byPid[f.pid]] || null;
+  const fill = cs ? cs[0] : (ROLE_COLOR[f.ruolo] || "var(--surface1)");
+  const ring = cs ? cs[1] : "var(--crust)";
+  const txt  = cs ? cs[2] : "var(--crust)";
+  const sub = f.stato === "sub";
+  const [bfill, btxt] = fvBand(f.fv);
+  const fvTxt = f.fv == null ? "—" : f.fv.toFixed(1);
+  const title = `${f.nome}${sub && f.per ? " ↷ per " + f.per : ""} — ${f.fv == null ? "senza voto" : "fv " + f.fv.toFixed(1)}`;
+  return `<g>
+    <title>${esc(title)}</title>
+    ${sub ? `<circle cx="${x}" cy="${y}" r="19.5" fill="none" stroke="var(--sapphire)" stroke-width="2" stroke-dasharray="4 3"/>` : ""}
+    <circle cx="${x}" cy="${y}" r="15.5" fill="${fill}" stroke="${ring}" stroke-width="2.5"/>
+    <text x="${x}" y="${y + 3.4}" text-anchor="middle" font-size="9" font-weight="900" fill="${txt}">${esc(initials3(f.nome))}</text>
+    ${sub ? `<text x="${x + 14}" y="${y - 14}" font-size="12" font-weight="900" fill="var(--sapphire)">↷</text>` : ""}
+    <text x="${x}" y="${y + 31}" text-anchor="middle" font-size="9.5" font-weight="700" fill="var(--subtext1)">${esc(shortName(f.nome))}</text>
+    <rect x="${x - 14}" y="${y + 36}" width="28" height="13" rx="6.5" fill="${bfill}"/>
+    <text x="${x}" y="${y + 45.6}" text-anchor="middle" font-size="8.5" font-weight="900" fill="${btxt}">${fvTxt}</text>
+  </g>`;
+}
+function pitchLines(){
+  const L = 8, R = 304, T = 8, B = 462, CX = (L + R) / 2, CY = (T + B) / 2;
+  let stripes = "";
+  for(let i = 0; i < 6; i++){
+    stripes += `<rect x="${L}" y="${(T + (B - T) / 6 * i).toFixed(1)}" width="${R - L}" height="${((B - T) / 6).toFixed(1)}" fill="${i % 2 ? "#ffffff" : "#a6e3a1"}" opacity="${i % 2 ? "0.018" : "0.03"}"/>`;
+  }
+  return `
+    <rect x="${L}" y="${T}" width="${R - L}" height="${B - T}" rx="7" fill="color-mix(in srgb, var(--green) 7%, var(--crust))"/>
+    ${stripes}
+    <g fill="none" stroke="#a6e3a1" stroke-opacity="0.22" stroke-width="1.5">
+      <rect x="${L}" y="${T}" width="${R - L}" height="${B - T}" rx="7"/>
+      <line x1="${L}" y1="${CY}" x2="${R}" y2="${CY}"/>
+      <circle cx="${CX}" cy="${CY}" r="34"/>
+      <rect x="${CX - 72}" y="${T}" width="144" height="46"/>
+      <rect x="${CX - 72}" y="${B - 46}" width="144" height="46"/>
+      <rect x="${CX - 34}" y="${T}" width="68" height="18"/>
+      <rect x="${CX - 34}" y="${B - 18}" width="68" height="18"/>
+    </g>
+    <circle cx="${CX}" cy="${CY}" r="2.5" fill="#a6e3a1" opacity="0.3"/>`;
+}
+/* campo verticale: casa con P in basso, fuori specchiata (P in alto) —
+   affiancate si fronteggiano come su una lavagna tattica */
+function pitchSVG(t, team, mirrored){
+  const groups = {P: [], D: [], C: [], A: []};
+  const out = [];
+  for(const f of t.formazione){
+    if(f.stato === "assente") out.push(f);
+    else (groups[f.ruolo] || (groups[f.ruolo] = [])).push(f);
+  }
+  const FL = 8, FR = 304;
+  const ys = mirrored ? {P: 70, D: 165, C: 260, A: 355} : {P: 400, D: 305, C: 210, A: 115};
+  let toks = "";
+  for(const r of ROLE_ORDER){
+    const row = groups[r] || [];
+    row.forEach((f, i) => {
+      const x = FL + (FR - FL) * ((i + 0.5) / row.length);
+      toks += pitchToken(x.toFixed(1), ys[r], f);
+    });
+  }
+  let bench = "";
+  if(out.length){
+    bench += `<text x="327" y="22" text-anchor="middle" font-size="6.5" font-weight="800" letter-spacing="2" fill="var(--overlay0)">ASSENTI</text>`;
+    out.forEach((f, i) => {
+      const y = 46 + i * 56;
+      bench += `<g opacity="0.42">
+        <title>${esc(f.nome)} — assente (slot a 0)</title>
+        <circle cx="327" cy="${y}" r="11" fill="var(--surface0)" stroke="var(--surface2)" stroke-width="1.5"/>
+        <text x="327" y="${y + 2.8}" text-anchor="middle" font-size="7" font-weight="900" fill="var(--overlay1)">${esc(initials3(f.nome))}</text>
+        <text x="327" y="${y + 22}" text-anchor="middle" font-size="6.8" fill="var(--overlay1)">${esc(shortName(f.nome).slice(0, 9))}</text>
+      </g>`;
+    });
+  }
+  return `<svg class="pitch" viewBox="0 0 350 470" role="img" aria-label="formazione ${esc(team)} (${esc(t.modulo)})">
+    ${pitchLines()}${toks}${bench}</svg>`;
+}
+
 function matchDetailHTML(gg, i, human){
   const m = gg.scontri[i];
   if(!m) return "";
-  const panel = team => {
+  const panel = (team, mirrored) => {
     const t = gg.squadre[team];
     if(!t) return "";
-    const rows = t.formazione.map(f => {
-      const cls = f.stato === "assente" ? "assente" : f.stato === "sub" ? "sub" : "";
-      const fv = f.fv == null ? "—" : f.fv.toFixed(1);
-      const fvCol = f.fv == null ? "var(--overlay0)"
-        : f.fv >= 8 ? "var(--green)" : f.fv >= 6.5 ? "var(--teal)"
-        : f.fv >= 6 ? "var(--text)" : "var(--red)";
-      const per = f.stato === "sub" && f.per ? `<span class="per">per ${esc(f.per)}</span>` : "";
-      return `<div class="form-row ${cls}">
-        <span class="rc" style="background:${ROLE_COLOR[f.ruolo] || "var(--surface2)"}">${esc(f.ruolo)}</span>
-        ${clubOfPid(f.pid, "sm")}
-        <span class="nm">${esc(f.nome)}</span>${per}
-        <span class="fv" style="color:${fvCol}">${fv}</span>
-      </div>`;
-    }).join("");
     const mod = t.mod_difesa > 0 ? `<span class="mod-chip">🛡 mod. difesa +${t.mod_difesa}</span>` : "";
     return `<div class="form-panel ${team === human ? "human" : ""}">
       <div class="form-head">
@@ -2190,7 +2460,7 @@ function matchDetailHTML(gg, i, human){
         <span class="sub-chip">cambi ${t.cambi}/3</span>
         <span class="tot">${t.totale.toFixed(1)}</span>
       </div>
-      ${rows}
+      ${pitchSVG(t, team, mirrored)}
     </div>`;
   };
   return `
@@ -2200,7 +2470,7 @@ function matchDetailHTML(gg, i, human){
       <span style="color:${seasonUI.colorOf[m.fuori]};font-weight:800">${esc(m.fuori)}</span>
       <span style="color:var(--overlay1)"> · ${m.pt_casa.toFixed(1)} vs ${m.pt_fuori.toFixed(1)} fantapunti</span>
     </div>
-    <div class="sv-forms">${panel(m.casa)}${panel(m.fuori)}</div>`;
+    <div class="sv-forms">${panel(m.casa, false)}${panel(m.fuori, true)}</div>`;
 }
 
 /* navigazione stagione: delega sugli elementi ricostruiti */

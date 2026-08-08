@@ -1,11 +1,20 @@
-# FantaBot — Teatro dell'asta (`replay.html`)
+# FantaOracle — Teatro dell'asta (`viz/`)
 
-Webapp autosufficiente (un solo file, vanilla JS + CSS inline, zero dipendenze/CDN) con
-**tre anime**: il replay di un'asta simulata, la **Modalità Sedia** (asta live con te al
-tavolo contro 9 bot) e il **viewer della stagione** post-asta. La scena è la stessa:
-palco col giocatore chiamato, prezzo che pulsa, ticker dei rilanci con i "pensieri" dei
-bot, tavolo delle 10 squadre con budget e slot rosa, sparkline dell'inflazione e
-riepilogo finale con le rose complete.
+Webapp autosufficienti (vanilla JS + CSS inline, zero dipendenze/CDN, tema "notturno da
+stadio": Catppuccin Mocha + verde campo + oro martelletto):
+
+- **`index.html`** — il menu: wordmark 🔮, probe del server live (badge "tavolo attivo",
+  istruzioni col comando + COPIA quando è spento, porta custom, re-probe ogni 3s), lista
+  dei log raggiungibili, drag&drop di un log che si apre direttamente nel teatro, CTA
+  stagione quando l'asta risulta conclusa.
+- **`replay.html`** — il teatro con **tre anime**: il replay di un'asta simulata, la
+  **Modalità Sedia** (asta live con te al tavolo contro 9 bot) e il **viewer della
+  stagione** post-asta. La scena è la stessa: palco col giocatore chiamato sotto al
+  riflettore, prezzo che pulsa oro, splash a tutto palco al cambio ruolo, ticker dei
+  rilanci con i "pensieri" dei bot, tavolo delle 10 squadre con budget a gradiente e slot
+  rosa (click su una riga → popover "rosa finora" per ruolo con stemmi, crediti pagati,
+  subtotali e residuo, aggiornato live; chiusura con ✕/Esc/click fuori), sparkline
+  dell'inflazione e riepilogo finale con le rose complete. Bottone ⌂ per tornare al menu.
 
 ## Modalità replay (`?log=…`)
 
@@ -14,9 +23,10 @@ riepilogo finale con le rose complete.
 - **Da server statico** (consigliato, abilita anche la querystring):
 
   ```
-  cd fantabot
+  cd <cartella-del-progetto>
   python -m http.server 8899
-  # → http://localhost:8899/viz/replay.html?log=../data/sample_logs/smoke_seed0.jsonl
+  # menu:   http://localhost:8899/viz/index.html
+  # teatro: http://localhost:8899/viz/replay.html?log=../data/sample_logs/smoke_seed0.jsonl
   ```
 
   - `?log=percorso` — fetch relativo del log (da `file://` il fetch è bloccato dal browser:
@@ -33,9 +43,10 @@ Tu al tavolo, 9 bot intorno. Serve il server d'asta (un processo = un'asta; riav
 per ripartire):
 
 ```
-cd fantabot
+cd <cartella-del-progetto>
 python scripts/f6_live_auction.py 2025-26 --porta 8766
 # → http://localhost:8899/viz/replay.html?live=http://localhost:8766
+#   (o dal menu: viz/index.html → card Sedia, porta 8766)
 ```
 
 - La pagina fa polling di `/state` + `/events` ogni ~300ms e alimenta la stessa scena del
@@ -68,9 +79,11 @@ il riepilogo mostra "**Vai alla stagione →**" (con auto-switch dopo qualche se
 - classifica finale (punti, V-N-P, gol fatti/subiti, fantapunti) con podio colorato e
   squadra umana evidenziata + sparkline SVG della tua posizione nelle 38 giornate;
 - navigazione giornate 1–38 (frecce, salto diretto, ←/→ da tastiera): 5 card scontro con
-  gol convertiti e fantapunti; click su una card → le due formazioni affiancate col
-  fantavoto di ogni giocatore (titolari, subentrati "↷ per X", assenti barrati in
-  grigio), modulo, bonus modificatore difesa evidenziato e cambi usati;
+  gol convertiti e fantapunti; click su una card → **due mini-campi SVG affiancati e
+  specchiati** coi giocatori disposti secondo il modulo: gettone con iniziali sui colori
+  del club, nome corto e fantavoto in badge a fasce (rosso &lt;6, grigio 6–6.5, verde
+  6.5–8, oro &gt;8), subentrati con anello ↷, assenti come gettoni spenti a bordo campo;
+  modulo, bonus modificatore difesa e cambi nel titolo del pannello;
 - "⟲ Riepilogo asta" per tornare alle rose.
 
 ## Formato log (JSONL, un evento per riga)

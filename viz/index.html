@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FantaOracle — il modello che legge l'asta</title>
+<style>
+/* ============================================================
+   FantaOracle — menu iniziale · "notturno da stadio"
+   Catppuccin Mocha + verde campo (#a6e3a1) + oro (#f9e2af)
+   ============================================================ */
+:root{
+  --base:#1e1e2e; --mantle:#181825; --crust:#11111b;
+  --surface0:#313244; --surface1:#45475a; --surface2:#585b70;
+  --text:#cdd6f4; --subtext1:#bac2de; --subtext0:#a6adc8;
+  --overlay1:#7f849c; --overlay0:#6c7086;
+  --mauve:#cba6f7; --green:#a6e3a1; --red:#f38ba8; --yellow:#f9e2af;
+  --blue:#89b4fa; --peach:#fab387; --teal:#94e2d5; --sapphire:#74c7ec;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  min-width:1280px; min-height:100vh;
+  color:var(--text);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(ellipse 90% 60% at 50% -10%, #26263a 0%, transparent 60%),
+    linear-gradient(180deg, var(--crust) 0%, var(--mantle) 45%, #16201a 100%);
+  display:flex; flex-direction:column; align-items:center;
+  position:relative; overflow-x:hidden;
+}
+::-webkit-scrollbar{width:10px; height:10px;}
+::-webkit-scrollbar-thumb{background:var(--surface1); border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+*{scrollbar-width:thin; scrollbar-color:var(--surface1) transparent;}
+:focus-visible{outline:2px solid var(--yellow); outline-offset:2px; border-radius:4px;}
+button, input{font-family:inherit;}
+a{color:inherit;}
+
+/* campo visto dall'alto, appena percettibile in basso */
+#pitchBg{
+  position:fixed; left:0; right:0; bottom:0; height:44vh; z-index:0;
+  pointer-events:none; opacity:.05;
+}
+#pitchBg svg{width:100%; height:100%; display:block;}
+
+/* ---------- hero ---------- */
+.hero{position:relative; z-index:2; text-align:center; margin:64px 0 40px;}
+.orb{
+  font-size:64px; display:inline-block; margin-bottom:6px;
+  filter:drop-shadow(0 0 22px rgba(249,226,175,.45));
+  animation:orbFloat 5s ease-in-out infinite;
+}
+@keyframes orbFloat{0%,100%{transform:translateY(0);} 50%{transform:translateY(-8px);}}
+.wordmark{
+  font-size:64px; font-weight:900; letter-spacing:1px; line-height:1.05;
+}
+.wordmark .accent{
+  color:var(--yellow);
+  text-shadow:0 0 34px rgba(249,226,175,.35);
+}
+.tagline{
+  margin-top:10px; color:var(--subtext0); font-size:17px; letter-spacing:.4px;
+}
+.stats{
+  display:flex; gap:56px; justify-content:center; margin-top:34px;
+}
+.stat{text-align:center;}
+.stat .n{
+  font-size:38px; font-weight:900; color:var(--yellow);
+  font-variant-numeric:tabular-nums; line-height:1;
+  text-shadow:0 0 24px rgba(249,226,175,.22);
+}
+.stat .l{
+  margin-top:7px; font-size:11px; font-weight:800; letter-spacing:2.5px;
+  text-transform:uppercase; color:var(--overlay1);
+}
+.stat + .stat{border-left:1px solid var(--surface0); padding-left:56px;}
+
+/* ---------- card modalità ---------- */
+.modes{
+  position:relative; z-index:2;
+  display:grid; grid-template-columns:repeat(3, 384px); gap:22px;
+  margin:14px 0 26px;
+}
+.mode{
+  background:color-mix(in srgb, var(--base) 88%, transparent);
+  border:1px solid var(--surface0); border-radius:18px;
+  padding:26px 26px 22px;
+  display:flex; flex-direction:column; gap:10px;
+  transition:transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  backdrop-filter:blur(4px);
+}
+.mode:hover{
+  transform:translateY(-5px);
+  border-color:color-mix(in srgb, var(--yellow) 45%, var(--surface0));
+  box-shadow:0 18px 44px -18px rgba(0,0,0,.85), 0 0 30px -14px var(--yellow);
+}
+.mode.sedia:hover{border-color:color-mix(in srgb, var(--green) 50%, var(--surface0)); box-shadow:0 18px 44px -18px rgba(0,0,0,.85), 0 0 30px -14px var(--green);}
+.mode .icon{font-size:34px; line-height:1;}
+.mode h2{font-size:22px; font-weight:900; letter-spacing:.3px;}
+.mode .sub{color:var(--subtext0); font-size:13.5px; line-height:1.55; min-height:42px;}
+.mode .body{flex:1; display:flex; flex-direction:column; gap:9px;}
+
+.cta{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  background:var(--yellow); color:var(--crust);
+  font-weight:900; font-size:15px; letter-spacing:.5px;
+  border:none; border-radius:11px; padding:12px 20px; cursor:pointer;
+  text-decoration:none; transition:filter .15s, transform .1s;
+}
+.cta:hover{filter:brightness(1.08);}
+.cta:active{transform:scale(.97);}
+.cta.green{background:var(--green);}
+.cta.ghost{background:var(--surface0); color:var(--text); border:1px solid var(--surface1);}
+.cta[aria-disabled="true"]{opacity:.4; pointer-events:none;}
+
+.loglist{display:flex; flex-direction:column; gap:6px;}
+.logbtn{
+  display:flex; align-items:baseline; gap:8px;
+  background:var(--mantle); border:1px solid var(--surface0); border-radius:9px;
+  padding:8px 12px; cursor:pointer; text-decoration:none;
+  font-size:13px; transition:border-color .15s, background .15s;
+}
+.logbtn:hover{border-color:var(--yellow); background:var(--surface0);}
+.logbtn b{color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.logbtn .sz{margin-left:auto; color:var(--overlay1); font-size:11.5px; font-variant-numeric:tabular-nums;}
+.loghint{font-size:11.5px; color:var(--overlay1); line-height:1.5;}
+.loghint b{color:var(--subtext1);}
+
+.badge{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+  padding:6px 13px; border-radius:999px; width:max-content;
+}
+.badge .dot{width:9px; height:9px; border-radius:50%;}
+.badge.on{color:var(--green); background:color-mix(in srgb, var(--green) 12%, transparent); border:1px solid color-mix(in srgb, var(--green) 40%, transparent);}
+.badge.on .dot{background:var(--green); animation:pulse 1.6s ease-in-out infinite;}
+.badge.off{color:var(--overlay1); background:var(--mantle); border:1px solid var(--surface0);}
+.badge.off .dot{background:var(--overlay0);}
+@keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.3;}}
+
+.cmdbox{
+  display:flex; align-items:center; gap:8px;
+  background:var(--crust); border:1px solid var(--surface0); border-radius:10px;
+  padding:9px 12px;
+}
+.cmdbox code{
+  flex:1; font-family:ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size:11.5px; color:var(--green); overflow-x:auto; white-space:nowrap;
+  scrollbar-width:none;
+}
+.copybtn{
+  background:var(--surface0); color:var(--subtext1); border:1px solid var(--surface1);
+  border-radius:7px; padding:5px 10px; font-size:11px; font-weight:800;
+  cursor:pointer; letter-spacing:1px; white-space:nowrap;
+  transition:background .15s, color .15s;
+}
+.copybtn:hover{background:var(--surface1);}
+.copybtn.ok{color:var(--crust); background:var(--green); border-color:var(--green);}
+.portrow{display:flex; align-items:center; gap:9px; font-size:12px; color:var(--overlay1);}
+.portrow label{font-weight:800; letter-spacing:1.5px; text-transform:uppercase; font-size:10.5px;}
+.portrow input{
+  width:76px; background:var(--surface0); border:1px solid var(--surface1); border-radius:8px;
+  color:var(--yellow); font-weight:900; font-size:14px; padding:6px 9px; text-align:center; outline:none;
+  font-variant-numeric:tabular-nums;
+}
+.portrow input:focus{border-color:var(--green);}
+.livenote{font-size:12.5px; color:var(--subtext0); line-height:1.5;}
+.livenote b{color:var(--yellow);}
+
+/* ---------- drop overlay ---------- */
+#dropGlow{
+  position:fixed; inset:0; z-index:50; display:none;
+  background:color-mix(in srgb, var(--crust) 80%, transparent);
+  backdrop-filter:blur(4px);
+  align-items:center; justify-content:center;
+  border:3px dashed var(--yellow); border-radius:0;
+}
+#dropGlow.on{display:flex;}
+#dropGlow .msg{
+  font-size:26px; font-weight:900; color:var(--yellow);
+  text-shadow:0 0 30px rgba(249,226,175,.4);
+}
+.droperr{color:var(--red); font-size:12px; min-height:15px;}
+
+/* ---------- footer ---------- */
+footer{
+  position:relative; z-index:2;
+  margin-top:auto; padding:26px 0 30px;
+  display:flex; gap:26px; align-items:center;
+  color:var(--overlay1); font-size:12.5px;
+}
+footer a{color:var(--overlay1); text-decoration:none; border-bottom:1px solid transparent; transition:color .15s, border-color .15s;}
+footer a:hover{color:var(--subtext1); border-color:var(--surface2);}
+footer .sep{color:var(--surface1);}
+
+@media (prefers-reduced-motion: reduce){
+  *, *::before, *::after{animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important;}
+}
+</style>
+</head>
+<body>
+
+<div id="pitchBg" aria-hidden="true">
+  <svg viewBox="0 0 1400 500" preserveAspectRatio="xMidYMax slice">
+    <g fill="none" stroke="#a6e3a1" stroke-width="2">
+      <rect x="100" y="-200" width="1200" height="660"/>
+      <line x1="100" y1="130" x2="1300" y2="130"/>
+      <circle cx="700" cy="130" r="120"/>
+      <circle cx="700" cy="130" r="6" fill="#a6e3a1"/>
+      <rect x="430" y="300" width="540" height="160"/>
+      <rect x="560" y="390" width="280" height="70"/>
+      <path d="M 560 300 A 120 120 0 0 1 840 300"/>
+    </g>
+  </svg>
+</div>
+
+<div class="hero">
+  <div class="orb">🔮</div>
+  <h1 class="wordmark">Fanta<span class="accent">Oracle</span></h1>
+  <div class="tagline">il modello che legge l'asta</div>
+  <div class="stats">
+    <div class="stat"><div class="n">75–91%</div><div class="l">campionati vinti</div></div>
+    <div class="stat"><div class="n">225</div><div class="l">aste reali studiate</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">stagioni di voti</div></div>
+  </div>
+</div>
+
+<div class="modes">
+
+  <div class="mode replay">
+    <div class="icon">▶</div>
+    <h2>Replay</h2>
+    <div class="sub">Guarda un'asta simulata come uno spettacolo: palco, rilanci, pensieri dei bot.</div>
+    <div class="body">
+      <div class="loglist" id="logList"></div>
+      <div class="loghint" id="logHint">Oppure <b>trascina qui</b> un event log <b>.jsonl</b>: si apre direttamente nel teatro.</div>
+      <div class="droperr" id="dropErr"></div>
+      <a class="cta ghost" href="replay.html" style="margin-top:auto">Apri il teatro vuoto</a>
+    </div>
+  </div>
+
+  <div class="mode sedia">
+    <div class="icon">🪑</div>
+    <h2>Sedia</h2>
+    <div class="sub">Siediti al tavolo contro i 9 bot: chiami, rilanci e passi tu — il suggeritore al fianco.</div>
+    <div class="body" id="sediaBody">
+      <span class="badge off" id="liveBadge"><span class="dot"></span><span id="liveBadgeTxt">cerco il tavolo…</span></span>
+      <div id="liveArea"></div>
+      <div class="portrow">
+        <label for="portInput">porta</label>
+        <input id="portInput" type="number" min="1" max="65535" value="8765">
+        <span id="probeSpin"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="mode stagione">
+    <div class="icon">🏆</div>
+    <h2>Stagione</h2>
+    <div class="sub">Rivivi il campionato di un'asta giocata: 38 giornate coi fantavoti reali, scontro per scontro.</div>
+    <div class="body">
+      <div class="livenote" id="seasonNote">
+        Si apre dal riepilogo di fine asta — sia dopo un replay che dopo una partita in Sedia —
+        col bottone <b>«Vai alla stagione»</b>.
+      </div>
+      <div id="seasonCta" style="margin-top:auto"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <a href="https://github.com/ArtyomITA/fantaoracle" target="_blank" rel="noopener">GitHub — ArtyomITA/fantaoracle</a>
+  <span class="sep">·</span>
+  <a href="../README.md" target="_blank">come funziona</a>
+  <span class="sep">·</span>
+  <span>🔮 FantaOracle — teatro d'asta &amp; stagione simulata</span>
+</footer>
+
+<div id="dropGlow"><div class="msg">🎭 Molla qui il log — si va a teatro</div></div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+/* ============================================================
+ * REPLAY — lista log noti (compaiono solo quelli che rispondono)
+ * ============================================================ */
+const LOG_CANDIDATES = [
+  "../demo/logs/asta_demo.jsonl",
+  "../data/sample_logs/smoke_seed0.jsonl",
+  "../data/tournament_fix/2025-26/main_1B_2A_7C/logs/replica_0125.jsonl",
+  "../data/live_logs/live_1786044631.jsonl",
+  "../data/live_logs/live_1786045401.jsonl",
+];
+function fmtSize(n){
+  if(!Number.isFinite(n)) return "";
+  return n > 1048576 ? (n/1048576).toFixed(1)+" MB" : Math.round(n/1024)+" KB";
+}
+(async function probeLogs(){
+  const found = [];
+  await Promise.all(LOG_CANDIDATES.map(async p => {
+    try{
+      const res = await fetch(p, {method:"HEAD"});
+      if(res.ok) found.push({path:p, size:+res.headers.get("content-length")});
+    }catch(e){ /* non c'è: nascosto */ }
+  }));
+  found.sort((a,b) => LOG_CANDIDATES.indexOf(a.path) - LOG_CANDIDATES.indexOf(b.path));
+  const box = $("logList");
+  if(!found.length){
+    box.innerHTML = "";
+    $("logHint").innerHTML = "Nessun log preconfezionato raggiungibile: <b>trascina qui</b> il tuo event log <b>.jsonl</b> e si apre nel teatro.";
+    return;
+  }
+  box.innerHTML = found.map(f => {
+    const name = f.path.split("/").pop();
+    return `<a class="logbtn" href="replay.html?log=${encodeURIComponent(f.path)}" title="${esc(f.path)}">
+      <span>▶</span><b>${esc(name)}</b><span class="sz">${fmtSize(f.size)}</span></a>`;
+  }).join("");
+})();
+
+/* ============================================================
+ * DRAG&DROP → sessionStorage → replay.html?droplog=1
+ * ============================================================ */
+let dragDepth = 0;
+["dragenter","dragover"].forEach(evn => document.addEventListener(evn, e => {
+  e.preventDefault();
+  if(evn === "dragenter") dragDepth++;
+  $("dropGlow").classList.add("on");
+}));
+document.addEventListener("dragleave", e => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if(dragDepth === 0 || e.relatedTarget === null) $("dropGlow").classList.remove("on");
+});
+document.addEventListener("drop", e => {
+  e.preventDefault();
+  dragDepth = 0;
+  $("dropGlow").classList.remove("on");
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try{
+      if(r.result.length > 4500000){ $("dropErr").textContent = "File oltre ~4.5 MB: aprilo dal teatro (bottone qui sotto) col drag&drop."; return; }
+      sessionStorage.setItem("fantaoracle_droplog", JSON.stringify({name:f.name, text:r.result}));
+      location.href = "replay.html?droplog=1";
+    }catch(err){ $("dropErr").textContent = "Impossibile passare il log: " + err.message; }
+  };
+  r.readAsText(f);
+});
+
+/* ============================================================
+ * SEDIA — probe del server live (1s timeout, riprova ogni 3s)
+ * ============================================================ */
+const CMD = "python scripts/f6_live_auction.py 2025-26";
+let probeTimer = null;
+function currentPort(){
+  const v = parseInt($("portInput").value, 10);
+  return Number.isFinite(v) && v > 0 && v < 65536 ? v : 8765;
+}
+async function probeLive(){
+  const port = currentPort();
+  const url = `http://localhost:${port}`;
+  let state = null;
+  try{
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 1000);
+    const res = await fetch(url + "/state", {signal: ctl.signal});
+    clearTimeout(t);
+    if(res.ok) state = await res.json();
+  }catch(e){ /* spento */ }
+  renderSedia(state, url, port);
+  probeTimer = setTimeout(probeLive, 3000);
+}
+function renderSedia(state, url, port){
+  const badge = $("liveBadge"), txt = $("liveBadgeTxt"), area = $("liveArea");
+  const enterUrl = `replay.html?live=${encodeURIComponent(url)}`;
+  if(state){
+    badge.className = "badge on";
+    if(state.finished){
+      txt.textContent = `tavolo :${port} — asta conclusa`;
+      area.innerHTML = `
+        <div class="livenote">Asta finita e stagione pronta: entra e <b>guarda com'è andata</b>.</div>
+        <a class="cta green" href="${enterUrl}" style="margin-top:9px">🏆 ENTRA — vedi la stagione</a>`;
+      $("seasonCta").innerHTML = `<a class="cta green" href="${enterUrl}">🏆 Vedi la stagione dell'asta su :${port}</a>`;
+    } else {
+      txt.textContent = `tavolo attivo su :${port}`;
+      area.innerHTML = `
+        <div class="livenote">C'è un'asta in corso che ti aspetta${state.awaiting ? " — <b>tocca a te!</b>" : ""}.</div>
+        <a class="cta green" href="${enterUrl}" style="margin-top:9px">🪑 ENTRA al tavolo</a>`;
+      $("seasonCta").innerHTML = "";
+    }
+  } else {
+    badge.className = "badge off";
+    txt.textContent = `nessun tavolo su :${port}`;
+    area.innerHTML = `
+      <div class="livenote">Accendi il tavolo dalla cartella del progetto:</div>
+      <div class="cmdbox" style="margin-top:7px">
+        <code id="cmdTxt">${esc(CMD)}${port !== 8765 ? " --porta " + port : ""}</code>
+        <button class="copybtn" id="copyCmd">COPIA</button>
+      </div>`;
+    $("seasonCta").innerHTML = "";
+    const b = $("copyCmd");
+    if(b) b.onclick = async () => {
+      const cmd = $("cmdTxt").textContent;
+      try{ await navigator.clipboard.writeText(cmd); }
+      catch(e){
+        const ta = document.createElement("textarea");
+        ta.value = cmd; document.body.appendChild(ta); ta.select();
+        document.execCommand("copy"); ta.remove();
+      }
+      b.textContent = "COPIATO ✓"; b.classList.add("ok");
+      setTimeout(() => { b.textContent = "COPIA"; b.classList.remove("ok"); }, 1600);
+    };
+  }
+}
+$("portInput").addEventListener("input", () => {
+  try{ localStorage.setItem("fantaoracle_port", String(currentPort())); }catch(e){}
+  clearTimeout(probeTimer);
+  probeTimer = setTimeout(probeLive, 350);
+});
+try{
+  const saved = parseInt(localStorage.getItem("fantaoracle_port"), 10);
+  if(Number.isFinite(saved) && saved > 0) $("portInput").value = saved;
+}catch(e){}
+probeLive();
+</script>
+</body>
+</html>
