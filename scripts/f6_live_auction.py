@@ -234,11 +234,12 @@ def run_auction(season: str, include_b: bool, seed: int):
     bots += [make_bot(s, random.Random(seed * 977 + i), PACK)
              for i, s in enumerate(specs)]
     ENGINE = AuctionEngine(dict(PACK.players), bots, PACK.quotas, PACK.budget,
-                           rng)
+                           rng, meta={"seed": seed, "season": season,
+                                      "live": True})
     HUMAN_TEAM_ID = ENGINE.teams[0].team_id
-    ENGINE.run()
     out = ROOT / "data" / "live_logs" / f"live_{int(time.time())}.jsonl"
-    ENGINE.write_log(out)
+    ENGINE.attach_live_log(out)   # incrementale: crash-proof
+    ENGINE.run()
     if not PACK.votes_by_g:
         with LOCK:
             STATE["finished"] = True

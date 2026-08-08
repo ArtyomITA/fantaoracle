@@ -26,7 +26,8 @@ class AuctionEngine:
     def __init__(self, players: dict[str, Player], bots: list[Bot],
                  quotas: dict[str, int], budget: int, rng,
                  role_order: tuple[str, ...] = ROLES,
-                 min_price: int = 1, min_increment: int = 1):
+                 min_price: int = 1, min_increment: int = 1,
+                 meta: dict | None = None):
         assert len(bots) >= 2
         self.pool = dict(players)
         self.bots = bots
@@ -36,16 +37,32 @@ class AuctionEngine:
         self.role_order = role_order
         self.min_price = min_price
         self.min_increment = min_increment
+        self.meta = meta or {}
         self.teams = [TeamState(team_id=f"T{i}", bot_name=b.name, budget=budget)
                       for i, b in enumerate(bots)]
         self.sold: list[tuple[str, str, int]] = []
         self.events: list[AuctionEvent] = []
         self._seq = 0
+        self._live_fh = None
 
     # ---------- event log ----------
+    def attach_live_log(self, path: str | Path):
+        """Scrittura INCREMENTALE: ogni evento su disco appena emesso.
+        Un crash non perde mai la storia dell'asta."""
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        self._live_fh = open(p, "a", encoding="utf-8")
+        for e in self.events:   # backlog se attaccato a motore gia' partito
+            self._live_fh.write(json.dumps(e.to_dict(), ensure_ascii=False) + "\n")
+        self._live_fh.flush()
+
     def _emit(self, kind: str, **payload):
         self._seq += 1
-        self.events.append(AuctionEvent(self._seq, kind, payload))
+        e = AuctionEvent(self._seq, kind, payload)
+        self.events.append(e)
+        if self._live_fh is not None:
+            self._live_fh.write(json.dumps(e.to_dict(), ensure_ascii=False) + "\n")
+            self._live_fh.flush()
 
     def write_log(self, path: str | Path):
         p = Path(path)
@@ -73,7 +90,8 @@ class AuctionEngine:
         self._emit("auction_start",
                    seating=[self.teams[i].team_id for i in seating],
                    bots=[self.bots[i].name for i in seating],
-                   budget=self.budget_total, quotas=self.quotas)
+                   budget=self.budget_total, quotas=self.quotas,
+                   **self.meta)
         for i, b in enumerate(self.bots):
             b.start_auction(self._view(i, self.role_order[0]))
 

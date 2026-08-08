@@ -97,10 +97,17 @@ class Handler(SimpleHTTPRequestHandler):
             cmd = [sys.executable, str(F6), season, "--porta", str(porta)]
             if no_b:
                 cmd.append("--no-b")
+            # figlio COMPLETAMENTE indipendente: sopravvive alla morte
+            # dell'app (DETACHED) e lascia traccia degli errori su file
+            logdir = ROOT / "data" / "live_logs"
+            logdir.mkdir(parents=True, exist_ok=True)
+            errlog = open(logdir / f"server_{porta}.log", "a", encoding="utf-8")
+            flags = (getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                     | getattr(subprocess, "DETACHED_PROCESS", 0))
             proc = subprocess.Popen(
                 cmd, cwd=str(ROOT),
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+                stdout=errlog, stderr=subprocess.STDOUT,
+                creationflags=flags)
             with LOCK:
                 CHILDREN[porta] = proc
             # aspetta che l'asta risponda (max ~8s: carica il pack)
