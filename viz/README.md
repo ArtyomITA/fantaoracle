@@ -4,9 +4,13 @@ Webapp autosufficienti (vanilla JS + CSS inline, zero dipendenze/CDN, tema "nott
 stadio": Catppuccin Mocha + verde campo + oro martelletto):
 
 - **`index.html`** — il menu: wordmark 🔮, probe del server live (badge "tavolo attivo",
-  istruzioni col comando + COPIA quando è spento, porta custom, re-probe ogni 3s), lista
-  dei log raggiungibili, drag&drop di un log che si apre direttamente nel teatro, CTA
-  stagione quando l'asta risulta conclusa.
+  porta custom, re-probe ogni 3s), lista dei log raggiungibili, drag&drop di un log che
+  si apre direttamente nel teatro, CTA stagione quando l'asta risulta conclusa. Se la
+  pagina gira dentro **FantaOracle App** (`python scripts/fantaoracle_app.py`) la card
+  Sedia mostra il flusso a bottoni: stagione (2025-26/2024-25), toggle "senza bot B",
+  **🚀 AVVIA NUOVA ASTA** (spinner → tavolo attivo → ENTRA), "🔁 NUOVA ASTA" con
+  conferma inline quando un tavolo è già acceso e "⏹ ferma" per le aste avviate da qui;
+  su un server statico semplice resta il piano B col comando + COPIA.
 - **`replay.html`** — il teatro con **tre anime**: il replay di un'asta simulata, la
   **Modalità Sedia** (asta live con te al tavolo contro 9 bot) e il **viewer della
   stagione** post-asta. La scena è la stessa: palco col giocatore chiamato sotto al

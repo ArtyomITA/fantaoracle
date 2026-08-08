@@ -169,6 +169,32 @@ a{color:inherit;}
 .livenote{font-size:12.5px; color:var(--subtext0); line-height:1.5;}
 .livenote b{color:var(--yellow);}
 
+/* launcher integrato (pagina servita da FantaOracle App) */
+.lnrow{display:flex; align-items:center; gap:9px; flex-wrap:wrap;}
+.lnselect{
+  background:var(--surface0); color:var(--text); border:1px solid var(--surface1);
+  border-radius:8px; padding:7px 9px; font-size:12.5px; font-weight:700;
+  cursor:pointer; outline:none;
+}
+.lnselect:focus{border-color:var(--yellow);}
+.lncheck{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--subtext0); cursor:pointer; user-select:none; font-weight:700;}
+.lncheck input{accent-color:var(--yellow); width:14px; height:14px; cursor:pointer;}
+.cta.warn{background:var(--red);}
+.cta.stop{
+  background:transparent; color:var(--overlay1); border:1px solid var(--surface1);
+  font-size:12px; padding:9px 13px; font-weight:800;
+}
+.cta.stop:hover{color:var(--red); border-color:var(--red); filter:none;}
+.cta.stop.armed{color:var(--red); border-color:var(--red);}
+.lnspin{display:flex; align-items:center; gap:10px; color:var(--yellow); font-size:13.5px; font-weight:800; padding:6px 0;}
+.lnspin .dot3{
+  width:16px; height:16px; border-radius:50%; flex:0 0 auto;
+  border:2.5px solid var(--surface1); border-top-color:var(--yellow);
+  animation:spin .9s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.lnerr{color:var(--red); font-size:12px; line-height:1.45; margin-top:6px;}
+
 /* ---------- drop overlay ---------- */
 #dropGlow{
   position:fixed; inset:0; z-index:50; display:none;
@@ -354,16 +380,49 @@ document.addEventListener("drop", e => {
 
 /* ============================================================
  * SEDIA — probe del server live (1s timeout, riprova ogni 3s)
+ * + launcher integrato: se la pagina gira dentro FantaOracle App
+ *   (scripts/fantaoracle_app.py) il bottone AVVIA lancia l'asta
+ *   davvero; altrimenti piano B col comando da copiare.
  * ============================================================ */
 const CMD = "python scripts/f6_live_auction.py 2025-26";
+const LN = {
+  checked:false, present:false, children:[],
+  starting:false, arm:null, lastErr:"",
+  last:{state:null, url:"http://localhost:8765", port:8765},
+};
 let probeTimer = null;
 function currentPort(){
   const v = parseInt($("portInput").value, 10);
   return Number.isFinite(v) && v > 0 && v < 65536 ? v : 8765;
 }
+function lnSeason(){ try{ return localStorage.getItem("fantaoracle_season") || "2025-26"; }catch(e){ return "2025-26"; } }
+function lnNoB(){ try{ return localStorage.getItem("fantaoracle_nob") === "1"; }catch(e){ return false; } }
+function ourChildAlive(port){ return LN.children.some(c => c.porta === port && c.alive); }
+
+/* il launcher si cerca UNA volta (evita 404 a raffica su server semplice);
+   se c'è, a ogni giro si aggiorna la lista dei figli */
+async function probeLauncher(){
+  if(LN.checked && !LN.present) return;
+  try{
+    const res = await fetch("../launcher/status", {cache:"no-store"});
+    if(res.ok){
+      const d = await res.json();
+      if(d && d.launcher === true){
+        LN.present = true;
+        LN.children = Array.isArray(d.children) ? d.children : [];
+        LN.checked = true;
+        return;
+      }
+    }
+    LN.present = false;
+  }catch(e){ LN.present = false; }
+  LN.checked = true;
+}
+
 async function probeLive(){
   const port = currentPort();
   const url = `http://localhost:${port}`;
+  await probeLauncher();
   let state = null;
   try{
     const ctl = new AbortController();
@@ -372,53 +431,151 @@ async function probeLive(){
     clearTimeout(t);
     if(res.ok) state = await res.json();
   }catch(e){ /* spento */ }
+  LN.last = {state, url, port};
   renderSedia(state, url, port);
+  clearTimeout(probeTimer);
   probeTimer = setTimeout(probeLive, 3000);
 }
+function renderNow(){ renderSedia(LN.last.state, LN.last.url, LN.last.port); }
+
+function launcherHTML(active, port){
+  const armed = LN.arm && Date.now() < LN.arm.until ? LN.arm.action : null;
+  const opts = ["2025-26", "2024-25"].map(s =>
+    `<option value="${s}" ${lnSeason() === s ? "selected" : ""}>${s}</option>`).join("");
+  let main;
+  if(LN.starting){
+    main = `<div class="lnspin"><span class="dot3"></span>sto apparecchiando il tavolo…</div>`;
+  } else if(active){
+    main = armed === "restart"
+      ? `<button class="cta warn" id="btnLaunch">❗ Sicuro? riclicca per confermare</button>`
+      : `<button class="cta" id="btnLaunch">🔁 NUOVA ASTA <span style="font-size:11.5px;font-weight:700">(chiude quella in corso)</span></button>`;
+  } else {
+    main = `<button class="cta" id="btnLaunch" style="font-size:16px">🚀 AVVIA NUOVA ASTA</button>`;
+  }
+  const stop = (!LN.starting && ourChildAlive(port))
+    ? (armed === "stop"
+        ? `<button class="cta stop armed" id="btnStop">⏹ confermi lo stop?</button>`
+        : `<button class="cta stop" id="btnStop" title="ferma l'asta avviata da qui">⏹ ferma</button>`)
+    : "";
+  return `
+    <div class="lnrow" style="margin-top:12px">
+      <select class="lnselect" id="lnSeason" title="stagione del pack" ${LN.starting ? "disabled" : ""}>${opts}</select>
+      <label class="lncheck" title="tavolo senza il bot modello B"><input type="checkbox" id="lnNoB" ${lnNoB() ? "checked" : ""} ${LN.starting ? "disabled" : ""}>senza bot B</label>
+    </div>
+    <div class="lnrow" style="margin-top:9px">${main}${stop}</div>
+    ${LN.lastErr ? `<div class="lnerr">⚠ ${esc(LN.lastErr)}</div>` : ""}`;
+}
+
 function renderSedia(state, url, port){
   const badge = $("liveBadge"), txt = $("liveBadgeTxt"), area = $("liveArea");
   const enterUrl = `replay.html?live=${encodeURIComponent(url)}`;
+  let html = "";
   if(state){
     badge.className = "badge on";
     if(state.finished){
       txt.textContent = `tavolo :${port} — asta conclusa`;
-      area.innerHTML = `
+      html += `
         <div class="livenote">Asta finita e stagione pronta: entra e <b>guarda com'è andata</b>.</div>
         <a class="cta green" href="${enterUrl}" style="margin-top:9px">🏆 ENTRA — vedi la stagione</a>`;
       $("seasonCta").innerHTML = `<a class="cta green" href="${enterUrl}">🏆 Vedi la stagione dell'asta su :${port}</a>`;
     } else {
       txt.textContent = `tavolo attivo su :${port}`;
-      area.innerHTML = `
+      html += `
         <div class="livenote">C'è un'asta in corso che ti aspetta${state.awaiting ? " — <b>tocca a te!</b>" : ""}.</div>
         <a class="cta green" href="${enterUrl}" style="margin-top:9px">🪑 ENTRA al tavolo</a>`;
       $("seasonCta").innerHTML = "";
     }
+    if(LN.present) html += launcherHTML(true, port);
   } else {
     badge.className = "badge off";
     txt.textContent = `nessun tavolo su :${port}`;
-    area.innerHTML = `
-      <div class="livenote">Accendi il tavolo dalla cartella del progetto:</div>
-      <div class="cmdbox" style="margin-top:7px">
-        <code id="cmdTxt">${esc(CMD)}${port !== 8765 ? " --porta " + port : ""}</code>
-        <button class="copybtn" id="copyCmd">COPIA</button>
-      </div>`;
     $("seasonCta").innerHTML = "";
-    const b = $("copyCmd");
-    if(b) b.onclick = async () => {
-      const cmd = $("cmdTxt").textContent;
-      try{ await navigator.clipboard.writeText(cmd); }
-      catch(e){
-        const ta = document.createElement("textarea");
-        ta.value = cmd; document.body.appendChild(ta); ta.select();
-        document.execCommand("copy"); ta.remove();
-      }
-      b.textContent = "COPIATO ✓"; b.classList.add("ok");
-      setTimeout(() => { b.textContent = "COPIA"; b.classList.remove("ok"); }, 1600);
-    };
+    if(LN.present){
+      html += `<div class="livenote">Nessuna asta in corso: <b>apparecchia il tavolo</b> con un click.</div>` + launcherHTML(false, port);
+    } else {
+      html += `
+        <div class="livenote">Accendi il tavolo dalla cartella del progetto:</div>
+        <div class="cmdbox" style="margin-top:7px">
+          <code id="cmdTxt">${esc(CMD)}${port !== 8765 ? " --porta " + port : ""}</code>
+          <button class="copybtn" id="copyCmd">COPIA</button>
+        </div>`;
+    }
   }
+  area.innerHTML = html;
+  wireSedia(port);
+}
+
+function wireSedia(port){
+  const cp = $("copyCmd");
+  if(cp) cp.onclick = async () => {
+    const cmd = $("cmdTxt").textContent;
+    try{ await navigator.clipboard.writeText(cmd); }
+    catch(e){
+      const ta = document.createElement("textarea");
+      ta.value = cmd; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }
+    cp.textContent = "COPIATO ✓"; cp.classList.add("ok");
+    setTimeout(() => { cp.textContent = "COPIA"; cp.classList.remove("ok"); }, 1600);
+  };
+  const sel = $("lnSeason");
+  if(sel) sel.onchange = () => { try{ localStorage.setItem("fantaoracle_season", sel.value); }catch(e){} };
+  const nb = $("lnNoB");
+  if(nb) nb.onchange = () => { try{ localStorage.setItem("fantaoracle_nob", nb.checked ? "1" : "0"); }catch(e){} };
+  const bl = $("btnLaunch");
+  if(bl) bl.onclick = () => {
+    const active = !!LN.last.state;
+    if(!active) return doStart(port);
+    if(LN.arm && LN.arm.action === "restart" && Date.now() < LN.arm.until){ LN.arm = null; doStart(port); }
+    else armConfirm("restart");
+  };
+  const bs = $("btnStop");
+  if(bs) bs.onclick = () => {
+    if(LN.arm && LN.arm.action === "stop" && Date.now() < LN.arm.until){ LN.arm = null; doStop(port); }
+    else armConfirm("stop");
+  };
+}
+
+function armConfirm(action){
+  LN.arm = {action, until: Date.now() + 3000};
+  renderNow();
+  setTimeout(() => {
+    if(LN.arm && LN.arm.action === action && Date.now() >= LN.arm.until){ LN.arm = null; renderNow(); }
+  }, 3100);
+}
+
+async function doStart(port){
+  LN.starting = true; LN.lastErr = ""; LN.arm = null;
+  renderNow();
+  try{
+    const res = await fetch("../launcher/start", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({season: lnSeason(), porta: port, no_b: lnNoB()}),
+    });
+    const d = await res.json();
+    if(!d || d.ok !== true) LN.lastErr = (d && d.err) || "avvio non riuscito";
+  }catch(e){ LN.lastErr = "launcher non raggiungibile (" + e.message + ")"; }
+  LN.starting = false;
+  clearTimeout(probeTimer);
+  probeLive();                       // flip immediato: tavolo attivo → ENTRA
+}
+
+async function doStop(port){
+  LN.lastErr = "";
+  try{
+    const res = await fetch("../launcher/stop", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({porta: port}),
+    });
+    const d = await res.json();
+    if(!d || d.ok !== true) LN.lastErr = (d && d.err) || "stop non riuscito";
+  }catch(e){ LN.lastErr = "launcher non raggiungibile (" + e.message + ")"; }
+  clearTimeout(probeTimer);
+  probeLive();
 }
 $("portInput").addEventListener("input", () => {
   try{ localStorage.setItem("fantaoracle_port", String(currentPort())); }catch(e){}
+  LN.arm = null; LN.lastErr = "";
   clearTimeout(probeTimer);
   probeTimer = setTimeout(probeLive, 350);
 });
