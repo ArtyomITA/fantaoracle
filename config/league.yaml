@@ -1,0 +1,36 @@
+# Configurazione lega target — confermata dal committente 6/8/2026
+participants: 10
+budget: 500
+roster:
+  P: 3
+  D: 8
+  C: 8
+  A: 6
+lineup:
+  starters: 11
+  max_subs: 3
+  modules: ["3-4-3", "3-5-2", "4-3-3", "4-4-2", "4-5-1", "5-3-2", "5-4-1"]
+scoring:
+  goal_threshold: 66     # 66 fantapunti = 1 gol
+  goal_step: 6           # +1 gol ogni 6 punti oltre soglia
+  modificatore_difesa: true   # CONFERMATO dal committente (7/8/2026)
+  mod_difesa_table:      # media voti puri portiere + 3 migliori difensori
+    "6.0": 1
+    "6.25": 2
+    "6.5": 3
+    "6.75": 4
+    "7.0": 6
+repair_context:          # contesto lega reale (non ancora nel modello)
+  extra_credits: 50      # a gennaio si aggiungono 50 crediti
+  typical_leftover: "<50"  # quasi nessuno arriva a gennaio con piu' di 50
+auction:
+  role_order: ["P", "D", "C", "A"]   # asta per ruoli in blocchi
+  min_increment: 1
+  min_price: 1
+  nomination: rotation               # giro di chiamata a rotazione, ordine iniziale da seed
+seasons:
+  "2024-25":
+    auction_date: "2024-09-01"       # giorno dopo chiusura mercato estivo 2024
+  "2025-26":
+    auction_date: "2025-09-02"       # giorno dopo chiusura mercato estivo 2025
+repair_auction: false

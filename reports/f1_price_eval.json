@@ -1,0 +1,122 @@
+{
+  "R1/ridge": {
+    "n": 336,
+    "spearman": 0.7989,
+    "mae_pct": 0.01281,
+    "mae_top50_crediti": 21.3,
+    "coverage_q10_q90": 0.83,
+    "pinball": 0.00775
+  },
+  "R1/catboost": {
+    "n": 336,
+    "spearman": 0.7876,
+    "mae_pct": 0.01237,
+    "mae_top50_crediti": 17.6,
+    "coverage_q10_q90": 0.711,
+    "pinball": 0.00705
+  },
+  "R1/tabpfn": {
+    "n": 336,
+    "spearman": 0.8104,
+    "mae_pct": 0.01249,
+    "mae_top50_crediti": 19.8,
+    "coverage_q10_q90": 0.69,
+    "pinball": 0.0054
+  },
+  "R1/vorp": {
+    "n": 336,
+    "spearman": 0.5027,
+    "mae_pct": 0.02416,
+    "mae_top50_crediti": 32.7,
+    "coverage_q10_q90": 0.205,
+    "pinball": 0.01813
+  },
+  "R1/ens_tab_cat": {
+    "n": 336,
+    "spearman": 0.8047,
+    "mae_pct": 0.01229,
+    "mae_top50_crediti": 18.6,
+    "coverage_q10_q90": 0.753,
+    "pinball": 0.00574
+  },
+  "R2/ridge": {
+    "n": 255,
+    "spearman": 0.7953,
+    "mae_pct": 0.01374,
+    "mae_top50_crediti": 16.8,
+    "coverage_q10_q90": 0.714,
+    "pinball": 0.00826
+  },
+  "R2/catboost": {
+    "n": 255,
+    "spearman": 0.7922,
+    "mae_pct": 0.01344,
+    "mae_top50_crediti": 14.9,
+    "coverage_q10_q90": 0.522,
+    "pinball": 0.00874
+  },
+  "R2/tabpfn": {
+    "n": 255,
+    "spearman": 0.843,
+    "mae_pct": 0.01071,
+    "mae_top50_crediti": 13.3,
+    "coverage_q10_q90": 0.863,
+    "pinball": 0.0061
+  },
+  "R2/vorp": {
+    "n": 255,
+    "spearman": 0.3501,
+    "mae_pct": 0.03041,
+    "mae_top50_crediti": 32.8,
+    "coverage_q10_q90": 0.161,
+    "pinball": 0.02344
+  },
+  "R2/ens_tab_cat": {
+    "n": 255,
+    "spearman": 0.8245,
+    "mae_pct": 0.01132,
+    "mae_top50_crediti": 13.1,
+    "coverage_q10_q90": 0.718,
+    "pinball": 0.0055
+  },
+  "R3/ridge": {
+    "n": 509,
+    "spearman": 0.6774,
+    "mae_pct": 0.02047,
+    "mae_top50_crediti": 21.3,
+    "coverage_q10_q90": 0.444,
+    "pinball": 0.01322
+  },
+  "R3/catboost": {
+    "n": 509,
+    "spearman": 0.7329,
+    "mae_pct": 0.02009,
+    "mae_top50_crediti": 19.4,
+    "coverage_q10_q90": 0.377,
+    "pinball": 0.01365
+  },
+  "R3/tabpfn": {
+    "n": 509,
+    "spearman": 0.7745,
+    "mae_pct": 0.02123,
+    "mae_top50_crediti": 19.5,
+    "coverage_q10_q90": 0.308,
+    "pinball": 0.01419
+  },
+  "R3/vorp": {
+    "n": 509,
+    "spearman": 0.4526,
+    "mae_pct": 0.02576,
+    "mae_top50_crediti": 35.7,
+    "coverage_q10_q90": 0.212,
+    "pinball": 0.02194
+  },
+  "R3/ens_tab_cat": {
+    "n": 509,
+    "spearman": 0.7522,
+    "mae_pct": 0.02031,
+    "mae_top50_crediti": 18.6,
+    "coverage_q10_q90": 0.348,
+    "pinball": 0.01363
+  }
+}

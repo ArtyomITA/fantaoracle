@@ -1,0 +1,20 @@
+# Dati NON ridistribuibili (scrappati da fonti terze — si rigenerano in
+# locale con gli script, vedi DATA.md)
+data/raw/
+data/processed/
+data/packs/
+data/tournament*/
+data/live_logs/
+data/smoke_*/
+data/sample_logs/
+fonti_prezzi/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.log
