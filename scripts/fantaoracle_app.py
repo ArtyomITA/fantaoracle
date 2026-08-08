@@ -80,6 +80,23 @@ class Handler(SimpleHTTPRequestHandler):
             season = str(body.get("season", "2025-26"))
             porta = int(body.get("porta", 8765))
             no_b = bool(body.get("no_b", False))
+            resume = body.get("resume")   # None | "latest" | percorso log
+            resume_path = None
+            if resume == "latest":
+                logs = sorted((ROOT / "data" / "live_logs").glob("live_*.jsonl"),
+                              key=lambda p: p.stat().st_mtime, reverse=True)
+                # interrotta = senza stagione salvata accanto
+                for lg in logs:
+                    if not lg.with_name(lg.stem + "_season.json").exists():
+                        resume_path = lg
+                        break
+                if resume_path is None:
+                    return self._json({"ok": False,
+                                       "err": "nessuna asta interrotta da riprendere"})
+            elif resume:
+                resume_path = Path(resume)
+                if not resume_path.exists():
+                    return self._json({"ok": False, "err": "log non trovato"})
             with LOCK:
                 old = CHILDREN.pop(porta, None)
             if old and old.poll() is None:
@@ -97,6 +114,8 @@ class Handler(SimpleHTTPRequestHandler):
             cmd = [sys.executable, str(F6), season, "--porta", str(porta)]
             if no_b:
                 cmd.append("--no-b")
+            if resume_path is not None:
+                cmd += ["--resume", str(resume_path)]
             # figlio COMPLETAMENTE indipendente: sopravvive alla morte
             # dell'app (DETACHED) e lascia traccia degli errori su file
             logdir = ROOT / "data" / "live_logs"

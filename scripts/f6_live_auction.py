@@ -224,19 +224,90 @@ class Handler(BaseHTTPRequestHandler):
         self._send({"ok": True})
 
 
-def run_auction(season: str, include_b: bool, seed: int):
+def _bot_from_name(name: str, rng, pack):
+    """Ricostruisce un bot dal nome registrato nel log (per la ripresa)."""
+    if name == "TU":
+        return HumanBot(rng)
+    if name == "B":
+        return make_bot("B", rng, pack)
+    if name == "A-rigido":
+        return make_bot("A", rng, pack)
+    if name == "A-flessibile":
+        return make_bot("A+", rng, pack)
+    if name.startswith("C-"):
+        return make_bot(f"C:{name[2:]}", rng, pack)
+    raise ValueError(f"bot sconosciuto nel log: {name}")
+
+
+def restore_state_from_log(path: Path):
+    """Legge un log incrementale interrotto e ricostruisce lo stato tavolo.
+    Scarta l'eventuale lotto in corso non aggiudicato (si rifa' da capo)."""
+    events = [json.loads(line) for line in
+              path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    start = next(e for e in events if e["kind"] == "auction_start")
+    # taglia al confine dell'ultimo evento "solido" (hammer o phase_start)
+    cut = max(i for i, e in enumerate(events)
+              if e["kind"] in ("hammer", "phase_start", "auction_start"))
+    events = events[:cut + 1]
+    n = len(start["seating"])
+    teams = {f"T{i}": {"team_id": f"T{i}", "budget": start["budget"],
+                       "roster": {r: [] for r in ("P", "D", "C", "A")}}
+             for i in range(n)}
+    sold_ids = set()
+    last_nominator = None
+    for e in events:
+        if e["kind"] == "hammer":
+            t = teams[e["team"]]
+            t["roster"][e["role"]].append([e["player_id"], e["price"]])
+            t["budget"] -= e["price"]
+            sold_ids.add(e["player_id"])
+        elif e["kind"] == "nomination":
+            last_nominator = e["team"]
+    seating = [int(tid[1:]) for tid in start["seating"]]
+    nom_ptr = 0
+    if last_nominator is not None:
+        nom_ptr = start["seating"].index(last_nominator) + 1
+    bot_names = start["bots"]  # allineati a seating: bots[seating[i]] = nome i-esimo
+    names_by_index = {}
+    for pos, tid in enumerate(start["seating"]):
+        names_by_index[int(tid[1:])] = bot_names[pos]
+    return events, teams, seating, nom_ptr, names_by_index, start
+
+
+def run_auction(season: str, include_b: bool, seed: int,
+                resume_path: Path | None = None):
     global ENGINE, HUMAN_TEAM_ID
     rng = random.Random(seed)
-    specs = (["B"] if include_b else ["C:medio"]) + \
-        ["A", "A+", "C:stars_scrubs", "C:semitop", "C:tifoso",
-         "C:ancorato", "C:panic", "C:enforcer"]
-    bots = [HumanBot(random.Random(seed))]
-    bots += [make_bot(s, random.Random(seed * 977 + i), PACK)
-             for i, s in enumerate(specs)]
-    ENGINE = AuctionEngine(dict(PACK.players), bots, PACK.quotas, PACK.budget,
-                           rng, meta={"seed": seed, "season": season,
-                                      "live": True})
-    HUMAN_TEAM_ID = ENGINE.teams[0].team_id
+    if resume_path is not None:
+        events, teams, seating, nom_ptr, names_by_index, start = \
+            restore_state_from_log(resume_path)
+        bots = [_bot_from_name(names_by_index[i], random.Random(seed * 733 + i),
+                               PACK) for i in range(len(names_by_index))]
+        pool = {pid: p for pid, p in PACK.players.items()
+                if pid not in {x[0] for t in teams.values()
+                               for r in t["roster"].values() for x in r}}
+        ENGINE = AuctionEngine(pool, bots, PACK.quotas, PACK.budget, rng,
+                               meta={"seed": seed, "season": season,
+                                     "live": True, "resumed": True})
+        ENGINE.restore(events, [teams[f"T{i}"] for i in range(len(bots))],
+                       seating, nom_ptr)
+        HUMAN_TEAM_ID = next(f"T{i}" for i, nm in names_by_index.items()
+                             if nm == "TU")
+        print(f"Ripresa da {resume_path.name}: "
+              f"{sum(len(x) for t in teams.values() for x in t['roster'].values())}"
+              f" giocatori gia' assegnati")
+    else:
+        specs = (["B"] if include_b else ["C:medio"]) + \
+            ["A", "A+", "C:stars_scrubs", "C:semitop", "C:tifoso",
+             "C:ancorato", "C:panic", "C:enforcer"]
+        bots = [HumanBot(random.Random(seed))]
+        bots += [make_bot(s, random.Random(seed * 977 + i), PACK)
+                 for i, s in enumerate(specs)]
+        ENGINE = AuctionEngine(dict(PACK.players), bots, PACK.quotas,
+                               PACK.budget, rng,
+                               meta={"seed": seed, "season": season,
+                                     "live": True})
+        HUMAN_TEAM_ID = ENGINE.teams[0].team_id
     out = ROOT / "data" / "live_logs" / f"live_{int(time.time())}.jsonl"
     ENGINE.attach_live_log(out)   # incrementale: crash-proof
     ENGINE.run()
@@ -279,6 +350,8 @@ if __name__ == "__main__":
     season = next((a for a in args if a[0].isdigit()), "2025-26")
     include_b = "--no-b" not in args
     porta = int(args[args.index("--porta") + 1]) if "--porta" in args else 8765
+    resume = (Path(args[args.index("--resume") + 1])
+              if "--resume" in args else None)
     seed = int(time.time()) % 100000
     pkl = ROOT / "data" / "packs" / f"pack_{season}.pkl"
     demo = ROOT / "demo" / f"pack_{season}_demo.json"
@@ -302,7 +375,8 @@ if __name__ == "__main__":
         print("Pack DEMO (senza voti): asta ok, stagione post-asta disattivata.")
     else:
         raise SystemExit(f"Nessun pack per {season}: ne' {pkl} ne' {demo}")
-    t = threading.Thread(target=run_auction, args=(season, include_b, seed),
+    t = threading.Thread(target=run_auction,
+                         args=(season, include_b, seed, resume),
                          daemon=True)
     t.start()
     print(f"Asta live {season} — tavolo: TU + {'B + ' if include_b else ''}"

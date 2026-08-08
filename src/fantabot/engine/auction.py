@@ -83,20 +83,49 @@ class AuctionEngine:
             sold=self.sold,
         )
 
+    # ---------- ripresa da log ----------
+    def restore(self, events: list[dict], teams_state: list[dict],
+                seating: list[int], nom_ptr: int):
+        """Riprende un'asta interrotta: eventi storici preservati (il client
+        ricostruisce la scena dal backlog), rose e budget ripristinati.
+        Il pool va passato al costruttore GIA' senza i giocatori venduti."""
+        self.events = [AuctionEvent(e["seq"], e["kind"],
+                                    {k: v for k, v in e.items()
+                                     if k not in ("seq", "kind")})
+                       for e in events]
+        self._seq = self.events[-1].seq if self.events else 0
+        for t, st in zip(self.teams, teams_state):
+            t.budget = st["budget"]
+            t.roster = {r: list(st["roster"].get(r, [])) for r in ROLES}
+        self.sold = [(pid, tid, price) for st in teams_state
+                     for r, lst in st["roster"].items()
+                     for pid, price in lst
+                     for tid in (st["team_id"],)]
+        self._restore_seating = seating
+        self._restore_nom_ptr = nom_ptr
+
     # ---------- svolgimento ----------
     def run(self) -> list[TeamState]:
-        seating = list(range(len(self.bots)))
-        self.rng.shuffle(seating)
-        self._emit("auction_start",
-                   seating=[self.teams[i].team_id for i in seating],
-                   bots=[self.bots[i].name for i in seating],
-                   budget=self.budget_total, quotas=self.quotas,
-                   **self.meta)
+        resumed = hasattr(self, "_restore_seating")
+        if resumed:
+            seating = self._restore_seating
+            nom_ptr = self._restore_nom_ptr
+            self._emit("resume", note="asta ripresa dal log")
+        else:
+            seating = list(range(len(self.bots)))
+            self.rng.shuffle(seating)
+            nom_ptr = 0
+            self._emit("auction_start",
+                       seating=[self.teams[i].team_id for i in seating],
+                       bots=[self.bots[i].name for i in seating],
+                       budget=self.budget_total, quotas=self.quotas,
+                       **self.meta)
         for i, b in enumerate(self.bots):
             b.start_auction(self._view(i, self.role_order[0]))
 
-        nom_ptr = 0
         for role in self.role_order:
+            if not any(t.slots_left(self.quotas, role) > 0 for t in self.teams):
+                continue   # fase gia' completata (ripresa)
             self._emit("phase_start", role=role)
             while any(t.slots_left(self.quotas, role) > 0 for t in self.teams):
                 # prossimo chiamante col ruolo ancora aperto (non si salta)

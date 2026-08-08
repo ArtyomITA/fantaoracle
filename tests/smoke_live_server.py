@@ -4,10 +4,11 @@ Prerequisito: server avviato (python scripts/f6_live_auction.py 2025-26).
 Esegui:      python tests/smoke_live_server.py
 """
 import json
+import sys
 import time
 import urllib.request
 
-BASE = "http://localhost:8765"
+BASE = f"http://localhost:{sys.argv[1] if len(sys.argv) > 1 else '8765'}"
 
 
 def get(path):
