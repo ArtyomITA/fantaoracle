@@ -311,7 +311,8 @@ def run_auction(season: str, include_b: bool, seed: int,
     out = ROOT / "data" / "live_logs" / f"live_{int(time.time())}.jsonl"
     ENGINE.attach_live_log(out)   # incrementale: crash-proof
     ENGINE.run()
-    if not PACK.votes_by_g:
+    giornate_con_voti = sum(1 for v in (PACK.votes_by_g or []) if v)
+    if not PACK.votes_by_g or giornate_con_voti < 5:
         with LOCK:
             STATE["finished"] = True
             STATE["log_path"] = str(out)

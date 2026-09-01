@@ -29,6 +29,8 @@ from fantabot.modeling import project_players  # noqa: E402
 TARGETS = {
     "2024-25": ["2021-22", "2023-24"],
     "2025-26": ["2021-22", "2023-24", "2024-25"],
+    # stagione corrente: tutto lo storico disponibile
+    "2026-27": ["2021-22", "2023-24", "2024-25", "2025-26"],
 }
 BUDGET = 500
 
@@ -57,7 +59,7 @@ def catboost_values(season: str, train_ss: list[str], te: pd.DataFrame) -> pd.Se
 
 
 def marcel_values(season: str, te: pd.DataFrame) -> pd.Series:
-    order = ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+    order = ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
     prev = [s for s in order if s < season][-3:]
     frames = []
     for s in prev:
@@ -78,7 +80,10 @@ def marcel_values(season: str, te: pd.DataFrame) -> pd.Series:
 
 
 def main():
+    wanted = [a for a in sys.argv[1:] if a in TARGETS]
     for season, train_ss in TARGETS.items():
+        if wanted and season not in wanted:
+            continue
         seasons = {s: load_season(s) for s in train_ss + [season]}
         tr = pd.concat([seasons[s] for s in train_ss], ignore_index=True)
         tr = tr[~tr["y"].isna()].reset_index(drop=True)

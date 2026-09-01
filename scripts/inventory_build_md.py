@@ -14,7 +14,7 @@ Generato il {datetime.date.today().isoformat()} da `scripts/inventory_raw.py`,
 
 Radici censite:
 - `data\\raw` (gruppoesperti, quotazioni, transfermarkt, understat, voti, wayback_prices)
-- `E:\\claudecode pesante\\fonti_prezzi` (file preesistenti congelati)
+- `fonti_prezzi` (file preesistenti congelati)
 
 ## Quadro d'insieme
 

@@ -83,6 +83,52 @@ a{color:inherit;}
   display:grid; grid-template-columns:repeat(3, 384px); gap:22px;
   margin:14px 0 26px;
 }
+/* card grande "asta vera": tutta la riga, due colonne dentro */
+.mode.copilot{
+  grid-column:1 / -1;
+  border-color:color-mix(in srgb, var(--yellow) 55%, var(--surface0));
+  box-shadow:0 18px 44px -18px rgba(0,0,0,.85), 0 0 40px -14px var(--yellow);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--yellow) 7%, var(--base)) 0%, color-mix(in srgb, var(--base) 90%, transparent) 55%);
+  padding:28px 30px 24px;
+}
+.mode.copilot:hover{transform:translateY(-3px);}
+.mode.copilot .cp-grid{display:grid; grid-template-columns:1.1fr 1fr; gap:26px; align-items:start;}
+.mode.copilot h2{font-size:28px;}
+.mode.copilot .sub{font-size:14.5px; min-height:0;}
+.step{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:22px; height:22px; border-radius:50%; font-size:11.5px; font-weight:900;
+  background:var(--surface0); color:var(--subtext0); margin-right:8px; vertical-align:middle;
+}
+.mode.copilot .step{background:var(--yellow); color:var(--crust);}
+.cta.big{font-size:18px; padding:15px 26px;}
+.cp-why{
+  display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px;
+}
+.cp-why div{background:var(--mantle); border:1px solid var(--surface0); border-radius:11px; padding:10px 12px; font-size:12.5px; color:var(--subtext0); line-height:1.45;}
+.cp-why b{display:block; color:var(--text); font-size:13px; margin-bottom:2px;}
+.resume-box{
+  display:flex; flex-direction:column; gap:4px;
+  background:var(--mantle); border:1px dashed var(--surface1); border-radius:11px; padding:10px 12px;
+}
+.resume-box .meta{font-size:11.5px; color:var(--overlay1); line-height:1.5;}
+.resume-box .meta b{color:var(--subtext1);}
+.hr{height:1px; background:var(--surface0); margin:4px 0;}
+
+/* aggiorna mercato */
+.mode.refresh:hover{border-color:color-mix(in srgb, var(--teal) 50%, var(--surface0)); box-shadow:0 18px 44px -18px rgba(0,0,0,.85), 0 0 30px -14px var(--teal);}
+.cta.teal{background:var(--teal);}
+.rlog{
+  background:var(--crust); border:1px solid var(--surface0); border-radius:10px;
+  padding:8px 10px; font-family:ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size:10.5px; line-height:1.45; color:var(--subtext0); max-height:150px; overflow:auto;
+  white-space:pre-wrap; word-break:break-word;
+}
+.rlog:empty::before{content:"nessun log ancora"; color:var(--overlay0);}
+.badge.run{color:var(--yellow); background:color-mix(in srgb, var(--yellow) 12%, transparent); border:1px solid color-mix(in srgb, var(--yellow) 40%, transparent);}
+.badge.run .dot{background:var(--yellow); animation:pulse 1s ease-in-out infinite;}
+.badge.err{color:var(--red); background:color-mix(in srgb, var(--red) 12%, transparent); border:1px solid color-mix(in srgb, var(--red) 40%, transparent);}
+.badge.err .dot{background:var(--red);}
 .mode{
   background:color-mix(in srgb, var(--base) 88%, transparent);
   border:1px solid var(--surface0); border-radius:18px;
@@ -255,22 +301,35 @@ footer .sep{color:var(--surface1);}
 
 <div class="modes">
 
-  <div class="mode replay">
-    <div class="icon">▶</div>
-    <h2>Replay</h2>
-    <div class="sub">Guarda un'asta simulata come uno spettacolo: palco, rilanci, pensieri dei bot.</div>
-    <div class="body">
-      <div class="loglist" id="logList"></div>
-      <div class="loghint" id="logHint">Oppure <b>trascina qui</b> un event log <b>.jsonl</b>: si apre direttamente nel teatro.</div>
-      <div class="droperr" id="dropErr"></div>
-      <a class="cta ghost" href="replay.html" style="margin-top:auto">Apri il teatro vuoto</a>
+  <!-- 1 · ASTA VERA — lo scopo dell'app -->
+  <div class="mode copilot">
+    <div class="cp-grid">
+      <div>
+        <div class="icon">🏟️</div>
+        <h2><span class="step">1</span>ASTA VERA — Copilota</h2>
+        <div class="sub">Il giorno dell'asta coi tuoi amici: tu registri ogni martelletto, l'oracolo ti dice <b>fin dove salire</b>, chi chiamare e come cambia il piano. Tutto salvato su disco, riprendibile.</div>
+        <div class="cp-why">
+          <div><b>🎙️ Al banco</b>cerchi chi chiamano, scrivi il prezzo: consiglio verde / giallo / rosso in un colpo d'occhio.</div>
+          <div><b>🧭 Il piano</b>rosa target che si ricalcola a ogni acquisto, costo atteso contro il budget.</div>
+          <div><b>🪑 Il tavolo</b>budget e slot di tutti, offerta massima legale, rose con un click.</div>
+        </div>
+      </div>
+      <div class="body" id="copilotBody">
+        <span class="badge off" id="cpBadge"><span class="dot"></span><span id="cpBadgeTxt">cerco il tavolo…</span></span>
+        <div id="cpArea"></div>
+        <div class="portrow">
+          <label for="cpPort">porta</label>
+          <input id="cpPort" type="number" min="1" max="65535" value="8770">
+        </div>
+      </div>
     </div>
   </div>
 
+  <!-- 2 · SEDIA -->
   <div class="mode sedia">
     <div class="icon">🪑</div>
-    <h2>Sedia</h2>
-    <div class="sub">Siediti al tavolo contro i 9 bot: chiami, rilanci e passi tu — il suggeritore al fianco.</div>
+    <h2><span class="step">2</span>Allenati — Sedia</h2>
+    <div class="sub">Prova l'asta contro 9 bot prima di quella vera: chiami, rilanci e passi tu, col suggeritore al fianco. A fine asta simula il campionato.</div>
     <div class="body" id="sediaBody">
       <span class="badge off" id="liveBadge"><span class="dot"></span><span id="liveBadgeTxt">cerco il tavolo…</span></span>
       <div id="liveArea"></div>
@@ -282,16 +341,29 @@ footer .sep{color:var(--surface1);}
     </div>
   </div>
 
-  <div class="mode stagione">
-    <div class="icon">🏆</div>
-    <h2>Stagione</h2>
-    <div class="sub">Rivivi il campionato di un'asta giocata: 38 giornate coi fantavoti reali, scontro per scontro.</div>
+  <!-- 3 · REPLAY -->
+  <div class="mode replay">
+    <div class="icon">▶</div>
+    <h2><span class="step">3</span>Replay</h2>
+    <div class="sub">Rivedi un'asta simulata come uno spettacolo: palco, rilanci, pensieri dei bot, stagione a 38 giornate.</div>
     <div class="body">
-      <div class="livenote" id="seasonNote">
-        Si apre dal riepilogo di fine asta — sia dopo un replay che dopo una partita in Sedia —
-        col bottone <b>«Vai alla stagione»</b>.
-      </div>
-      <div id="seasonCta" style="margin-top:auto"></div>
+      <div class="loglist" id="logList"></div>
+      <div class="loghint" id="logHint">Oppure <b>trascina qui</b> un event log <b>.jsonl</b>: si apre direttamente nel teatro.</div>
+      <div class="droperr" id="dropErr"></div>
+      <a class="cta ghost" href="replay.html" style="margin-top:auto">Apri il teatro vuoto</a>
+    </div>
+  </div>
+
+  <!-- 4 · AGGIORNA MERCATO -->
+  <div class="mode refresh">
+    <div class="icon">🔄</div>
+    <h2><span class="step">4</span>Aggiorna mercato</h2>
+    <div class="sub">Scarica quotazioni e notizie fresche e ricostruisce le previsioni. Ci vogliono minuti: fallo la sera prima, non al tavolo.</div>
+    <div class="body" id="refreshBody">
+      <span class="badge off" id="rfBadge"><span class="dot"></span><span id="rfBadgeTxt">stato sconosciuto</span></span>
+      <div class="livenote" id="rfLast">ultimo aggiornamento: —</div>
+      <div id="rfArea"></div>
+      <div class="rlog" id="rfLog"></div>
     </div>
   </div>
 
@@ -379,28 +451,28 @@ document.addEventListener("drop", e => {
 });
 
 /* ============================================================
- * SEDIA — probe del server live (1s timeout, riprova ogni 3s)
- * + launcher integrato: se la pagina gira dentro FantaOracle App
- *   (scripts/fantaoracle_app.py) il bottone AVVIA lancia l'asta
- *   davvero; altrimenti piano B col comando da copiare.
+ * LAUNCHER — se la pagina gira dentro FantaOracle App
+ * (scripts/fantaoracle_app.py) i bottoni AVVIA/RIPRENDI lanciano
+ * davvero i server; altrimenti piano B col comando da copiare.
+ * Si cerca UNA volta (evita 404 a raffica su server semplice); se
+ * c'è, a ogni giro si aggiornano figli, stagioni e aste interrotte.
  * ============================================================ */
-const CMD = "python scripts/f6_live_auction.py 2025-26";
 const LN = {
-  checked:false, present:false, children:[],
+  checked:false, present:false, children:[], seasons:["2025-26", "2024-25"],
+  interrotte:{sedia:[], copilot:[]},
   starting:false, arm:null, lastErr:"",
   last:{state:null, url:"http://localhost:8765", port:8765},
+  cp:{starting:false, arm:null, lastErr:"", last:{state:null, url:"http://localhost:8770", port:8770}},
 };
-let probeTimer = null;
-function currentPort(){
-  const v = parseInt($("portInput").value, 10);
-  return Number.isFinite(v) && v > 0 && v < 65536 ? v : 8765;
-}
-function lnSeason(){ try{ return localStorage.getItem("fantaoracle_season") || "2025-26"; }catch(e){ return "2025-26"; } }
+function ourChildAlive(port, mode){ return LN.children.some(c => c.porta === port && c.alive && (!mode || (c.mode || "sedia") === mode)); }
+function latestSeason(){ return LN.seasons.length ? LN.seasons[LN.seasons.length - 1] : "2025-26"; }
+function lnSeason(){ try{ return localStorage.getItem("fantaoracle_season") || latestSeason(); }catch(e){ return latestSeason(); } }
+function cpSeason(){ try{ return localStorage.getItem("fantaoracle_cp_season") || latestSeason(); }catch(e){ return latestSeason(); } }
 function lnNoB(){ try{ return localStorage.getItem("fantaoracle_nob") === "1"; }catch(e){ return false; } }
-function ourChildAlive(port){ return LN.children.some(c => c.porta === port && c.alive); }
+function seasonOptions(sel){
+  return LN.seasons.slice().reverse().map(s => `<option value="${esc(s)}" ${sel === s ? "selected" : ""}>${esc(s)}</option>`).join("");
+}
 
-/* il launcher si cerca UNA volta (evita 404 a raffica su server semplice);
-   se c'è, a ogni giro si aggiorna la lista dei figli */
 async function probeLauncher(){
   if(LN.checked && !LN.present) return;
   try{
@@ -410,7 +482,12 @@ async function probeLauncher(){
       if(d && d.launcher === true){
         LN.present = true;
         LN.children = Array.isArray(d.children) ? d.children : [];
+        if(Array.isArray(d.seasons) && d.seasons.length) LN.seasons = d.seasons.slice().sort();
         LN.checked = true;
+        try{
+          const r2 = await fetch("../launcher/interrotte", {cache:"no-store"});
+          if(r2.ok){ const i = await r2.json(); LN.interrotte = {sedia: i.sedia || [], copilot: i.copilot || []}; }
+        }catch(e){}
         return;
       }
     }
@@ -418,19 +495,175 @@ async function probeLauncher(){
   }catch(e){ LN.present = false; }
   LN.checked = true;
 }
+async function fetchJson(url, ms){
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms || 1000);
+  try{
+    const res = await fetch(url, {signal: ctl.signal, cache:"no-store"});
+    return res.ok ? await res.json() : null;
+  }catch(e){ return null; }
+  finally{ clearTimeout(t); }
+}
+async function launcherStart(body){
+  const res = await fetch("../launcher/start", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  return res.json();
+}
+async function launcherStop(porta){
+  const res = await fetch("../launcher/stop", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({porta})});
+  return res.json();
+}
+function copyCmd(btn, codeEl){
+  btn.onclick = async () => {
+    const cmd = codeEl.textContent;
+    try{ await navigator.clipboard.writeText(cmd); }
+    catch(e){
+      const ta = document.createElement("textarea");
+      ta.value = cmd; document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }
+    btn.textContent = "COPIATO ✓"; btn.classList.add("ok");
+    setTimeout(() => { btn.textContent = "COPIA"; btn.classList.remove("ok"); }, 1600);
+  };
+}
 
+/* ============================================================
+ * 1 · ASTA VERA — Copilota (scripts/f10_copilot.py)
+ * ============================================================ */
+const CP_CMD = "python scripts/f10_copilot.py";
+let cpTimer = null;
+function cpPort(){
+  const v = parseInt($("cpPort").value, 10);
+  return Number.isFinite(v) && v > 0 && v < 65536 ? v : 8770;
+}
+async function probeCopilot(){
+  const port = cpPort(), url = `http://localhost:${port}`;
+  await probeLauncher();
+  const state = await fetchJson(url + "/copilot/state", 1000);
+  LN.cp.last = {state, url, port};
+  renderCopilot();
+  clearTimeout(cpTimer);
+  cpTimer = setTimeout(probeCopilot, 3000);
+}
+function cpArmed(){ const a = LN.cp.arm; return a && Date.now() < a.until ? a.action : null; }
+function cpArm(action){
+  LN.cp.arm = {action, until: Date.now() + 3000};
+  renderCopilot();
+  setTimeout(() => { if(LN.cp.arm && LN.cp.arm.action === action && Date.now() >= LN.cp.arm.until){ LN.cp.arm = null; renderCopilot(); } }, 3100);
+}
+function renderCopilot(){
+  const {state, url, port} = LN.cp.last;
+  const badge = $("cpBadge"), txt = $("cpBadgeTxt"), area = $("cpArea");
+  const enterUrl = `copilot.html?live=${encodeURIComponent(url)}`;
+  const armed = cpArmed();
+  const cpResume = LN.interrotte.copilot[0] || null;
+  let html = "";
+  if(state){
+    badge.className = "badge on";
+    const n = (state.names || []).length;
+    txt.textContent = n ? `tavolo attivo su :${port} — ${n} al tavolo, ${state.n_events || 0} acquisti` : `copilota acceso su :${port} — tavolo da apparecchiare`;
+    html += `<div class="livenote">${n ? `C'è un'asta vera in corso${state.names && state.names[state.my_index] ? ` — tu sei <b>${esc(state.names[state.my_index])}</b>` : ""}.` : "Il copilota è pronto: <b>entra</b> e scrivi i nomi dei partecipanti."}</div>
+      <a class="cta green big" href="${enterUrl}" style="margin-top:6px">🏟️ ENTRA nell'asta vera</a>`;
+    if(LN.present){
+      const main = LN.cp.starting
+        ? `<div class="lnspin"><span class="dot3"></span>preparo il copilota…</div>`
+        : (armed === "restart"
+            ? `<button class="cta warn" id="cpLaunch">❗ Sicuro? riclicca: chiude l'asta in corso</button>`
+            : `<button class="cta ghost" id="cpLaunch">🆕 NUOVA ASTA VERA <span style="font-size:11px;font-weight:700">(chiude quella in corso)</span></button>`);
+      const stop = (!LN.cp.starting && ourChildAlive(port, "copilot"))
+        ? (armed === "stop" ? `<button class="cta stop armed" id="cpStop">⏹ confermi lo stop?</button>` : `<button class="cta stop" id="cpStop" title="ferma il copilota avviato da qui">⏹ ferma</button>`)
+        : "";
+      html += `<div class="hr"></div>
+        <div class="lnrow"><select class="lnselect" id="cpSeason" title="stagione del pack" ${LN.cp.starting ? "disabled" : ""}>${seasonOptions(cpSeason())}</select>${main}${stop}</div>`;
+    }
+  } else {
+    badge.className = "badge off";
+    txt.textContent = `nessun copilota su :${port}`;
+    if(LN.present){
+      if(LN.cp.starting){
+        html += `<div class="lnspin"><span class="dot3"></span>preparo il copilota (carico il pack)…</div>`;
+      } else {
+        html += `<div class="livenote">Quando siete al tavolo: scegli la stagione dei dati e <b>avvia</b>. Poi scrivi i nomi degli amici.</div>
+          <div class="lnrow" style="margin-top:4px">
+            <select class="lnselect" id="cpSeason" title="stagione del pack">${seasonOptions(cpSeason())}</select>
+            <button class="cta big" id="cpLaunch">🏟️ AVVIA l'asta vera</button>
+          </div>`;
+        if(cpResume){
+          const nomi = (cpResume.nomi || []);
+          html += `<div class="resume-box">
+            <button class="cta ghost" id="cpResume">⏪ RIPRENDI l'ultima asta vera</button>
+            <div class="meta"><b>${nomi.length ? nomi.length + " al tavolo" : "tavolo vuoto"}</b> · <b>${cpResume.acquisti}</b> acquisti · salvata il <b>${esc(cpResume.quando)}</b>${nomi.length ? `<br>${esc(nomi.slice(0, 6).join(", "))}${nomi.length > 6 ? "…" : ""}` : ""}<br><span style="font-family:ui-monospace,Consolas,monospace">${esc(cpResume.file)}</span></div>
+          </div>`;
+        }
+      }
+    } else {
+      html += `<div class="livenote">Accendi il copilota dalla cartella del progetto:</div>
+        <div class="cmdbox" style="margin-top:7px">
+          <code id="cpCmdTxt">${esc(CP_CMD)} ${esc(latestSeason())}${port !== 8770 ? " --porta " + port : ""}</code>
+          <button class="copybtn" id="cpCopy">COPIA</button>
+        </div>`;
+    }
+  }
+  if(LN.cp.lastErr) html += `<div class="lnerr">⚠ ${esc(LN.cp.lastErr)}</div>`;
+  if(area.dataset.html === html) return;    // niente re-render inutili: non rompe select/click a metà
+  area.dataset.html = html;
+  area.innerHTML = html;
+  const cc = $("cpCopy"); if(cc) copyCmd(cc, $("cpCmdTxt"));
+  const sel = $("cpSeason"); if(sel) sel.onchange = () => { try{ localStorage.setItem("fantaoracle_cp_season", sel.value); }catch(e){} };
+  const bl = $("cpLaunch");
+  if(bl) bl.onclick = () => {
+    if(!LN.cp.last.state) return cpStart({mode:"copilot", season: cpSeason(), porta: port});
+    if(armed === "restart"){ LN.cp.arm = null; cpStart({mode:"copilot", season: cpSeason(), porta: port}); }
+    else cpArm("restart");
+  };
+  const br = $("cpResume");
+  if(br) br.onclick = () => cpStart({mode:"copilot", season: cpSeason(), porta: port, resume:"latest"});
+  const bs = $("cpStop");
+  if(bs) bs.onclick = async () => {
+    if(armed === "stop"){
+      LN.cp.arm = null; LN.cp.lastErr = "";
+      try{ const d = await launcherStop(port); if(!d.ok) LN.cp.lastErr = d.err || "stop non riuscito"; }
+      catch(e){ LN.cp.lastErr = "launcher non raggiungibile"; }
+      clearTimeout(cpTimer); probeCopilot();
+    } else cpArm("stop");
+  };
+}
+async function cpStart(body){
+  LN.cp.starting = true; LN.cp.lastErr = ""; LN.cp.arm = null;
+  renderCopilot();
+  try{
+    const d = await launcherStart(body);
+    if(!d || d.ok !== true) LN.cp.lastErr = (d && d.err) || "avvio non riuscito";
+    else { location.href = `copilot.html?live=${encodeURIComponent("http://localhost:" + body.porta)}`; return; }
+  }catch(e){ LN.cp.lastErr = "launcher non raggiungibile (" + e.message + ")"; }
+  LN.cp.starting = false;
+  clearTimeout(cpTimer);
+  probeCopilot();
+}
+$("cpPort").addEventListener("input", () => {
+  try{ localStorage.setItem("fantaoracle_cp_port", String(cpPort())); }catch(e){}
+  LN.cp.arm = null; LN.cp.lastErr = "";
+  clearTimeout(cpTimer);
+  cpTimer = setTimeout(probeCopilot, 350);
+});
+try{
+  const saved = parseInt(localStorage.getItem("fantaoracle_cp_port"), 10);
+  if(Number.isFinite(saved) && saved > 0) $("cpPort").value = saved;
+}catch(e){}
+
+/* ============================================================
+ * 2 · SEDIA — probe del server live (1s timeout, riprova ogni 3s)
+ * ============================================================ */
+const CMD = "python scripts/f6_live_auction.py 2025-26";
+let probeTimer = null;
+function currentPort(){
+  const v = parseInt($("portInput").value, 10);
+  return Number.isFinite(v) && v > 0 && v < 65536 ? v : 8765;
+}
 async function probeLive(){
   const port = currentPort();
   const url = `http://localhost:${port}`;
   await probeLauncher();
-  let state = null;
-  try{
-    const ctl = new AbortController();
-    const t = setTimeout(() => ctl.abort(), 1000);
-    const res = await fetch(url + "/state", {signal: ctl.signal});
-    clearTimeout(t);
-    if(res.ok) state = await res.json();
-  }catch(e){ /* spento */ }
+  const state = await fetchJson(url + "/state", 1000);
   LN.last = {state, url, port};
   renderSedia(state, url, port);
   clearTimeout(probeTimer);
@@ -440,8 +673,6 @@ function renderNow(){ renderSedia(LN.last.state, LN.last.url, LN.last.port); }
 
 function launcherHTML(active, port){
   const armed = LN.arm && Date.now() < LN.arm.until ? LN.arm.action : null;
-  const opts = ["2025-26", "2024-25"].map(s =>
-    `<option value="${s}" ${lnSeason() === s ? "selected" : ""}>${s}</option>`).join("");
   let main;
   if(LN.starting){
     main = `<div class="lnspin"><span class="dot3"></span>sto apparecchiando il tavolo…</div>`;
@@ -457,12 +688,20 @@ function launcherHTML(active, port){
         ? `<button class="cta stop armed" id="btnStop">⏹ confermi lo stop?</button>`
         : `<button class="cta stop" id="btnStop" title="ferma l'asta avviata da qui">⏹ ferma</button>`)
     : "";
+  const sr = LN.interrotte.sedia[0] || null;
+  const resume = (!active && !LN.starting && sr)
+    ? `<div class="resume-box" style="margin-top:9px">
+         <button class="cta ghost" id="btnResume">⏪ RIPRENDI asta interrotta</button>
+         <div class="meta"><b>${sr.eventi}</b> eventi · <b>${esc(sr.quando)}</b> · <span style="font-family:ui-monospace,Consolas,monospace">${esc(sr.file)}</span></div>
+       </div>`
+    : "";
   return `
     <div class="lnrow" style="margin-top:12px">
-      <select class="lnselect" id="lnSeason" title="stagione del pack" ${LN.starting ? "disabled" : ""}>${opts}</select>
+      <select class="lnselect" id="lnSeason" title="stagione del pack" ${LN.starting ? "disabled" : ""}>${seasonOptions(lnSeason())}</select>
       <label class="lncheck" title="tavolo senza il bot modello B"><input type="checkbox" id="lnNoB" ${lnNoB() ? "checked" : ""} ${LN.starting ? "disabled" : ""}>senza bot B</label>
     </div>
     <div class="lnrow" style="margin-top:9px">${main}${stop}</div>
+    ${resume}
     ${LN.lastErr ? `<div class="lnerr">⚠ ${esc(LN.lastErr)}</div>` : ""}`;
 }
 
@@ -475,21 +714,18 @@ function renderSedia(state, url, port){
     if(state.finished){
       txt.textContent = `tavolo :${port} — asta conclusa`;
       html += `
-        <div class="livenote">Asta finita e stagione pronta: entra e <b>guarda com'è andata</b>.</div>
+        <div class="livenote">Asta finita e stagione pronta: entra e <b>guarda com'è andata</b> (38 giornate coi fantavoti reali).</div>
         <a class="cta green" href="${enterUrl}" style="margin-top:9px">🏆 ENTRA — vedi la stagione</a>`;
-      $("seasonCta").innerHTML = `<a class="cta green" href="${enterUrl}">🏆 Vedi la stagione dell'asta su :${port}</a>`;
     } else {
       txt.textContent = `tavolo attivo su :${port}`;
       html += `
         <div class="livenote">C'è un'asta in corso che ti aspetta${state.awaiting ? " — <b>tocca a te!</b>" : ""}.</div>
         <a class="cta green" href="${enterUrl}" style="margin-top:9px">🪑 ENTRA al tavolo</a>`;
-      $("seasonCta").innerHTML = "";
     }
     if(LN.present) html += launcherHTML(true, port);
   } else {
     badge.className = "badge off";
     txt.textContent = `nessun tavolo su :${port}`;
-    $("seasonCta").innerHTML = "";
     if(LN.present){
       html += `<div class="livenote">Nessuna asta in corso: <b>apparecchia il tavolo</b> con un click.</div>` + launcherHTML(false, port);
     } else {
@@ -501,23 +737,15 @@ function renderSedia(state, url, port){
         </div>`;
     }
   }
+  if(area.dataset.html === html) return;    // niente re-render inutili
+  area.dataset.html = html;
   area.innerHTML = html;
   wireSedia(port);
 }
 
 function wireSedia(port){
   const cp = $("copyCmd");
-  if(cp) cp.onclick = async () => {
-    const cmd = $("cmdTxt").textContent;
-    try{ await navigator.clipboard.writeText(cmd); }
-    catch(e){
-      const ta = document.createElement("textarea");
-      ta.value = cmd; document.body.appendChild(ta); ta.select();
-      document.execCommand("copy"); ta.remove();
-    }
-    cp.textContent = "COPIATO ✓"; cp.classList.add("ok");
-    setTimeout(() => { cp.textContent = "COPIA"; cp.classList.remove("ok"); }, 1600);
-  };
+  if(cp) copyCmd(cp, $("cmdTxt"));
   const sel = $("lnSeason");
   if(sel) sel.onchange = () => { try{ localStorage.setItem("fantaoracle_season", sel.value); }catch(e){} };
   const nb = $("lnNoB");
@@ -529,6 +757,8 @@ function wireSedia(port){
     if(LN.arm && LN.arm.action === "restart" && Date.now() < LN.arm.until){ LN.arm = null; doStart(port); }
     else armConfirm("restart");
   };
+  const br = $("btnResume");
+  if(br) br.onclick = () => doStart(port, "latest");
   const bs = $("btnStop");
   if(bs) bs.onclick = () => {
     if(LN.arm && LN.arm.action === "stop" && Date.now() < LN.arm.until){ LN.arm = null; doStop(port); }
@@ -544,15 +774,13 @@ function armConfirm(action){
   }, 3100);
 }
 
-async function doStart(port){
+async function doStart(port, resume){
   LN.starting = true; LN.lastErr = ""; LN.arm = null;
   renderNow();
   try{
-    const res = await fetch("../launcher/start", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({season: lnSeason(), porta: port, no_b: lnNoB()}),
-    });
-    const d = await res.json();
+    const body = {mode:"sedia", season: lnSeason(), porta: port, no_b: lnNoB()};
+    if(resume) body.resume = resume;
+    const d = await launcherStart(body);
     if(!d || d.ok !== true) LN.lastErr = (d && d.err) || "avvio non riuscito";
   }catch(e){ LN.lastErr = "launcher non raggiungibile (" + e.message + ")"; }
   LN.starting = false;
@@ -563,11 +791,7 @@ async function doStart(port){
 async function doStop(port){
   LN.lastErr = "";
   try{
-    const res = await fetch("../launcher/stop", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({porta: port}),
-    });
-    const d = await res.json();
+    const d = await launcherStop(port);
     if(!d || d.ok !== true) LN.lastErr = (d && d.err) || "stop non riuscito";
   }catch(e){ LN.lastErr = "launcher non raggiungibile (" + e.message + ")"; }
   clearTimeout(probeTimer);
@@ -583,7 +807,67 @@ try{
   const saved = parseInt(localStorage.getItem("fantaoracle_port"), 10);
   if(Number.isFinite(saved) && saved > 0) $("portInput").value = saved;
 }catch(e){}
+
+/* ============================================================
+ * 4 · AGGIORNA MERCATO — POST /launcher/refresh, polling 3s di
+ *     /launcher/refresh_status (stato + ultime righe di log)
+ * ============================================================ */
+const RF = {status:null, starting:false, lastErr:"", timer:null};
+async function pollRefresh(){
+  clearTimeout(RF.timer);
+  await probeLauncher();
+  RF.status = LN.present ? await fetchJson("../launcher/refresh_status", 2500) : null;
+  renderRefresh();
+  RF.timer = setTimeout(pollRefresh, 3000);
+}
+function renderRefresh(){
+  const badge = $("rfBadge"), txt = $("rfBadgeTxt"), area = $("rfArea"), log = $("rfLog"), last = $("rfLast");
+  const s = RF.status;
+  if(!LN.present){
+    badge.className = "badge off"; txt.textContent = "serve FantaOracle App";
+    last.innerHTML = "ultimo aggiornamento: —";
+    if(!$("rfCmdTxt")){
+      area.innerHTML = `<div class="livenote">Dalla cartella del progetto:</div>
+        <div class="cmdbox" style="margin-top:7px"><code id="rfCmdTxt">python scripts/f11_refresh_all.py</code><button class="copybtn" id="rfCopy">COPIA</button></div>`;
+      copyCmd($("rfCopy"), $("rfCmdTxt"));
+    }
+    log.textContent = "";
+    return;
+  }
+  if(!s){ badge.className = "badge off"; txt.textContent = "stato non disponibile"; return; }
+  const st = String(s.status || "");
+  const running = !!s.running || st === "running";
+  if(running){ badge.className = "badge run"; txt.textContent = "aggiornamento in corso…"; }
+  else if(st === "ok"){ badge.className = "badge on"; txt.textContent = "dati aggiornati"; }
+  else if(st.startsWith("errori")){ badge.className = "badge err"; txt.textContent = "ultimo giro con errori"; }
+  else { badge.className = "badge off"; txt.textContent = st || "mai eseguito"; }
+  last.innerHTML = `ultimo aggiornamento: <b>${s.ultimo ? esc(s.ultimo) : "mai"}</b>${st && !running ? ` · esito <b>${esc(st)}</b>` : ""}`;
+  const want = RF.starting ? "spin-start" : running ? "spin-run" : "btn";
+  if(area.dataset.mode !== want || RF.lastErr !== area.dataset.err){
+    area.dataset.mode = want; area.dataset.err = RF.lastErr;
+    area.innerHTML = (want !== "btn")
+      ? `<div class="lnspin"><span class="dot3"></span>${RF.starting ? "avvio…" : "scarico e ricalcolo, può volerci qualche minuto"}</div>`
+      : `<button class="cta teal" id="rfGo">🔄 AGGIORNA ORA</button>`;
+    if(RF.lastErr) area.innerHTML += `<div class="lnerr">⚠ ${esc(RF.lastErr)}</div>`;
+    const g = $("rfGo");
+    if(g) g.onclick = async () => {
+      RF.starting = true; RF.lastErr = ""; renderRefresh();
+      try{
+        const res = await fetch("../launcher/refresh", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
+        const d = await res.json();
+        if(!d.ok) RF.lastErr = d.err || "avvio non riuscito";
+      }catch(e){ RF.lastErr = "launcher non raggiungibile"; }
+      RF.starting = false;
+      clearTimeout(RF.timer); RF.timer = setTimeout(pollRefresh, 800);
+    };
+  }
+  const lines = String(s.log || "").split("\n").filter(Boolean).slice(-12).join("\n");
+  if(log.textContent !== lines){ log.textContent = lines; log.scrollTop = log.scrollHeight; }
+}
+
+probeCopilot();
 probeLive();
+pollRefresh();
 </script>
 </body>
 </html>

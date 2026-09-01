@@ -3,14 +3,13 @@
 Webapp autosufficienti (vanilla JS + CSS inline, zero dipendenze/CDN, tema "notturno da
 stadio": Catppuccin Mocha + verde campo + oro martelletto):
 
-- **`index.html`** — il menu: wordmark 🔮, probe del server live (badge "tavolo attivo",
-  porta custom, re-probe ogni 3s), lista dei log raggiungibili, drag&drop di un log che
-  si apre direttamente nel teatro, CTA stagione quando l'asta risulta conclusa. Se la
-  pagina gira dentro **FantaOracle App** (`python scripts/fantaoracle_app.py`) la card
-  Sedia mostra il flusso a bottoni: stagione (2025-26/2024-25), toggle "senza bot B",
-  **🚀 AVVIA NUOVA ASTA** (spinner → tavolo attivo → ENTRA), "🔁 NUOVA ASTA" con
-  conferma inline quando un tavolo è già acceso e "⏹ ferma" per le aste avviate da qui;
-  su un server statico semplice resta il piano B col comando + COPIA.
+- **`index.html`** — il menu, in ordine di utilità: **1) Asta vera (Copilota)**, 2) Allenati
+  contro i bot (Sedia), 3) Replay, 4) Aggiorna mercato. Una riga di spiegazione sotto ogni
+  titolo. Se la pagina gira dentro **FantaOracle App** (`python scripts/fantaoracle_app.py`,
+  o `FantaOracle.bat`) i bottoni AVVIA/RIPRENDI/ferma lanciano davvero i server; su un server
+  statico semplice resta il piano B col comando da copiare.
+- **`copilot.html`** — il **Copilota dell'asta VERA** coi tuoi amici (nessun bot: tu registri
+  i martelletti, l'oracolo consiglia). Vedi sotto.
 - **`replay.html`** — il teatro con **tre anime**: il replay di un'asta simulata, la
   **Modalità Sedia** (asta live con te al tavolo contro 9 bot) e il **viewer della
   stagione** post-asta. La scena è la stessa: palco col giocatore chiamato sotto al
@@ -20,7 +19,81 @@ stadio": Catppuccin Mocha + verde campo + oro martelletto):
   subtotali e residuo, aggiornato live; chiusura con ✕/Esc/click fuori), sparkline
   dell'inflazione e riepilogo finale con le rose complete. Bottone ⌂ per tornare al menu.
 
-## Modalità replay (`?log=…`)
+## Il menu (`index.html`) dentro FantaOracle App
+
+```
+python scripts/fantaoracle_app.py --porta 8899      # oppure doppio click su FantaOracle.bat
+# → http://localhost:8899/viz/index.html
+```
+
+- **Card 1 · 🏟️ ASTA VERA — Copilota** (grande, tutta la riga): probe di
+  `GET /copilot/state` sulla porta scelta (default 8770, riprovato ogni 3s).
+  - nessun copilota acceso → select stagione (default: la più recente tra `seasons` di
+    `/launcher/status`) + **🏟️ AVVIA l'asta vera** (`POST /launcher/start
+    {mode:"copilot"}`, poi salto diretto in `copilot.html`); se `/launcher/interrotte` ha
+    ledger del copilota compare **⏪ RIPRENDI l'ultima asta vera** con nomi, acquisti e
+    data (`{mode:"copilot", resume:"latest"}`).
+  - copilota acceso → badge "tavolo attivo — N al tavolo, M acquisti", **ENTRA**,
+    "🆕 NUOVA ASTA VERA" con conferma inline (riclicca entro 3s) e "⏹ ferma" per i processi
+    avviati da qui (anche lui con conferma).
+- **Card 2 · 🪑 Allenati — Sedia**: come prima (stagione, "senza bot B", AVVIA/NUOVA
+  ASTA/ferma) più **⏪ RIPRENDI asta interrotta** quando `/launcher/interrotte` ha log
+  Sedia senza stagione salvata accanto (`{mode:"sedia", resume:"latest"}`).
+- **Card 3 · ▶ Replay**: lista dei log raggiungibili + drag&drop di un `.jsonl`.
+- **Card 4 · 🔄 Aggiorna mercato**: **AGGIORNA ORA** → `POST /launcher/refresh` (lancia
+  `scripts/f11_refresh_all.py`, minuti); polling ogni 3s di `GET /launcher/refresh_status`
+  → badge (in corso / dati aggiornati / errori / mai eseguito), "ultimo aggiornamento:
+  gg/mm hh:mm · esito", ultime 12 righe di log in un box monospace.
+- Le card si ri-renderizzano solo quando cambia davvero qualcosa (niente select che si
+  chiudono da sole mentre scegli).
+
+## Copilota dell'asta vera (`copilot.html?live=http://localhost:8770`)
+
+Server: `python scripts/f10_copilot.py 2025-26 --porta 8770` (o dal menu). Tutto lo stato
+vive sul server, che scrive ogni evento in `data/copilot/ledger_<ts>.json`: chiudi, riapri,
+ricarica la pagina e riprendi esattamente da lì (badge **salvato ✓ ledger_….json** in
+header, lampeggia a ogni acquisto). Polling `/copilot/state` ogni 2s; server giù → banner
+rosso non bloccante e pill "SERVER GIÙ", riprova da solo.
+
+- **Setup** (finché `names` è vuoto): numero partecipanti (2–14, stepper), un campo nome
+  per riga con il radio **IO** che marca la tua squadra (riga evidenziata oro), budget a
+  testa, **CONFERMA** (`POST /copilot/setup`). Nomi/budget ricordati in localStorage per la
+  prossima volta. "⚙ tavolo" in header riapre il setup solo prima del primo acquisto.
+- **SINISTRA · AL BANCO**: ricerca (nome, debounce 200ms) + pill ruolo P/D/C/A + select
+  squadra (stemmi CLUB_STYLE come nel teatro); righe con ruolo, stemma, q50, valore; il
+  primo risultato è bordato (Invio lo seleziona). Selezionato → card: nome, stemma grande,
+  chip "★ titolare di piano / nel piano · panchina / fuori piano", q10-q50-q90 + valore,
+  forchetta q10–q90 con tacca bianca al prezzo attuale, motivi mercato (se presenti), slot
+  liberi, tua offerta massima legale, calore, max consigliato, affare sotto.
+  **Prezzo attuale** (campo grande, −1/+1/+5/+10) e sotto il **CONSIGLIO** grande e colorato
+  ricalcolato a ogni cambio (debounce 200ms su `/copilot/advice`):
+  - 🟢 **RILANCIA fino a X** (nel piano, sotto il max consigliato; mostra il costo-ombra);
+  - 🟡 **BARGAIN sotto X** (fuori piano ma conviene);
+  - 🔴 **LASCIALO** (fuori piano / oltre il max) e **NON PUOI RILANCIARE** (oltre l'offerta
+    massima legale);
+  - grigio **MAX 1–5 CREDITI** / **REPARTO PIENO**.
+  **AGGIUDICATO A…**: griglia di bottoni coi partecipanti (tu in oro; budget e max
+  offerta sotto il nome; disabilitati se il reparto è pieno) → `POST /copilot/hammer` al
+  prezzo attuale, flash verde "🔨 VENDUTO", riga del tavolo che lampeggia, banco che si
+  svuota e focus di nuovo sulla ricerca. Errori del server (reparto pieno, oltre il max
+  legale) in toast rosso. **↶ ANNULLA ultimo** sempre visibile sotto il banco (mostra
+  giocatore → squadra · prezzo): primo click arma, secondo entro 3s conferma
+  (`POST /copilot/undo`).
+- **CENTRO · IL MIO PIANO**: crediti residui, slot da riempire per ruolo, costo atteso del
+  piano, calore mercato; barra costo atteso vs budget (rossa se sfora, con "+N oltre
+  budget"); **CHI CHIAMO?** con bottoni P/D/C/A → `/copilot/nominate`: card 🎣 **ESCA**
+  (peach) o 🧱 **RIEMPITIVO** (teal) con giocatore, apertura, motivo e "→ AL BANCO";
+  **ROSA TARGET** per ruolo da `/copilot/plan` (★ titolare, prezzo atteso, ≤ max
+  consigliato), si ricalcola a ogni acquisto; click su una riga → al banco.
+- **DESTRA · IL TAVOLO**: tutti i partecipanti con budget a gradiente, offerta massima
+  legale, mini griglia slot P/D/C/A (tooltip col giocatore); tu evidenziato "TU"; click →
+  popover rosa per ruolo (stemmi, q50, prezzo pagato, subtotali, speso/max/residuo),
+  aggiornato live. **ULTIMI ACQUISTI**: ticker degli ultimi 15 martelletti (dal campo
+  `last_events` di `/copilot/state`).
+- **Scorciatoie**: `/` ricerca · `Invio` primo risultato · `+`/`−` prezzo ±1 (anche nel
+  campo prezzo) · `U` annulla ultimo (due volte) · `Esc` chiude popover / svuota il banco.
+
+## Modalità replay (`replay.html?log=…`)
 
 - **Doppio click** su `replay.html` (funziona da `file://`) e poi **drag&drop** del log
   `.jsonl` sulla pagina, oppure bottone "Scegli file…".
@@ -41,7 +114,7 @@ stadio": Catppuccin Mocha + verde campo + oro martelletto):
 Controlli: play/pausa (spazio), step singolo avanti/indietro (←/→), velocità 1x/4x/16x/64x,
 scrubber con tacche ai cambi di ruolo, "Fine ⇥" (End) per il riepilogo, Home per ricominciare.
 
-## Modalità Sedia — asta live (`?live=…`)
+## Modalità Sedia — asta live (`replay.html?live=…`)
 
 Tu al tavolo, 9 bot intorno. Serve il server d'asta (un processo = un'asta; riavviarlo
 per ripartire):
@@ -107,6 +180,15 @@ andando avanti/indietro.
 
 ## Dove agganciare le cose
 
+- **Copilota** — `copilot.html`: `poll()`/`onState()` (polling stato + rilevamento cambi
+  via `n_events`), `adviceView(a)` (mappa il testo `consiglio` del server → colore/titolo
+  del box: se cambia la frase lato server, si aggiorna lì), `renderLot()`/`renderAdvice()`,
+  `hammer()`/`undo()` (arm-confirm), `renderPlan()`, `renderTeams()`/`updateTeamPopover()`,
+  `renderTicker()` (usa `last_events` di `/copilot/state`, aggiunto in `f10_copilot.py`).
+- **Menu / launcher** — `index.html`: banner `LAUNCHER` (probe una tantum di
+  `/launcher/status` + `/launcher/interrotte`), sezioni `1 · ASTA VERA` (`probeCopilot`,
+  `renderCopilot`, `cpStart`), `2 · SEDIA` (`probeLive`, `renderSedia`, `doStart(port,
+  resume)`), `4 · AGGIORNA MERCATO` (`pollRefresh`, `renderRefresh`).
 - **Prezzo di riferimento per i badge AFFARE/STRAPAGATO** — funzione `referencePrice(lot)`
   in `replay.html` (cerca il banner `PREZZO DI RIFERIMENTO`). Oggi placeholder
   `apertura × 2.5`; quando avremo il listino vero basta sostituire il corpo della funzione
@@ -126,3 +208,5 @@ andando avanti/indietro.
 
 - Desktop-first, larghezza minima 1280 px.
 - In un tab in background i browser rallentano i timer: il replay prosegue ma a ~1 evento/s.
+- Nel menu, i probe verso porte spente (es. Sedia su :8765 quando non c'è) producono in
+  console il normale `net::ERR_CONNECTION_REFUSED` del browser: non è un errore della pagina.

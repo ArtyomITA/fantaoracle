@@ -14,9 +14,9 @@ CSV_PATH = os.path.join(OUT_DIR, "aste_reali_tidy.csv")
 
 # (path, source_file label)
 MAIN_FILES = [
-    (r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
+    (r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
      "gruppoesperti_prezzi_aste_reali_2024-25.xlsx"),
-    (r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
+    (r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
      "gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx"),
 ]
 # file extra con foglio 'Aste Concluse' popolato (da ge_scan_extra.py)

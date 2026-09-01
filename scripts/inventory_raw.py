@@ -12,7 +12,7 @@ import pandas as pd
 
 ROOTS = [
     r"data\raw",
-    r"E:\claudecode pesante\fonti_prezzi",
+    r"fonti_prezzi",
 ]
 OUT = r"data\raw\_inventory_section.md"
 

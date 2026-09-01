@@ -3,9 +3,9 @@
 from ge_parser import parse_file
 
 FILES = [
-    (r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
+    (r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
      "gruppoesperti_prezzi_aste_reali_2024-25.xlsx"),
-    (r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
+    (r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
      "gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx"),
 ]
 

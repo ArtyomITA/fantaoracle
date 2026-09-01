@@ -3,8 +3,8 @@
 from openpyxl import load_workbook
 
 FILES = {
-    "2024-25": r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
-    "2021-22": r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
+    "2024-25": r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
+    "2021-22": r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
 }
 
 for label, path in FILES.items():

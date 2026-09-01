@@ -19,6 +19,12 @@ python scripts/f6_live_auction.py 2025-26
 
 I dati grezzi (voti, quotazioni, prezzi reali) **non sono nel repo** e si rigenerano in locale con gli script inclusi: **leggi [DATA.md](DATA.md)** — spiega cosa è incluso (i derivati dei nostri modelli), cosa no e perché, e cosa cambia (la stagione post-asta richiede i voti).
 
+## 🏟️ L'asta vera (Copilota) e l'aggiornamento al minuto
+
+- **Asta vera coi tuoi amici**: dal menu, card "ASTA VERA — Copilota": inserisci i nomi dei partecipanti, registra ogni martelletto (chi, quanto) e per ogni giocatore al banco l'oracolo ti dice fin dove salire (verde / giallo bargain / rosso lascialo), chi chiamare al tuo turno e come cambia il piano rosa. Ogni acquisto è salvato su disco: chiudi e riprendi quando vuoi. Guida passo-passo: **[ASTA_VERA.md](ASTA_VERA.md)**.
+- **Aggiorna mercato** (`scripts/f11_refresh_all.py`, anche dal menu): scarica listone e quotazioni ufficiali, prezzi medi delle aste già fatte quest'anno, probabili formazioni con % titolarità, infortunati/squalificati con rientro, rigoristi, voti delle giornate giocate, xG; poi riallena le predizioni (ensemble TabPFN+CatBoost su tutto lo storico) e applica lo **strato di aggiustamento mercato** (`src/fantabot/market_adjust.py`: giornate perse, titolarità, rigoristi, blend coi prezzi reali — ogni correzione con il suo motivo). Ogni download è conservato datato in `data/snapshots/`.
+- Il pack demo `demo/pack_2026-27_demo.json` incluso nel repo è l'uscita di questa catena al 1 settembre 2026.
+
 ---
 
 ## 1. Cosa fa, in una frase

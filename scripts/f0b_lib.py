@@ -19,13 +19,13 @@ import pandas as pd
 from rapidfuzz import fuzz
 
 RAW = Path(r"data\raw")
-FONTI = Path(r"E:\claudecode pesante\fonti_prezzi")
+FONTI = Path(r"fonti_prezzi")
 PROC = Path(r"data\processed")
 MATCH_DIR = PROC / "_match"
 
-SEASONS = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
-PLAYERS_SEASONS = ["2021-22", "2023-24", "2024-25", "2025-26"]
-VOTI_SEASONS = ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26"]
+SEASONS = ["2020-21", "2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
+PLAYERS_SEASONS = ["2021-22", "2023-24", "2024-25", "2025-26", "2026-27"]
+VOTI_SEASONS = ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
 
 
 def norm(s):

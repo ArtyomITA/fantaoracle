@@ -43,6 +43,11 @@ WAYBACK_FILES = {
     "2025-26": [(RAW / "wayback_prices/prezzi_2025-26_20260411054907.csv", ","),
                  (FONTI / "wayback_20251212_stagione2025-26_congelata.csv", ";"),
                  (FONTI / "fantacalcio-online_live_2026-08-06_stagione2025-26.csv", ";")],
+    # stagione corrente: snapshot live piu' recente (f8_update_market), in
+    # ordine dal piu' nuovo; solo righe con prezzo davvero 2026-27 (il parser
+    # marca il fallback 2025-26 nella colonna stagione_prezzo)
+    "2026-27": [(p, ",") for p in sorted(
+        (RAW / "wayback_prices").glob("prezzi_2026-27_live_*.csv"), reverse=True)],
 }
 
 # snapshot fanta.soccer di inizio settembre per i players_{stagione}
@@ -187,6 +192,10 @@ def match_wayback(idx_by_season):
                 print(f"wayback {s}: manca {path}")
                 continue
             df = read_semicolon_csv(path) if sep == ";" else pd.read_csv(path)
+            if "stagione_prezzo" in df.columns:
+                # snapshot live: le righe con media della stagione precedente
+                # (fallback del sito) non sono prezzi di questa stagione
+                df = df[df["stagione_prezzo"].astype(str) == s].copy()
             pairs = []
             parsed = {}
             for r in df.itertuples(index=False):
@@ -458,8 +467,11 @@ def main():
     dates = pd.read_csv(RAW / "quotazioni" / "fantasoccer_date_rilevazioni.csv")
     dates["dt"] = pd.to_datetime(dates["data_rilevazione"], format="%d/%m/%Y")
     fs_seasons = {}
-    for s in ["2021-22", "2023-24", "2024-25", "2025-26"]:
+    for s in ["2021-22", "2023-24", "2024-25", "2025-26", "2026-27"]:
         d = dates[dates.stagione == s].copy()
+        if d.empty:
+            print(f"snapshot fanta.soccer {s}: nessuna data disponibile, salto")
+            continue
         sept1 = pd.Timestamp(int("20" + s[:2]) if False else int(s[:4]), 9, 1)
         # solo giornate con file scaricato
         d = d[d.giornata.map(lambda g: (RAW / "quotazioni" / f"fantasoccer_{s}_g{int(g):02d}.csv").exists())]

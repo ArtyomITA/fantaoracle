@@ -33,7 +33,7 @@ from fantabot.models import Player  # noqa: E402
 from fantabot.modeling import vorp_prices  # noqa: E402
 from fantabot.tournament import SeasonPack  # noqa: E402
 
-SEASONS = ["2024-25", "2025-26"]
+SEASONS = ["2024-25", "2025-26", "2026-27"]
 BUDGET = 500
 QUOTAS = {"P": 3, "D": 8, "C": 8, "A": 6}
 
@@ -41,7 +41,11 @@ QUOTAS = {"P": 3, "D": 8, "C": 8, "A": 6}
 def build_pack(season: str) -> SeasonPack:
     df = pd.read_parquet(PROC / f"players_{season}.parquet")
     votes = pd.read_parquet(PROC / f"votes_{season}.parquet")
-    preds = json.loads((PROC / f"b_predictions_{season}.json").read_text("utf-8"))
+    # stagione corrente: predizioni gia' aggiustate al mercato se esistono
+    adj_path = PROC / f"b_predictions_{season}_adj.json"
+    src = adj_path if adj_path.exists() else PROC / f"b_predictions_{season}.json"
+    preds = json.loads(src.read_text("utf-8"))
+    print(f"  predizioni B da {src.name}")
 
     # riferimento mercato: gerarchia di fonti
     mean_est = df["target_mean_pct_all_estiva"].astype(float)
@@ -143,7 +147,8 @@ def build_pack(season: str) -> SeasonPack:
 
 
 if __name__ == "__main__":
-    for s in SEASONS:
+    wanted = [a for a in sys.argv[1:] if a in SEASONS] or SEASONS
+    for s in wanted:
         pack = build_pack(s)
         with open(PACKS / f"pack_{s}.pkl", "wb") as f:
             pickle.dump(pack, f)

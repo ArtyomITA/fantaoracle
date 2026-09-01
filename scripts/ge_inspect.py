@@ -4,8 +4,8 @@ import sys
 from openpyxl import load_workbook
 
 FILES = [
-    r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
-    r"E:\claudecode pesante\fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
+    r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2024-25.xlsx",
+    r"fonti_prezzi\gruppoesperti_prezzi_aste_reali_2021-22circa.xlsx",
 ]
 
 for path in FILES:

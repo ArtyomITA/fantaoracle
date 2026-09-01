@@ -56,7 +56,7 @@ def load_season(season: str) -> pd.DataFrame:
     for c in ("nuovo_in_serie_a", "squadra_neopromossa"):
         df[c] = df[c].astype(float)
     # target: estive tutte le config (campione grande); 2025-26 solo wayback
-    if season == "2025-26":
+    if season in ("2025-26", "2026-27"):
         df["y"] = df["target_wayback_p500_10sq"].astype(float) / 500.0
         df["y_w"] = 1.0
     else:

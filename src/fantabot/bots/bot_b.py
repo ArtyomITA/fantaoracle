@@ -43,9 +43,11 @@ class BBot(Bot):
         Bound larghi (fix indagine: nel 2024-25 il mercato pagava 0.36x q50
         e il floor 0.8 teneva i cap troppo alti; nel 2025-26 la coda calda
         sfondava il tetto)."""
-        if self.infl_den < 30:
-            return 1.0
-        return max(0.5, min(1.8, self.infl_num / self.infl_den))
+        # stima bayesiana: parte da 1.0 e si sposta solo con volume di prezzi
+        # (prior di 250 crediti ~ 2-3 lotti grossi); un singolo strapagato non
+        # deve gonfiare tutti i cap
+        prior = 250.0
+        return max(0.5, min(1.8, (self.infl_num + prior) / (self.infl_den + prior)))
 
     # valore minimo (punti attesi) per giustificare piu' di 5 crediti:
     # fix anti-zavorra dall'indagine (Bailey/Lukaku 2025-26)
@@ -78,6 +80,7 @@ class BBot(Bot):
     def _replan(self, view: AuctionView):
         self.hammers_since_replan = 0
         heat = self.market_heat()
+        self._heat_at_replan = heat
         candidates = dict(view.pool)
         quotas_left = {r: view.quotas[r] - len(view.me.roster[r])
                        for r in view.quotas}
@@ -154,6 +157,9 @@ class BBot(Bot):
         self.hammers_since_replan += 1
         relevant = (winner == view.me.team_id
                     or (pid in self.targets and winner != view.me.team_id)
-                    or self.hammers_since_replan >= self.replan_every)
+                    or self.hammers_since_replan >= self.replan_every
+                    # il mercato si e' scaldato/raffreddato: i prezzi del piano
+                    # non valgono piu', ricalcola
+                    or abs(self.market_heat() - getattr(self, "_heat_at_replan", 1.0)) > 0.08)
         if relevant:
             self._replan(view)

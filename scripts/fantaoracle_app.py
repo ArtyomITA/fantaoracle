@@ -27,10 +27,14 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from datetime import datetime
+
 ROOT = Path(__file__).resolve().parents[1]
 F6 = ROOT / "scripts" / "f6_live_auction.py"
 
 CHILDREN: dict[int, subprocess.Popen] = {}
+CHILD_MODE: dict[int, str] = {}
+REFRESH: subprocess.Popen | None = None
 LOCK = threading.Lock()
 
 
@@ -39,9 +43,9 @@ def child_alive(porta: int) -> bool:
     return p is not None and p.poll() is None
 
 
-def probe_auction(porta: int, timeout: float = 1.0) -> dict | None:
+def probe_auction(porta: int, timeout: float = 1.0, path: str = "/state") -> dict | None:
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{porta}/state",
+        with urllib.request.urlopen(f"http://127.0.0.1:{porta}{path}",
                                     timeout=timeout) as r:
             return json.loads(r.read())
     except Exception:
@@ -61,11 +65,46 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if urlparse(self.path).path == "/launcher/status":
+        path = urlparse(self.path).path
+        if path == "/launcher/status":
             with LOCK:
-                kids = [{"porta": p, "alive": child_alive(p)}
+                kids = [{"porta": p, "alive": child_alive(p),
+                         "mode": CHILD_MODE.get(p, "sedia")}
                         for p in sorted(CHILDREN)]
-            return self._json({"launcher": True, "children": kids})
+            return self._json({"launcher": True, "children": kids,
+                               "seasons": sorted(
+                                   {p.stem.replace("pack_", "").replace("_demo", "")
+                                    for d in (ROOT / "data" / "packs", ROOT / "demo")
+                                    if d.exists() for p in d.glob("pack_*")})})
+        if path == "/launcher/refresh_status":
+            st = ROOT / "data" / "refresh" / "status.txt"
+            lg = ROOT / "data" / "refresh" / "last.log"
+            running = REFRESH is not None and REFRESH.poll() is None
+            return self._json({
+                "running": running,
+                "status": st.read_text(encoding="utf-8").strip() if st.exists() else "mai eseguito",
+                "log": "\n".join(lg.read_text(encoding="utf-8").splitlines()[-40:]) if lg.exists() else "",
+                "ultimo": datetime.fromtimestamp(lg.stat().st_mtime).strftime("%d/%m %H:%M") if lg.exists() else None,
+            })
+        if path == "/launcher/interrotte":
+            # aste (Sedia) e aste vere (Copilota) riprendibili
+            out = {"sedia": [], "copilot": []}
+            for lg in sorted((ROOT / "data" / "live_logs").glob("live_*.jsonl"),
+                             key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
+                if not lg.with_name(lg.stem + "_season.json").exists():
+                    out["sedia"].append({"file": lg.name,
+                                         "quando": datetime.fromtimestamp(lg.stat().st_mtime).strftime("%d/%m %H:%M"),
+                                         "eventi": sum(1 for _ in open(lg, encoding="utf-8"))})
+            for lg in sorted((ROOT / "data" / "copilot").glob("ledger_*.json"),
+                             key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
+                try:
+                    d = json.loads(lg.read_text(encoding="utf-8"))
+                    out["copilot"].append({"file": lg.name, "nomi": d.get("names", []),
+                                           "acquisti": len(d.get("events", [])),
+                                           "quando": datetime.fromtimestamp(lg.stat().st_mtime).strftime("%d/%m %H:%M")})
+                except Exception:
+                    pass
+            return self._json(out)
         return super().do_GET()
 
     def do_POST(self):
@@ -81,8 +120,9 @@ class Handler(SimpleHTTPRequestHandler):
             porta = int(body.get("porta", 8765))
             no_b = bool(body.get("no_b", False))
             resume = body.get("resume")   # None | "latest" | percorso log
+            mode = str(body.get("mode", "sedia"))   # "sedia" (bot) | "copilot" (asta vera)
             resume_path = None
-            if resume == "latest":
+            if resume == "latest" and mode != "copilot":
                 logs = sorted((ROOT / "data" / "live_logs").glob("live_*.jsonl"),
                               key=lambda p: p.stat().st_mtime, reverse=True)
                 # interrotta = senza stagione salvata accanto
@@ -93,7 +133,7 @@ class Handler(SimpleHTTPRequestHandler):
                 if resume_path is None:
                     return self._json({"ok": False,
                                        "err": "nessuna asta interrotta da riprendere"})
-            elif resume:
+            elif resume and resume != "latest":   # "latest" del copilota si risolve sotto
                 resume_path = Path(resume)
                 if not resume_path.exists():
                     return self._json({"ok": False, "err": "log non trovato"})
@@ -111,9 +151,19 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._json({"ok": False,
                                    "err": f"porta {porta} gia' occupata da un "
                                           f"altro processo: fermalo o cambia porta"})
-            cmd = [sys.executable, str(F6), season, "--porta", str(porta)]
-            if no_b:
-                cmd.append("--no-b")
+            if mode == "copilot":
+                script = ROOT / "scripts" / "f10_copilot.py"
+                if resume == "latest":
+                    ledgers = sorted((ROOT / "data" / "copilot").glob("ledger_*.json"),
+                                     key=lambda p: p.stat().st_mtime, reverse=True)
+                    if not ledgers:
+                        return self._json({"ok": False, "err": "nessuna asta vera da riprendere"})
+                    resume_path = ledgers[0]
+                cmd = [sys.executable, str(script), season, "--porta", str(porta)]
+            else:
+                cmd = [sys.executable, str(F6), season, "--porta", str(porta)]
+                if no_b:
+                    cmd.append("--no-b")
             if resume_path is not None:
                 cmd += ["--resume", str(resume_path)]
             # figlio COMPLETAMENTE indipendente: sopravvive alla morte
@@ -129,17 +179,36 @@ class Handler(SimpleHTTPRequestHandler):
                 creationflags=flags)
             with LOCK:
                 CHILDREN[porta] = proc
+                CHILD_MODE[porta] = mode
             # aspetta che l'asta risponda (max ~8s: carica il pack)
+            probe_path = "/copilot/state" if mode == "copilot" else "/state"
             for _ in range(16):
                 time.sleep(0.5)
-                if probe_auction(porta) is not None:
-                    return self._json({"ok": True, "porta": porta,
-                                       "season": season, "no_b": no_b})
+                if probe_auction(porta, path=probe_path) is not None:
+                    return self._json({"ok": True, "porta": porta, "mode": mode,
+                                       "season": season, "no_b": no_b,
+                                       "resumed": resume_path is not None})
                 if proc.poll() is not None:
                     return self._json({"ok": False,
                                        "err": "l'asta si e' chiusa subito: "
                                               "controlla pack/stagione"})
             return self._json({"ok": False, "err": "timeout avvio asta"})
+
+        if path == "/launcher/refresh":
+            global REFRESH
+            if REFRESH is not None and REFRESH.poll() is None:
+                return self._json({"ok": False, "err": "aggiornamento gia' in corso"})
+            cmd = [sys.executable, str(ROOT / "scripts" / "f11_refresh_all.py")]
+            if body.get("solo"):
+                cmd += ["--solo", str(body["solo"])]
+            logdir = ROOT / "data" / "refresh"
+            logdir.mkdir(parents=True, exist_ok=True)
+            REFRESH = subprocess.Popen(
+                cmd, cwd=str(ROOT),
+                stdout=open(logdir / "stdout.log", "a", encoding="utf-8"),
+                stderr=subprocess.STDOUT,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+            return self._json({"ok": True})
 
         if path == "/launcher/stop":
             porta = int(body.get("porta", 8765))
