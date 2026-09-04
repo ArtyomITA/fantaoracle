@@ -155,8 +155,11 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
             delta = q50_new - q50
             motivi.append(f"mercato reale {mkt[pid]:.0f}cr")
             q10, q50, q90 = max(1.0, q10 + delta), q50_new, q90 + delta
+        f_all = f_disp * f_tit * f_rig
         adj[pid] = {"q10": round(q10, 2), "q50": round(q50, 2), "q90": round(q90, 2),
                     "value": round(value_adj, 1), "value_modello": round(value, 1),
+                    "value_up": round(float(p.get("value_up", value)) * f_all, 1),
+                    "pres": round(float(p.get("pres", 30.0)) * f_disp * f_tit, 1),
                     "motivi": "; ".join(motivi)}
         rows.append({"master_id": pid, "value": value, "value_adj": value_adj,
                      "q50_modello": float(p["q50"]), "q50_adj": q50,

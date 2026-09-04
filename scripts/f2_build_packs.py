@@ -32,6 +32,7 @@ from f1_make_predictions import marcel_values  # noqa: E402
 from fantabot.models import Player  # noqa: E402
 from fantabot.modeling import vorp_prices  # noqa: E402
 from fantabot.tournament import SeasonPack  # noqa: E402
+from fantabot.rules import apply_clean_sheet, clean_sheets  # noqa: E402
 
 SEASONS = ["2024-25", "2025-26", "2026-27"]
 BUDGET = 500
@@ -127,6 +128,11 @@ def build_pack(season: str) -> SeasonPack:
         pure = sub[sub["voto"].notna()] if "voto" in sub.columns else sub.iloc[0:0]
         voti_by_g.append(dict(zip(pure["master_id"], pure["voto"].astype(float))))
 
+    # regola lega: +1 al portiere con porta inviolata (dai gol subiti reali)
+    try:
+        votes_by_g = apply_clean_sheet(votes_by_g, clean_sheets(ROOT, season))
+    except FileNotFoundError:
+        print("  (nessun voto grezzo per il clean sheet)")
     pack = SeasonPack(season=season, players=players, votes_by_g=votes_by_g,
                       quotas=QUOTAS, budget=BUDGET,
                       b_predictions={str(k): v for k, v in preds.items()},

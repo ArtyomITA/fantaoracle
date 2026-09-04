@@ -32,6 +32,7 @@ STEPS = [
     ("f1_pred", [sys.executable, str(SCRIPTS / "f1_make_predictions.py"), SEASON]),
     ("f9_market", [sys.executable, str(SCRIPTS / "f9_apply_market.py"), SEASON]),
     ("f2_pack", [sys.executable, str(SCRIPTS / "f2_build_packs.py"), SEASON]),
+    ("f12_obiettivo", [sys.executable, str(SCRIPTS / "f12_choose_objective.py"), SEASON, "--sims", "120"]),
     ("f7_demo", [sys.executable, str(SCRIPTS / "f7_export_demo_pack.py"), SEASON]),
 ]
 

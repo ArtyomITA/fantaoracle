@@ -1,9 +1,13 @@
-"""Ottimizzatore rosa: MILP (PuLP/CBC) + euristica greedy veloce.
+"""Ottimizzatore rosa: MILP (PuLP/CBC) con scelta del modulo + greedy.
 
-Il MILP e' il replanner di B: max punti attesi con vincoli budget e slot,
-giocatori gia' posseduti bloccati, venduti esclusi. Con ~600 variabili CBC
-risolve in decine di ms; durante l'asta B lo rilancia solo sugli eventi
-rilevanti e usa il greedy tra un replan e l'altro.
+Modello lineare:
+  x_i in {0,1}  acquisto (i posseduti sono fissati a 1 con prezzo 0)
+  s_i in {0,1}  titolare, s_i <= x_i
+  m_k in {0,1}  modulo scelto (uno solo tra i 7 classic)
+  per ruolo: somma s_i = somma_k m_k * slot_k(ruolo)
+Obiettivo: somma v_i * (w_b x_i + (1 - w_b) s_i), con v_i = valore atteso
+(+ lam * upside se fornito): la stagione premia gli 11 migliori per giornata,
+la panchina vale una frazione. CBC risolve in decine di ms.
 """
 from __future__ import annotations
 
@@ -11,12 +15,11 @@ import pulp
 
 from .models import ROLES, Player
 
-
-# slot da titolare per ruolo su un modulo "medio" (4-4-2): la stagione premia
-# i migliori 11 per giornata, non la somma dei 25; la panchina vale una
-# frazione (subentri con max 3 cambi + rotazioni)
-STARTER_SLOTS = {"P": 1, "D": 4, "C": 4, "A": 2}
+MODULES = {"3-4-3": (3, 4, 3), "3-5-2": (3, 5, 2), "4-3-3": (4, 3, 3),
+           "4-4-2": (4, 4, 2), "4-5-1": (4, 5, 1), "5-3-2": (5, 3, 2),
+           "5-4-1": (5, 4, 1)}
 BENCH_WEIGHT = 0.30
+STARTER_SLOTS = {"P": 1, "D": 4, "C": 4, "A": 2}   # retrocompatibilita'
 
 
 def optimize_roster(candidates: dict[str, Player],
@@ -25,65 +28,75 @@ def optimize_roster(candidates: dict[str, Player],
                     quotas: dict[str, int],
                     budget: float,
                     forced_spend: dict[str, tuple[float, float]] | None = None,
-                    starters_owned: dict[str, int] | None = None,
-                    time_limit: int = 10) -> dict | None:
-    """candidates: pool ancora disponibile (esclusi venduti e gia' posseduti).
-    quotas/budget: SLOT RESIDUI e CREDITI RESIDUI (il chiamante scala i suoi
-    acquisti prima di chiamare). prices: prezzo atteso; values: punti attesi.
-    forced_spend: ruolo -> (min, max) spesa, per generare scenari diversi.
-    starters_owned: slot da titolare gia' coperti dai giocatori posseduti
-    (il chiamante li stima, es. contando i suoi acquisti forti per ruolo).
-
-    Obiettivo a due livelli: gli s_i "titolari" pesano pieno, il resto della
-    rosa pesa BENCH_WEIGHT. Tutto lineare, CBC lo mangia in decine di ms.
-    Ritorna {"roster", "starters", "value", "cost"} o None."""
-    starters_owned = starters_owned or {}
+                    fixed: dict[str, Player] | None = None,
+                    values_up: dict[str, float] | None = None,
+                    lam: float = 0.0,
+                    bench_weight: float = BENCH_WEIGHT,
+                    time_limit: int = 10,
+                    starters_owned=None) -> dict | None:
+    """candidates: pool disponibile (venduti esclusi). fixed: giocatori gia'
+    posseduti (x=1, prezzo 0). quotas = quote PIENE della rosa; budget =
+    crediti residui. forced_spend: ruolo -> (min, max) spesa sui soli acquisti.
+    values_up/lam: v_i = value + lam * (value_up - value).
+    Ritorna {"roster", "starters", "module", "value", "cost"} o None."""
+    fixed = fixed or {}
+    allp = {**candidates, **fixed}
+    v = {pid: values.get(pid, 0.0) for pid in allp}
+    if values_up and lam:
+        v = {pid: v[pid] + lam * (values_up.get(pid, v[pid]) - v[pid]) for pid in allp}
     prob = pulp.LpProblem("rosa", pulp.LpMaximize)
-    x = {pid: pulp.LpVariable(f"x_{pid}", cat="Binary") for pid in candidates}
-    s = {pid: pulp.LpVariable(f"s_{pid}", cat="Binary") for pid in candidates}
-    prob += pulp.lpSum(
-        values.get(pid, 0.0) * (BENCH_WEIGHT * x[pid] + (1 - BENCH_WEIGHT) * s[pid])
-        for pid in candidates)
-    prob += pulp.lpSum(prices.get(pid, 1.0) * x[pid] for pid in candidates) <= budget
+    x = {pid: pulp.LpVariable(f"x_{pid}", cat="Binary") for pid in allp}
+    s = {pid: pulp.LpVariable(f"s_{pid}", cat="Binary") for pid in allp}
+    m = {k: pulp.LpVariable("m_" + k.replace("-", "_"), cat="Binary") for k in MODULES}
+    prob += pulp.lpSum(v[pid] * (bench_weight * x[pid] + (1 - bench_weight) * s[pid])
+                       for pid in allp)
+    cost = {pid: (0.0 if pid in fixed else max(1.0, prices.get(pid, 1.0))) for pid in allp}
+    prob += pulp.lpSum(cost[pid] * x[pid] for pid in candidates) <= budget
+    prob += pulp.lpSum(m.values()) == 1
     by_role: dict[str, list[str]] = {r: [] for r in ROLES}
-    for pid, p in candidates.items():
+    for pid, p in allp.items():
         by_role[p.role].append(pid)
+    slot_of = {"P": {k: 1 for k in MODULES},
+               "D": {k: d for k, (d, c, a) in MODULES.items()},
+               "C": {k: c for k, (d, c, a) in MODULES.items()},
+               "A": {k: a for k, (d, c, a) in MODULES.items()}}
     for r in ROLES:
         prob += pulp.lpSum(x[pid] for pid in by_role[r]) == quotas[r]
-        starter_need = max(0, STARTER_SLOTS[r] - starters_owned.get(r, 0))
-        prob += pulp.lpSum(s[pid] for pid in by_role[r]) == min(starter_need, quotas[r])
+        prob += pulp.lpSum(s[pid] for pid in by_role[r]) == \
+            pulp.lpSum(m[k] * slot_of[r][k] for k in MODULES)
         if forced_spend and r in forced_spend:
             lo, hi = forced_spend[r]
-            role_cost = pulp.lpSum(prices.get(pid, 1.0) * x[pid] for pid in by_role[r])
+            role_cost = pulp.lpSum(cost[pid] * x[pid] for pid in by_role[r] if pid in candidates)
             prob += role_cost >= lo
             prob += role_cost <= hi
-    for pid in candidates:
+    for pid in allp:
         prob += s[pid] <= x[pid]
+    for pid in fixed:
+        prob += x[pid] == 1
     status = prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=time_limit))
     if pulp.LpStatus[status] != "Optimal":
         return None
-    chosen = [pid for pid in candidates if x[pid].value() and x[pid].value() > 0.5]
-    starters = [pid for pid in candidates if s[pid].value() and s[pid].value() > 0.5]
+    chosen = [pid for pid in allp if x[pid].value() and x[pid].value() > 0.5]
+    starters = {pid for pid in allp if s[pid].value() and s[pid].value() > 0.5}
+    module = next(k for k in MODULES if m[k].value() and m[k].value() > 0.5)
     return {
-        "roster": {r: [pid for pid in chosen if candidates[pid].role == r] for r in ROLES},
-        "starters": set(starters),
+        "roster": {r: [pid for pid in chosen if allp[pid].role == r] for r in ROLES},
+        "starters": starters, "module": module,
         "value": sum(values.get(pid, 0.0) for pid in chosen),
-        "cost": sum(prices.get(pid, 1.0) for pid in chosen),
+        "cost": sum(cost[pid] for pid in chosen),
     }
 
 
 def greedy_roster(candidates: dict[str, Player], prices: dict[str, float],
                   values: dict[str, float], quotas: dict[str, int],
                   budget: float) -> dict:
-    """Riempimento veloce per efficienza valore/prezzo, usato tra due replan.
-    Non ottimo ma sempre fattibile: garantisce slot pieni nel budget."""
+    """Riempimento veloce per efficienza valore/prezzo (fallback)."""
     remaining = dict(quotas)
     chosen: list[str] = []
     spend = 0.0
     ranked = sorted(candidates.values(),
                     key=lambda p: -(values.get(p.player_id, 0.0)
                                     / max(1.0, prices.get(p.player_id, 1.0))))
-    # prima passata: efficienza; seconda: completa con i piu' economici
     for p in ranked:
         if remaining[p.role] <= 0:
             continue
@@ -102,5 +115,6 @@ def greedy_roster(candidates: dict[str, Player], prices: dict[str, float],
         spend += max(1.0, prices.get(p.player_id, 1.0))
     return {"roster": {r: [pid for pid in chosen if candidates[pid].role == r]
                        for r in ROLES},
+            "starters": set(), "module": "4-4-2",
             "value": sum(values.get(pid, 0.0) for pid in chosen),
             "cost": spend}

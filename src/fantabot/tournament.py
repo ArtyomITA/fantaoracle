@@ -41,6 +41,8 @@ class SeasonPack:
     # voti PURI per giornata + flag modificatore difesa (lega dell'utente: SI)
     voti_by_g: list[dict[str, float]] | None = None
     use_mod_difesa: bool = False
+    # obiettivo di B scelto dal Monte Carlo (lam, attack_share) — f12
+    b_objective: dict | None = None
 
 
 def make_bot(spec: str, rng: random.Random, pack: SeasonPack) -> Bot:
@@ -58,7 +60,8 @@ def make_bot(spec: str, rng: random.Random, pack: SeasonPack) -> Bot:
     if spec == "B":
         if pack.b_predictions is None:
             raise RuntimeError("Seggio B richiesto ma pack.b_predictions mancante")
-        return BBot(rng, pack.b_predictions)
+        return BBot(rng, pack.b_predictions,
+                    objective=getattr(pack, "b_objective", None))
     raise ValueError(f"spec bot sconosciuta: {spec}")
 
 

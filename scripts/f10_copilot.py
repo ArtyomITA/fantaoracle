@@ -89,7 +89,8 @@ def rebuild_advisor():
     """Ricostruisce l'oracolo dallo stato: replan + calore mercato dai
     prezzi gia' battuti (stessa logica del bot B in asta simulata)."""
     global ADVISOR
-    ADVISOR = BBot(random.Random(1), PACK.b_predictions)
+    ADVISOR = BBot(random.Random(1), PACK.b_predictions,
+                   objective=getattr(PACK, "b_objective", None))
     for e in STATE["events"]:
         q50 = ADVISOR._q(e["player_id"], "q50")
         if q50 > 3:

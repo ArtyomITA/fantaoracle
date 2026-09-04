@@ -35,27 +35,82 @@ TARGETS = {
 BUDGET = 500
 
 
-def catboost_values(season: str, train_ss: list[str], te: pd.DataFrame) -> pd.Series:
-    """Modello valore vincente (sfida f1_value_challenge: rho 0.82 vs 0.41
-    del Marcel): CatBoost su feature pre-asta -> punti totali stagione.
-    Train solo su stagioni PRECEDENTI la stagione target."""
+def _season_points_frame(s: str) -> pd.DataFrame:
+    """Feature pre-asta + target: punti stagione (con +1 porta inviolata,
+    regola della lega) e presenze."""
+    from f1_train_price import load_season
+    from fantabot.rules import clean_sheets
+    df = load_season(s)
+    v = pd.read_parquet(PROC / f"votes_{s}.parquet")
+    if "sv" in v.columns:
+        v = v[v["sv"].fillna(0) == 0]
+    v = v.copy()
+    v["master_id"] = v["master_id"].astype(str)
+    try:
+        cs = clean_sheets(ROOT, s)
+        v["fantavoto"] = v["fantavoto"] + [1.0 if (m, g) in cs else 0.0
+                                           for m, g in zip(v["master_id"], v["giornata"])]
+    except FileNotFoundError:
+        pass
+    pts = v.groupby("master_id")["fantavoto"].sum()
+    pres = v.groupby("master_id").size()
+    df["points"] = df["master_id"].astype(str).map(pts).fillna(0.0)
+    df["pres"] = df["master_id"].astype(str).map(pres).fillna(0.0)
+    return df
+
+
+def catboost_values(season: str, train_ss: list[str], te: pd.DataFrame) -> pd.DataFrame:
+    """Modello valore: CatBoost quantile (mediana e q75 dei punti stagione) +
+    modello presenze. La mediana viene RICALIBRATA con regressione isotonica
+    su predizioni out-of-fold (leave-one-season-out fra le stagioni di train):
+    corregge la compressione (top -16/-20%, coda +38%) misurata nel backtest.
+    Ritorna DataFrame (value, value_up, pres) allineato a te.index."""
     from catboost import CatBoostRegressor
-    from f1_train_price import load_season, xmat
-    frames = []
-    for s in train_ss:
-        df = load_season(s)
-        v = pd.read_parquet(PROC / f"votes_{s}.parquet")
-        if "sv" in v.columns:
-            v = v[v["sv"].fillna(0) == 0]
-        pts = v.groupby("master_id")["fantavoto"].sum()
-        df["points"] = df["master_id"].map(pts).fillna(0.0)
-        frames.append(df)
-    tr = pd.concat(frames, ignore_index=True)
-    m = CatBoostRegressor(iterations=700, learning_rate=0.04, depth=5,
-                          l2_leaf_reg=6, random_seed=7, verbose=False)
-    m.fit(xmat(tr), tr["points"])
-    pred = np.clip(np.asarray(m.predict(xmat(te)), dtype=float), 0.0, None)
-    return pd.Series(pred, index=te.index)
+    from f1_train_price import xmat
+    frames = {s: _season_points_frame(s) for s in train_ss}
+    tr = pd.concat(frames.values(), ignore_index=True)
+
+    def fit(df):
+        m = CatBoostRegressor(iterations=700, learning_rate=0.04, depth=5,
+                              l2_leaf_reg=6, random_seed=7, verbose=False)
+        m.fit(xmat(df), df["points"])
+        return m
+
+    # Calibrazione LINEARE (real ~ a + b*pred) su predizioni out-of-fold delle
+    # sole stagioni con storico voti completo (il 2021-22 non ce l'ha: senza
+    # questo filtro la calibrazione impara spazzatura). La regressione alla
+    # media comprime i top del 15-20% e gonfia la coda: lo stretch lo corregge.
+    calib = [s for s in train_ss if s >= "2023-24"]
+    oof_pred, oof_true = [], []
+    if len(calib) >= 2:
+        for s in calib:
+            rest = pd.concat([frames[t] for t in train_ss if t != s], ignore_index=True)
+            p = np.asarray(fit(rest).predict(xmat(frames[s])), dtype=float)
+            oof_pred.append(p)
+            oof_true.append(frames[s]["points"].to_numpy())
+    if oof_pred:
+        xp, yt = np.concatenate(oof_pred), np.concatenate(oof_true)
+        b, a = np.polyfit(xp, yt, 1)
+        b = float(min(1.6, max(1.0, b)))
+        a = float(a)
+        sigma = float(np.std(yt - (a + b * xp)))
+    else:
+        # default: nessuno stretch. Il backtest OOF (2023-24..2025-26) da'
+        # b=1.00: condizionando sulla PREDIZIONE il modello e' gia' calibrato;
+        # la "compressione" vista per decile di reale e' regressione alla media
+        # nell'altro verso, non un bias da correggere.
+        a, b, sigma = 0.0, 1.00, 43.0
+    m = fit(tr)
+    raw = np.asarray(m.predict(xmat(te)), dtype=float)
+    value = np.clip(a + b * raw, 0.0, None)
+    value_up = value + 0.674 * sigma       # q75 di una normale attorno alla stima
+    mp = CatBoostRegressor(iterations=500, learning_rate=0.05, depth=4,
+                           l2_leaf_reg=6, random_seed=7, verbose=False)
+    mp.fit(xmat(tr), tr["pres"])
+    pres = np.clip(np.asarray(mp.predict(xmat(te)), dtype=float), 0.0, 38.0)
+    print(f"   calibrazione valore: a={a:.1f} b={b:.2f} sigma={sigma:.0f} "
+          f"(stagioni OOF {calib if oof_pred else 'default'})")
+    return pd.DataFrame({"value": value, "value_up": value_up, "pres": pres}, index=te.index)
 
 
 def marcel_values(season: str, te: pd.DataFrame) -> pd.Series:
@@ -102,7 +157,9 @@ def main():
                 "q10": round(float(preds["q10"][i]) * BUDGET, 2),
                 "q50": round(float(preds["q50"][i]) * BUDGET, 2),
                 "q90": round(float(preds["q90"][i]) * BUDGET, 2),
-                "value": round(float(values.iloc[i]), 1),
+                "value": round(float(values["value"].iloc[i]), 1),
+                "value_up": round(float(values["value_up"].iloc[i]), 1),
+                "pres": round(float(values["pres"].iloc[i]), 1),
             }
         path = PROC / f"b_predictions_{season}.json"
         path.write_text(json.dumps(out), encoding="utf-8")

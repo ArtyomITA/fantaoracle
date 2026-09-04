@@ -15,7 +15,7 @@ BASELINE_VOTO = 5.9
 
 # modificatore difesa (default Leghe Fantacalcio): media voti PURI di
 # portiere + 3 migliori difensori, richiede modulo con almeno 4 difensori
-MOD_DIFESA_TABLE = [(7.0, 6), (6.75, 4), (6.5, 3), (6.25, 2), (6.0, 1)]
+from ..rules import MOD_DIFESA_TABLE  # fasce della lega (7 -> +5)
 
 
 def mod_difesa_bonus(media: float, table=MOD_DIFESA_TABLE) -> int:

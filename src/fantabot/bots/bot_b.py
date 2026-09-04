@@ -16,15 +16,20 @@ from __future__ import annotations
 
 from .base import AuctionView, BidDecision, Bot, NominationDecision
 from ..models import Player
-from ..optimizer import STARTER_SLOTS, greedy_roster, optimize_roster
+from ..optimizer import greedy_roster, optimize_roster
 
 
 class BBot(Bot):
     name = "B"
 
-    def __init__(self, rng, predictions: dict[str, dict], replan_every: int = 10):
+    def __init__(self, rng, predictions: dict[str, dict], replan_every: int = 10,
+                 objective: dict | None = None):
         super().__init__(rng)
         self.pred = predictions
+        # obiettivo scelto dal Monte Carlo (lam = peso dell'upside,
+        # attack_share = (min, max) quota budget attacco); default neutro
+        self.objective = objective or {}
+        self.module = "4-4-2"
         self.replan_every = replan_every
         self.targets: set[str] = set()
         self.starter_targets: set[str] = set()
@@ -82,28 +87,36 @@ class BBot(Bot):
         heat = self.market_heat()
         self._heat_at_replan = heat
         candidates = dict(view.pool)
-        quotas_left = {r: view.quotas[r] - len(view.me.roster[r])
-                       for r in view.quotas}
+        # posseduti: fissati nel MILP (prezzo 0), quote piene, modulo libero
+        fixed = {pid: Player(pid, pid, r, "") for r, ids in view.me.roster.items()
+                 for pid, _ in ids}
         prices = {pid: max(1.0, self._q(pid, "q50") * heat) for pid in candidates}
-        values = {pid: self._q(pid, "value", 0.0) for pid in candidates}
-        # quanti slot da titolare ho gia' coperto: acquisti con q50 "da titolare"
-        starters_owned = {}
-        for r, ids in view.me.roster.items():
-            n = sum(1 for pid, paid in ids if self._q(pid, "q50") >= 8 or paid >= 8)
-            starters_owned[r] = min(n, STARTER_SLOTS[r])
-        sol = optimize_roster(candidates, prices, values, quotas_left,
-                              view.me.budget, starters_owned=starters_owned,
-                              time_limit=5)
+        values = {pid: self._q(pid, "value", 0.0) for pid in list(candidates) + list(fixed)}
+        values_up = {pid: self._q(pid, "value_up", values[pid]) for pid in values}
+        lam = self.objective.get("lam", 0.0)
+        forced = None
+        if self.objective.get("attack_share"):
+            spent_a = sum(pr for _, pr in view.me.roster.get("A", []))
+            lo_s, hi_s = self.objective["attack_share"]
+            lo = max(0.0, lo_s * view.budget_total - spent_a)
+            hi = max(lo, hi_s * view.budget_total - spent_a)
+            forced = {"A": (lo, hi)}
+        sol = optimize_roster(candidates, prices, values, view.quotas, view.me.budget,
+                              forced_spend=forced, fixed=fixed, values_up=values_up,
+                              lam=lam, time_limit=5)
+        if sol is None and forced is not None:
+            sol = optimize_roster(candidates, prices, values, view.quotas, view.me.budget,
+                                  fixed=fixed, values_up=values_up, lam=lam, time_limit=5)
         if sol is None:
-            sol = greedy_roster(candidates, prices, values, quotas_left,
-                                view.me.budget)
-            sol["starters"] = set()
-        self.targets = {pid for ids in sol["roster"].values() for pid in ids}
-        self.starter_targets = set(sol.get("starters") or set())
+            quotas_left = {r: view.quotas[r] - len(view.me.roster[r]) for r in view.quotas}
+            sol = greedy_roster(candidates, prices, values, quotas_left, view.me.budget)
+        self.module = sol.get("module", "4-4-2")
+        self.targets = {pid for ids in sol["roster"].values() for pid in ids} - set(fixed)
+        self.starter_targets = set(sol.get("starters") or set()) - set(fixed)
         # per il prezzo-ombra: miglior valore di ruolo FUORI piano
         self._role_of = {pid: p.role for pid, p in view.pool.items()}
         self._best_alt_value = {}
-        for r in quotas_left:
+        for r in view.quotas:
             alts = [self._q(pid, "value", 0.0) for pid, p in view.pool.items()
                     if p.role == r and pid not in self.targets]
             self._best_alt_value[r] = max(alts) if alts else 0.0
