@@ -37,6 +37,17 @@ class PlayerDist:
                                 # una volta per simulazione. Senza, l'ottimizzatore
                                 # "vince" per costruzione (maledizione del vincitore)
     sigma_play: float = 0.10    # incertezza sulla disponibilita'
+    team: str = ""              # squadra: shock condiviso squadra x giornata
+
+
+# Effetto squadra x giornata sul voto: misurato sui voti 2024/25 e 2025/26,
+# sd ~0.55 (13-20% della varianza del voto puro). Senza, i compagni di squadra
+# sono indipendenti e una difesa intera (modificatore, porta inviolata) sembra
+# meno rischiosa e meno redditizia di quanto sia.
+TEAM_SHOCK_SD = 0.55
+# nuovi in Serie A: stima piu' incerta (cold start), floor piu' alto
+NUOVO_SIGMA_SHIFT_MIN = 0.6
+NUOVO_SIGMA_PLAY = 0.18
 
 
 def build_dists(players: dict[str, Player], preds: dict[str, dict],
@@ -79,7 +90,12 @@ def build_dists(players: dict[str, Player], preds: dict[str, dict],
         vup = float(pr.get("value_up", 0.0) or 0.0)
         sigma_season = (vup - value) / 0.674 if vup > value else 40.0
         sigma_shift = float(min(1.5, max(0.35, sigma_season / (p_play * GIORNATE))))
-        dists[pid] = PlayerDist(p.role, p_play, fv, v, shift, sigma_shift)
+        sigma_play = 0.10
+        if bool(pr.get("nuovo", False)) or getattr(p, "nuovo", False):
+            sigma_shift = max(sigma_shift, NUOVO_SIGMA_SHIFT_MIN)
+            sigma_play = NUOVO_SIGMA_PLAY
+        dists[pid] = PlayerDist(p.role, p_play, fv, v, shift, sigma_shift, sigma_play,
+                                team=str(getattr(p, "team", "") or ""))
     return dists
 
 
@@ -89,6 +105,8 @@ def simulate_roster(roster: dict[str, list[str]], dists: dict[str, PlayerDist],
     nprng = np.random.default_rng(rng.randrange(1 << 30))
     out = np.zeros((n_sims, GIORNATE))
     ids = [pid for r in ROLES for pid in roster[r]]
+    teams = sorted({dists[pid].team for pid in ids})
+    team_ix = {t: i for i, t in enumerate(teams)}
     for s in range(n_sims):
         form: dict[str, float] = {}
         form_v: dict[str, float] = {}
@@ -101,12 +119,15 @@ def simulate_roster(roster: dict[str, list[str]], dists: dict[str, PlayerDist],
                  for pid in ids}
         for g in range(GIORNATE):
             votes, voti = {}, {}
+            # shock squadra x giornata: stessa partita, stessa sorte per i compagni
+            shock = nprng.normal(0.0, TEAM_SHOCK_SD, size=len(teams))
             for pid in ids:
                 d = dists[pid]
                 if nprng.random() < pplay[pid]:
                     k = nprng.integers(len(d.samples_fv))
-                    votes[pid] = float(d.samples_fv[k] + d.shift + eps[pid])
-                    voti[pid] = float(d.samples_v[k] + (d.shift + eps[pid]) * 0.4)
+                    ts = float(shock[team_ix[d.team]])
+                    votes[pid] = float(d.samples_fv[k] + d.shift + eps[pid] + ts)
+                    voti[pid] = float(d.samples_v[k] + (d.shift + eps[pid]) * 0.4 + ts)
             _, starters, bench = pick_lineup(roster, form, form_v, use_mod, set(votes))
             pts, _ = score_giornata(starters, bench, votes, MAX_SUBS, voti, use_mod)
             out[s, g] = pts

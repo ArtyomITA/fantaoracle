@@ -16,6 +16,7 @@ class Player:
     ref_price: float = 0.0       # prezzo di riferimento in % budget (0-1)
     ref_price_sd: float = 0.0    # spread osservato tra aste reali (% budget)
     exp_points: float = 0.0      # fantapunti attesi stagione (modello valore)
+    nuovo: bool = False          # nuovo in Serie A (cold start: stima incerta)
 
 
 @dataclass

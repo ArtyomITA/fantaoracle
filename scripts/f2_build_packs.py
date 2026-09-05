@@ -110,6 +110,7 @@ def build_pack(season: str) -> SeasonPack:
             team=str(row["squadra"]), ref_price=float(ref.iloc[i]),
             ref_price_sd=float(sd.iloc[i]) if pd.notna(sd.iloc[i]) else 0.0,
             exp_points=float(values.iloc[i]),
+            nuovo=bool(int(row.get("nuovo_in_serie_a", 0) or 0)),
         )
 
     base = df[["master_id", "ruolo"]].copy()

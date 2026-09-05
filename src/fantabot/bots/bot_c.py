@@ -77,6 +77,10 @@ class CBot(Bot):
                 sigma = min(0.55, max(0.15, p.ref_price_sd / p.ref_price))
             else:
                 sigma = sigma_prof
+            if getattr(p, "nuovo", False):
+                # nuovi in Serie A: le valutazioni umane divergono di piu'
+                # (RAGIONAMENTI_UMANI par. 5, misurato CV prezzo x1.5)
+                sigma = min(0.8, sigma * 1.5)
             base = max(1.0, p.ref_price * b)
             w = self.profile.get("blend_w", 0.0)
             if w > 0 and p.player_id in self.hint_prices:

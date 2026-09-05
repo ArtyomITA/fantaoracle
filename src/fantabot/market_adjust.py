@@ -102,6 +102,16 @@ class MarketInputs:
     presenze: dict[str, int] = field(default_factory=dict)  # master_id -> presenze finora
     giornata_corrente: int = 1
     giornate_giocate: int = 0
+    nuovi: set[str] = field(default_factory=set)       # master_id nuovi in Serie A
+    fvm: dict[str, float] = field(default_factory=dict)  # master_id -> FVM listone
+
+
+# Premio "hype" sui nuovi cari: il mercato paga i nuovi +18-20% a punto
+# rispetto ai vecchi a parita' di valore (misurato su aste 2024/25 e 2025/26:
+# bias q50 nuovi >=20cr -18.5 contro -7 dei vecchi). Solo se il prezzo live
+# non e' noto (quando lo e', il blend col mercato incorpora gia' l'hype).
+HYPE_NUOVI = 1.20
+HYPE_FVM_MIN = 30.0
 
 
 def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
@@ -150,6 +160,13 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
         if f_rig > 1.0:
             motivi.append("rigorista")
         value_adj = value * f_disp * f_tit * f_rig
+        nuovo = pid in inputs.nuovi
+        if nuovo and inputs.fvm.get(pid, 0.0) >= HYPE_FVM_MIN:
+            # coda alta piu' larga: sui nuovi la copertura q10-q90 e' 0.37
+            q90 = q90 + 0.5 * q50
+            if pid not in mkt:
+                q50 = q50 * HYPE_NUOVI
+                motivi.append("nuovo in A: premio hype sul prezzo")
         if pid in mkt:
             q50_new = w_mkt * mkt[pid] + (1 - w_mkt) * q50
             delta = q50_new - q50
@@ -160,6 +177,7 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
                     "value": round(value_adj, 1), "value_modello": round(value, 1),
                     "value_up": round(float(p.get("value_up", value)) * f_all, 1),
                     "pres": round(float(p.get("pres", 30.0)) * f_disp * f_tit, 1),
+                    "nuovo": int(nuovo),
                     "motivi": "; ".join(motivi)}
         rows.append({"master_id": pid, "value": value, "value_adj": value_adj,
                      "q50_modello": float(p["q50"]), "q50_adj": q50,

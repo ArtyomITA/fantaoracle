@@ -145,6 +145,14 @@ def main():
         inputs.presenze = v.groupby(v.master_id.astype(str)).size().to_dict()
         print(f"voti stagione: {inputs.giornate_giocate} giornate giocate")
 
+    pp = PROC / f"players_{season}.parquet"
+    if pp.exists():
+        pl = pd.read_parquet(pp, columns=[c for c in ("master_id", "nuovo_in_serie_a", "fvm")])
+        pl["master_id"] = pl["master_id"].astype(str)
+        inputs.nuovi = set(pl.loc[pl["nuovo_in_serie_a"].fillna(0).astype(int) == 1, "master_id"])
+        inputs.fvm = dict(zip(pl["master_id"], pl["fvm"].fillna(0).astype(float)))
+        print(f"nuovi in Serie A: {len(inputs.nuovi)} (premio hype se FVM >= 30)")
+
     adj, log = adjust_predictions(pred, inputs)
     out = PROC / f"b_predictions_{season}_adj.json"
     out.write_text(json.dumps(adj, ensure_ascii=False), encoding="utf-8")

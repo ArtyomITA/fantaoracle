@@ -308,6 +308,25 @@ def build_players(reg, pt, votes_hist):
         v = vals[vals.date <= sept1].sort_values("date").drop_duplicates("player_id", keep="last")
         vmap = dict(zip(v.player_id, v.market_value_in_eur))
         base["tm_value_eur"] = base.tm_player_id.map(vmap)
+        # fix audit nuovi in Serie A: il dump TM conferma il match solo con presenze
+        # IT1, quindi i nuovi arrivi restano NaN. Per la stagione corrente riempie i
+        # soli NaN dalla rosa TM scaricata (scrape_tm_kader + f0b_match_tm_kader):
+        # eta' da DOB al 1/9, valore di mercato attuale. Stagioni passate: nessun file.
+        kp = MATCH_DIR / f"map_tm_kader_{y}.csv"
+        if kp.exists():
+            k = pd.read_csv(kp).drop_duplicates("master_id")
+            k_dob = pd.to_datetime(k.date_of_birth, errors="coerce")
+            k_eta = dict(zip(k.master_id, ((sept1 - k_dob).dt.days / 365.25).round(2)))
+            k_val = dict(zip(k.master_id, k.market_value_eur))
+            k_id = dict(zip(k.master_id, k.tm_player_id))
+            f_eta = base.eta.isna() & base.master_id.isin(k_eta)
+            f_val = base.tm_value_eur.isna() & base.master_id.isin(k_val)
+            f_id = base.tm_player_id.isna() & base.master_id.isin(k_id)
+            base.loc[f_eta, "eta"] = base.loc[f_eta, "master_id"].map(k_eta)
+            base.loc[f_val, "tm_value_eur"] = base.loc[f_val, "master_id"].map(k_val)
+            base.loc[f_id, "tm_player_id"] = base.loc[f_id, "master_id"].map(k_id)
+            print(f"  rosa TM {y} ({kp.name}): eta' riempita {f_eta.sum()} | "
+                  f"tm_value riempito {f_val.sum()}")
 
         # --- flag
         prevs = prev_seasons(s, 3)
