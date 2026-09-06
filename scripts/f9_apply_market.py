@@ -142,8 +142,14 @@ def main():
         v = pd.read_parquet(vp)
         v = v[v.sv.fillna(0) == 0] if "sv" in v.columns else v
         inputs.giornate_giocate = int(v.giornata.max()) if len(v) else 0
-        inputs.presenze = v.groupby(v.master_id.astype(str)).size().to_dict()
-        print(f"voti stagione: {inputs.giornate_giocate} giornate giocate")
+        # le presenze finora sono gia' feature del modello valore (pres_gk):
+        # qui servono solo le giornate giocate per le giornate residue
+        k_pred = {int(x.get("k", 0) or 0) for x in pred.values()}
+        print(f"voti stagione: {inputs.giornate_giocate} giornate giocate "
+              f"(K visto dal modello: {sorted(k_pred)})")
+        if k_pred and k_pred != {inputs.giornate_giocate}:
+            print("  ATTENZIONE: K delle predizioni diverso dalle giornate nei voti: "
+                  "rilanciare f1_make_predictions")
 
     pp = PROC / f"players_{season}.parquet"
     if pp.exists():

@@ -7,9 +7,12 @@ percentuale di titolarita' dalle probabili formazioni, rigoristi, presenze
 gia' giocate, e soprattutto i prezzi REALI delle aste gia' fatte quest'anno.
 
 Regole trasparenti (nessun riaddestramento):
-  value_adj = value * fattore_disponibilita * fattore_titolarita * bonus_rigori
+  value_adj = pts_gk + (value - pts_gk) * fattore_disponibilita * fattore_titolarita * bonus_rigori
+  (pts_gk = punti gia' fatti nelle K giornate giocate, che il modello valore
+   ha gia' visto: le presenze finora NON sono piu' un fattore qui)
   q50_adj   = w_mkt * prezzo_mercato + (1 - w_mkt) * q50_modello   (se mercato noto)
   q10/q90   traslati dello stesso delta di q50
+  value_up, value_q10/q25/q75/q90, sigma: stesso fattore del resto (f_all)
 
 Tutto e' loggato per riga in `motivi`, cosi' l'utente vede PERCHE' un
 giocatore e' sceso o salito.
@@ -72,8 +75,13 @@ def giornate_perse_da_testo(testo: str, giornata_corrente: int) -> float | None:
     return None
 
 
-def fattore_titolarita(pct: float | None, presenze: int | None,
-                       giornate_giocate: int) -> tuple[float, str]:
+def fattore_titolarita(pct: float | None, presenze: int | None = None,
+                       giornate_giocate: int = 0) -> tuple[float, str]:
+    """Solo dalla percentuale di titolarita' delle probabili (che il modello
+    non vede). Le presenze delle giornate gia' giocate sono ORA feature del
+    modello valore (pres_gk/fm_gk/pts_gk in f1_make_predictions): la vecchia
+    scala 1/0.85/0.60 sulle presenze sarebbe un doppio conteggio e non viene
+    piu' applicata (parametri tenuti per compatibilita', ignorati)."""
     if pct is not None and not pd.isna(pct):
         if pct >= 75:
             return 1.0, f"titolare {pct:.0f}%"
@@ -82,13 +90,6 @@ def fattore_titolarita(pct: float | None, presenze: int | None,
         if pct >= 25:
             return 0.70, f"riserva {pct:.0f}%"
         return 0.50, f"fuori dai titolari {pct:.0f}%"
-    if presenze is not None and giornate_giocate >= 2:
-        r = presenze / giornate_giocate
-        if r >= 0.99:
-            return 1.0, f"{presenze}/{giornate_giocate} presenze"
-        if r >= 0.5:
-            return 0.85, f"{presenze}/{giornate_giocate} presenze"
-        return 0.60, f"{presenze}/{giornate_giocate} presenze"
     return 1.0, ""
 
 
@@ -99,7 +100,7 @@ class MarketInputs:
     indisponibili: pd.DataFrame | None = None  # master_id, tipo, dettaglio, rientro_atteso
     rigoristi: set[str] = field(default_factory=set)   # master_id rigorista_1
     prezzi_live: pd.DataFrame | None = None    # master_id, p500_10sq (solo stagione corrente)
-    presenze: dict[str, int] = field(default_factory=dict)  # master_id -> presenze finora
+    presenze: dict[str, int] = field(default_factory=dict)  # (non piu' usato: vedi fattore_titolarita)
     giornata_corrente: int = 1
     giornate_giocate: int = 0
     nuovi: set[str] = field(default_factory=set)       # master_id nuovi in Serie A
@@ -145,6 +146,10 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
     restanti = max(1, GIORNATE - inputs.giornate_giocate)
     for pid, p in pred.items():
         value = float(p.get("value", 0.0))
+        # punti/presenze GIA' fatti nelle giornate giocate (dal modello, K
+        # giornate): i fattori valgono solo sul resto di stagione
+        pts_gk = float(p.get("pts_gk", 0.0) or 0.0)
+        pres_gk = float(p.get("pres_gk", 0.0) or 0.0)
         q10, q50, q90 = float(p["q10"]), float(p["q50"]), float(p["q90"])
         motivi = []
         f_disp = 1.0
@@ -159,7 +164,7 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
         f_rig = bonus_rigori if pid in inputs.rigoristi else 1.0
         if f_rig > 1.0:
             motivi.append("rigorista")
-        value_adj = value * f_disp * f_tit * f_rig
+        value_adj = pts_gk + (value - pts_gk) * f_disp * f_tit * f_rig
         nuovo = pid in inputs.nuovi
         if nuovo and inputs.fvm.get(pid, 0.0) >= HYPE_FVM_MIN:
             # coda alta piu' larga: sui nuovi la copertura q10-q90 e' 0.37
@@ -173,12 +178,29 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
             motivi.append(f"mercato reale {mkt[pid]:.0f}cr")
             q10, q50, q90 = max(1.0, q10 + delta), q50_new, q90 + delta
         f_all = f_disp * f_tit * f_rig
+        # coda destra mai sotto la mediana: per ~90 giocatori a valore basso il
+        # q75 conformalizzato scende sotto value e l'ottimizzatore con lam>0
+        # assegnerebbe un upside negativo (revisione S6)
+        value_up = max(float(p.get("value_up", value)), value)
+        pres = float(p.get("pres", 30.0))
         adj[pid] = {"q10": round(q10, 2), "q50": round(q50, 2), "q90": round(q90, 2),
                     "value": round(value_adj, 1), "value_modello": round(value, 1),
-                    "value_up": round(float(p.get("value_up", value)) * f_all, 1),
-                    "pres": round(float(p.get("pres", 30.0)) * f_disp * f_tit, 1),
+                    "value_up": round(pts_gk + (value_up - pts_gk) * f_all, 1),
+                    "pres": round(pres_gk + (pres - pres_gk) * f_disp * f_tit, 1),
+                    "pts_gk": round(pts_gk, 1), "pres_gk": round(pres_gk, 1),
                     "nuovo": int(nuovo),
                     "motivi": "; ".join(motivi)}
+        # quantili del valore per giocatore (stage S3): stessa scala del resto
+        for c in ("value_q10", "value_q25", "value_q75", "value_q90"):
+            if p.get(c) is not None:
+                qv = float(p[c])
+                if c in ("value_q75", "value_q90"):
+                    qv = max(qv, value)
+                adj[pid][c] = round(pts_gk + (qv - pts_gk) * f_all, 1)
+        if p.get("sigma") is not None:
+            adj[pid]["sigma"] = round(float(p["sigma"]) * f_all, 1)
+        if "k" in p:
+            adj[pid]["k"] = p["k"]
         rows.append({"master_id": pid, "value": value, "value_adj": value_adj,
                      "q50_modello": float(p["q50"]), "q50_adj": q50,
                      "f_disp": f_disp, "f_tit": f_tit, "f_rig": f_rig,

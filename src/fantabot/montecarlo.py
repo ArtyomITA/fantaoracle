@@ -40,11 +40,12 @@ class PlayerDist:
     team: str = ""              # squadra: shock condiviso squadra x giornata
 
 
-# Effetto squadra x giornata sul voto: misurato sui voti 2024/25 e 2025/26,
-# sd ~0.55 (13-20% della varianza del voto puro). Senza, i compagni di squadra
-# sono indipendenti e una difesa intera (modificatore, porta inviolata) sembra
-# meno rischiosa e meno redditizia di quanto sia.
-TEAM_SHOCK_SD = 0.55
+# Effetto squadra x giornata sul voto puro: varianza ~0.07 al netto del rumore
+# campionario, cioe' sd ~0.25 (misurato sui voti raw 2021-2026; il primo
+# valore 0.55 era la sd lorda, 4 volte troppo grande in varianza). Senza, i
+# compagni di squadra sono indipendenti e una difesa intera (modificatore,
+# porta inviolata) sembra meno rischiosa e meno redditizia di quanto sia.
+TEAM_SHOCK_SD = 0.25
 # nuovi in Serie A: stima piu' incerta (cold start), floor piu' alto
 NUOVO_SIGMA_SHIFT_MIN = 0.6
 NUOVO_SIGMA_PLAY = 0.18
@@ -85,10 +86,21 @@ def build_dists(players: dict[str, Player], preds: dict[str, dict],
         mean_needed = value / (p_play * GIORNATE) if value > 0 else fv.mean()
         shift = float(mean_needed - fv.mean())
         shift = max(-2.0, min(2.0, shift))
-        # incertezza di stima dai quantili del modello (q75 - q50 = 0.674 sigma
-        # per una normale), convertita in punti per giornata; floor prudente
-        vup = float(pr.get("value_up", 0.0) or 0.0)
-        sigma_season = (vup - value) / 0.674 if vup > value else 40.0
+        # incertezza di stima per giocatore: pr["sigma"] = (q90 - q10) / 2.56
+        # dei quantili conformalizzati (stage S3), sul RESTO di stagione
+        # (38 - k giornate); in mancanza, dai quantili impliciti in value_up
+        # (q75 - q50 = 0.674 sigma per una normale). Convertita in punti per
+        # giornata con gli stessi clamp; floor prudente
+        k = int(pr.get("k", 0) or 0)
+        sig = pr.get("sigma")
+        if sig is not None and float(sig) > 0:
+            sigma_season = float(sig)
+        else:
+            vup = float(pr.get("value_up", 0.0) or 0.0)
+            sigma_season = (vup - value) / 0.674 if vup > value else 40.0
+        # la simulazione gioca tutte le 38 giornate (anche le K gia' fatte),
+        # quindi la sigma di stagione va spalmata su 38, non su 38-k: altrimenti
+        # l'incertezza per giornata e' gonfiata di 38/(38-k)
         sigma_shift = float(min(1.5, max(0.35, sigma_season / (p_play * GIORNATE))))
         sigma_play = 0.10
         if bool(pr.get("nuovo", False)) or getattr(p, "nuovo", False):

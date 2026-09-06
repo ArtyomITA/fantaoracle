@@ -239,8 +239,67 @@ def season_stats(voti_matched):
     bonus = v.groupby("master_id").agg(
         gol=("gol_fatti", "sum"), assist=("assist", "sum"),
         rig_segnati=("rigore_segnato", "sum"), rig_sbagliati=("rigori_sbagliati", "sum"),
-        ammonizioni=("ammonizione", "sum"))
-    return agg.join(bonus, how="outer")
+        ammonizioni=("ammonizione", "sum"), espulsioni=("espulsione", "sum"))
+    # stage S4: presenze con voto nelle ultime 10 giornate (trend di fine stagione)
+    last10 = (played[played.giornata >= 29].groupby("master_id").size()
+              .rename("pres_last10"))
+    out = agg.join(bonus, how="outer").join(last10, how="left")
+    out["pres_last10"] = out["pres_last10"].fillna(0).astype(float)
+    return out
+
+
+# ------------------------------------------------------------------ stage S4
+# feature a costo zero dai dati gia' in casa (voti raw, TM appearances,
+# understat squadre). Tutte dalla stagione PRECEDENTE (o 3 precedenti pesate):
+# nessuna informazione della stagione stessa.
+NEW_FEATS = [
+    "tm_prev_min_per_app", "tm_prev_share90", "prev1_pres_last10",   # (a) minuti/trend
+    "amm_pp_w", "esp_pp_w", "squal_att",                              # (b) disciplina
+    "team_prev_xga", "team_prev_xpts", "team_prev_cs",                # (d) squadra
+    "rig_tirati_prev1", "rigorista_1_prev",                           # (e) rigorista
+]
+DISC_W = (3.0, 2.0, 1.0)   # pesi prev1/prev2/prev3 per le medie disciplinari
+GIORNATE = 38
+
+
+def tm_minutes_by_season():
+    """{season_start_year: DataFrame indice player_id (minuti totali, presenze
+    con minuti > 0, min_per_app, share90 = minuti / (38*90))} dalle
+    appearances Serie A di Transfermarkt."""
+    ap = pd.read_csv(RAW / "transfermarkt" / "transfermarkt_appearances_seriea.csv")
+    ap = ap[ap.competition_id == "IT1"]
+    out = {}
+    for y, d in ap.groupby("season_start_year"):
+        g = d.groupby("player_id").agg(minuti=("minutes_played", "sum"),
+                                       app=("minutes_played", lambda x: int((x > 0).sum())))
+        g["min_per_app"] = np.where(g.app > 0, g.minuti / g.app.clip(lower=1), np.nan)
+        g["share90"] = g.minuti / (GIORNATE * 90.0)
+        g.index = g.index.astype(float)   # tm_player_id nei players e' float (NaN)
+        out[int(y)] = g
+    return out
+
+
+def team_clean_sheets(voti_matched, team_map):
+    """{sigla: n giornate con portiere a 0 gol subiti} nella stagione (voti
+    raw: righe dei portieri con sv=0 e gol_subiti=0)."""
+    v = voti_matched
+    gk = v[(v.ruolo.str.lower() == "p") & (v.sv == 0) & (v.gol_subiti.fillna(0) == 0)]
+    cs = gk.groupby("squadra")["giornata"].nunique()
+    return {team_map[t]: int(n) for t, n in cs.items() if t in team_map}
+
+
+def rigoristi(voti_matched, team_map):
+    """{master_id: 1/0} = primo tiratore di rigori della propria squadra nella
+    stagione (rigori tirati = segnati + sbagliati, massimo di squadra, almeno 1).
+    Squadra = quella con piu' righe voto del giocatore."""
+    v = voti_matched.copy()
+    v["rig_tirati"] = v.rigore_segnato.fillna(0) + v.rigori_sbagliati.fillna(0)
+    tir = v.groupby("master_id")["rig_tirati"].sum()
+    team = v.groupby("master_id")["squadra"].agg(lambda x: x.mode().iloc[0]).map(team_map)
+    df = pd.DataFrame({"tir": tir, "team": team})
+    tmax = df.groupby("team")["tir"].transform("max")
+    df["rig1"] = ((df.tir >= 1) & (df.tir >= tmax)).astype(float)
+    return dict(zip(df.index, df.rig1))
 
 
 def build_players(reg, pt, votes_hist):
@@ -266,6 +325,14 @@ def build_players(reg, pt, votes_hist):
     teams_by_season = reg.groupby("stagione")["squadra"].agg(set).to_dict()
 
     stats_by_season = {s: season_stats(v) for s, v in votes_hist.items()}
+
+    # stage S4: minuti TM per stagione, porte inviolate di squadra e primo
+    # rigorista per stagione (dai voti raw, nomi squadra -> sigla via team_maps)
+    tm_by_year = tm_minutes_by_season()
+    team_maps = json.load(open(MATCH_DIR / "team_maps.json", encoding="utf-8"))
+    cs_by_season = {s: team_clean_sheets(v, team_maps.get(s, {}))
+                    for s, v in votes_hist.items()}
+    rig_by_season = {s: rigoristi(v, team_maps.get(s, {})) for s, v in votes_hist.items()}
 
     for s in PLAYERS_SEASONS:
         y = int(s[:4])
@@ -336,18 +403,55 @@ def build_players(reg, pt, votes_hist):
         p1 = prevs[0]
         prev_teams = teams_by_season.get(p1, set())
         base["squadra_neopromossa"] = (~base.squadra_listone.isin(prev_teams)).astype(int)
+        # cambio_squadra: squadra all'asta diversa da quella del listone della
+        # stagione precedente (registry); NaN se assente dal listone precedente
+        r1 = reg[reg.stagione == p1]
+        sq_prev = base.master_id.map(dict(zip(r1.master_id, r1.squadra)))
+        base["cambio_squadra"] = np.where(sq_prev.isna(), np.nan,
+                                          (base.squadra != sq_prev).astype(float))
 
         # --- storico voti: 3 stagioni precedenti
         for i, p in enumerate(prevs, start=1):
             st = stats_by_season.get(p)
             cols = ["fantamedia", "media_voto", "presenze", "gol", "assist",
-                    "rig_segnati", "rig_sbagliati", "ammonizioni"]
+                    "rig_segnati", "rig_sbagliati", "ammonizioni",
+                    "espulsioni", "pres_last10"]   # ultime due: stage S4
             if st is None:
                 for c in cols:
                     base[f"prev{i}_{c}"] = np.nan
             else:
-                st2 = st.rename(columns={c: f"prev{i}_{c}" for c in cols})
+                st2 = st[cols].rename(columns={c: f"prev{i}_{c}" for c in cols})
                 base = base.merge(st2, left_on="master_id", right_index=True, how="left")
+
+        # --- stage S4 (a) minuti TM stagione precedente + trend ultime 10 giornate
+        tmp_ = tm_by_year.get(y - 1)
+        if tmp_ is not None:
+            base["tm_prev_min_per_app"] = base.tm_player_id.map(tmp_["min_per_app"])
+            base["tm_prev_share90"] = base.tm_player_id.map(tmp_["share90"])
+        else:
+            base["tm_prev_min_per_app"] = np.nan
+            base["tm_prev_share90"] = np.nan
+        # prev1_pres_last10 gia' nel merge sopra (NaN se assente dai voti prev1)
+
+        # --- stage S4 (b) disciplina: ammonizioni/espulsioni per presenza su 3
+        # stagioni pesate (3/2/1, stagioni mancanti escluse) e squalifiche attese
+        # su 38 presenze (1 per espulsione, 1 ogni 5 ammonizioni)
+        num_a = np.zeros(len(base)); num_e = np.zeros(len(base)); den = np.zeros(len(base))
+        for i, w in enumerate(DISC_W, start=1):
+            pres_i = base[f"prev{i}_presenze"].astype(float)
+            ok = pres_i.notna()
+            den += np.where(ok, w * pres_i.fillna(0), 0.0)
+            num_a += np.where(ok, w * base[f"prev{i}_ammonizioni"].astype(float).fillna(0), 0.0)
+            num_e += np.where(ok, w * base[f"prev{i}_espulsioni"].astype(float).fillna(0), 0.0)
+        base["amm_pp_w"] = np.where(den > 0, num_a / np.where(den > 0, den, 1), np.nan)
+        base["esp_pp_w"] = np.where(den > 0, num_e / np.where(den > 0, den, 1), np.nan)
+        base["squal_att"] = GIORNATE * (base.esp_pp_w + base.amm_pp_w / 5.0)
+
+        # --- stage S4 (e) rigorista storico (stagione precedente)
+        base["rig_tirati_prev1"] = base.prev1_rig_segnati + base.prev1_rig_sbagliati
+        rg = rig_by_season.get(p1)
+        base["rigorista_1_prev"] = (base.master_id.map(rg) if rg is not None
+                                    else np.nan)
 
         # --- understat stagione precedente
         uy = y - 1
@@ -369,6 +473,17 @@ def build_players(reg, pt, votes_hist):
         txg = dict(zip(ut.team, ut.xG))
         base["team_prev_xg"] = base.squadra.map(
             lambda sg: txg.get(SIGLA_TO_UNDERSTAT.get(sg, ""), np.nan))
+        # stage S4 (d): xGA e xPts della squadra corrente nella stagione
+        # precedente + porte inviolate reali (dai voti raw); NaN per le
+        # neopromosse, come team_prev_xg
+        txga = dict(zip(ut.team, ut.xGA))
+        txp = dict(zip(ut.team, ut.xpts))
+        base["team_prev_xga"] = base.squadra.map(
+            lambda sg: txga.get(SIGLA_TO_UNDERSTAT.get(sg, ""), np.nan))
+        base["team_prev_xpts"] = base.squadra.map(
+            lambda sg: txp.get(SIGLA_TO_UNDERSTAT.get(sg, ""), np.nan))
+        cs_prev = cs_by_season.get(p1, {})
+        base["team_prev_cs"] = base.squadra.map(lambda sg: cs_prev.get(sg, np.nan))
 
         # --- target (gerarchia fix round 1: estive 10x500 / estive all / tardive / wayback)
         t = pt[pt.stagione == s].drop(columns=["stagione"])
@@ -380,7 +495,8 @@ def build_players(reg, pt, votes_hist):
 
         out_cols = (["master_id", "nome", "ruolo", "squadra", "squadra_listone",
                      "squadra_fonte", "qt_i", "fvm", "quot_fs_sett", "eta",
-                     "tm_value_eur", "nuovo_in_serie_a", "squadra_neopromossa"]
+                     "tm_value_eur", "nuovo_in_serie_a", "squadra_neopromossa",
+                     "cambio_squadra"]
                     + [f"prev{i}_{c}" for i in (1, 2, 3)
                        for c in ["fantamedia", "media_voto", "presenze", "gol", "assist",
                                  "rig_segnati", "rig_sbagliati", "ammonizioni"]]
@@ -388,7 +504,8 @@ def build_players(reg, pt, votes_hist):
                        "us_prev_minutes", "us_prev_xg90", "team_prev_xg"]
                     + [f"target_{p}_{sfx}" for sfx in ["10x500_estiva", "all_estiva", "tardiva"]
                        for p in ["n_obs", "mean_pct", "std_pct"]]
-                    + ["target_wayback_p500_10sq"])
+                    + ["target_wayback_p500_10sq"]
+                    + NEW_FEATS)
         out = base[out_cols]
         assert out.master_id.is_unique
         out.to_parquet(PROC / f"players_{s}.parquet", index=False)

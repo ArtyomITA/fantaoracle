@@ -20,7 +20,7 @@ stima non misurata lo dico.
 | fantacalcio.it (listone, voti, probabili, indisponibili, rigoristi) | OK, gia' in pipeline | Wayback degli snapshot pre-asta 2019-2025 per avere rigorista/indisponibile anche nelle stagioni di train |
 | fanta.soccer (quotazioni per giornata) | OK | usare solo la g01 come feature pre-asta (oltre = leakage) |
 | fantacalcio-online (prezzi live 2026/27) | OK, 302 giocatori prezzati | 108 nuovi senza prezzo live: stimarlo da fvm/qt/tm con premio nuovi |
-| Understat Serie A | **endpoint cambiati a dicembre 2025**: l'HTML non embedda piu' i dati, lo scraper fallback e' rotto | riscrivere `download_understat.py` su `getLeagueData/getPlayerData/getTeamData`, salvare l'id Understat per un match stabile |
+| Understat Serie A | OK: `download_understat.py` usa `understatapi` (che chiama `getLeagueData`), verificato il 1/9 (2026: 370 giocatori, 20 squadre). Solo il fallback HTML a regex e' morto (la pagina non embedda piu' il JSON) | salvare anche l'id Understat nel CSV per un match stabile; aggiungere `getPlayerData` (per partita) e `getTeamData` quando serviranno le serie per giornata |
 | Understat top-5 (EPL, LaLiga, Bundesliga, Ligue 1, RFPL) 2020-2026 | verificato scaricabile con `understatapi` (17.797 righe) | copre ~45-50% dei crediti dei nuovi; quasi nessuno dei nuovi da Serie B |
 | Transfermarkt (kader 2026, infortuni, storico infortuni, rigoristi per stagione, cambi allenatore) | 4-5 pagine .it senza Cloudflare | scraper leggero 1 req/2 s; risolve il cold start (eta', valore, club precedente) |
 | FBref | Cloudflare 403 | non serve: nessuna metrica FBref mappa su bonus fantacalcio non gia' coperti da Understat+TM; export manuale Serie B una volta l'anno se proprio |
@@ -451,8 +451,10 @@ Fatto nella notte, gia' nel pack 2026/27:
 3. **Incertezza dei nuovi** nel Monte Carlo (sigma di stima floor 0.6,
    sigma disponibilita' 0.18) e nei bot C (sigma x1.5): `montecarlo.py`,
    `bot_c.py`, campo `Player.nuovo`.
-4. **Shock squadra x giornata** condiviso dai compagni (sd 0.55) nel Monte
-   Carlo: e' il pezzo del "Cubo" a costo zero.
+4. **Shock squadra x giornata** condiviso dai compagni nel Monte Carlo: e' il
+   pezzo del "Cubo" a costo zero. Il primo valore (sd 0.55) era la sd lorda:
+   i giudici del secondo workflow hanno misurato la varianza al netto del
+   rumore campionario (~0.07, cioe' sd 0.25) e il 6/9 e' stato corretto.
 
 Effetto sul piano 2026/27 (f12, 100 simulazioni): obiettivo lam 0, attacco
 35-50%, modulo 3-4-3, P(1o) 35% contro archetipi 7-29%; in attacco entrano
@@ -462,5 +464,179 @@ giornata, vittoria 60% contro archetipi <= 1%: invariata, nessuna regressione.
 
 Per usare il pack nuovo: riavviare il Copilota dal menu.
 
-Da fare prima dell'asta (Lista 1, punto 2 veloce): presenze g1-3 come feature
-addestrata al posto dell'euristica di titolarita'.
+5. **Giornate gia' giocate come feature** (Lista 1, punto 2 veloce, stage
+   S1): `f1_make_predictions.catboost_values(k=K)` costruisce dai voti le
+   feature `pres_gk`, `fm_gk`, `pts_gk` (sole giornate 1..K, K = giornate
+   presenti in `votes_2026-27.parquet`, oggi 2) per train e test, predice i
+   punti del RESTO (giornate K+1..38) e ritorna value = punti gia' fatti +
+   resto, pres e value_up coerenti. `market_adjust.fattore_titolarita` non
+   usa piu' le presenze (doppio conteggio): resta solo la pct delle
+   probabili, e i fattori si applicano al solo resto di stagione.
+   Harness: `scripts/indagine/backtest_valore.py --tag X --k 2`
+   (usa le funzioni reali di f1_make_predictions; risultati in
+   `data/indagine/backtest_valore_{tag}.json`). Misurato con K=2:
+   MAE 33.5 -> 32.3 (2024/25) e 34.3 -> 32.3 (2025/26), rho .833 -> .846 e
+   .843 -> .867, MAE presenze 5.6/5.7 -> 5.35, nuovi MAE 27.4/30.8 ->
+   26.2/27.5; fascia value>=50 MAE -1.1 su entrambe. Tenuto.
+6. **Modello valore TabPFN + cambio squadra** (Lista 1, punto 3, stage S2),
+   sempre misurato con `backtest_valore.py --k 2` sul resto di stagione:
+   - regressore del resto = blend 0.7 TabPFN-2 + 0.3 CatBoost
+     (`VALUE_MODEL = "blend"` in `f1_make_predictions.py`, cache delle
+     predizioni TabPFN in `data/indagine/tabpfn_cache/`): MAE 32.3 -> 30.5
+     (2024/25) e 32.3 -> 31.3 (2025/26), rho .846 -> .872 e .867 -> .874,
+     fascia value>=50 MAE 39.4 -> 38.5 e 39.3 -> 37.4, nuovi MAE 26.2 ->
+     23.2 e 27.5 -> 26.9. Il TabPFN da solo e' simile (30.5/31.2) ma meno
+     stabile (rho e fascia rosterabile peggiori nel 2025/26): tenuto il blend.
+   - feature `cambio_squadra` (squadra del listone diversa da quella del
+     listone precedente, NaN se assente; `f0b_build_outputs`, parquet
+     rigenerati per tutte le stagioni, nessun'altra colonna cambiata) nel solo
+     modello valore (`FEATS_EXTRA`): MAE 30.5 -> 30.3 e 31.3 -> 31.2, rho
+     .872 -> .874 e .874 -> .876, presenze MAE 5.35 -> 5.28/5.31. NaN test
+     0.38/0.34 vs listone 2026/27 0.30 (= quota di chi non era nel listone
+     precedente). Tenuta; nel modello prezzo non e' stata provata.
+   - offset per ruolo stimato sull'OOF (opzione `ROLE_CALIB`, spenta): NON
+     si trasferisce alla stagione successiva (2025/26: bias -11.5 -> -14.4,
+     MAE +0.6, bias A da -13 a -20). Il bias per ruolo cambia segno da un
+     anno all'altro (2024/25: P +0.6, A -4.8; 2025/26: P -5.1, A -12.1), la
+     sottostima e' globale (-9/-11 punti, -15/-17 sulla fascia rosterabile)
+     e non per reparto. Scartato; l'obiettivo "bias per ruolo entro +-5"
+     resta aperto.
+   Pipeline 2026/27 rigirata (f1 K=2, f9, f2): prezzi q50 identici, valore
+   rho .988 con lo stage S1, |delta| medio 7.5 punti (media -0.9), +3.2 a chi
+   ha cambiato squadra; pack aggiornato. f12 sul pack nuovo da rilanciare
+   prima dell'asta.
+7. **Incertezza per giocatore** (Lista 1, punto 4, stage S3), misurata con
+   `backtest_valore.py --k 2` (tag `s3_final`):
+   - quantili q10/q25/q50/q75/q90 del resto di stagione nativi del TabPFN
+     (stesso forward della media, cache `*_q.npz`; col modello catboost
+     MultiQuantile), traslati sulla media del blend, poi conformalizzati per
+     livello sull'OOF per ruolo x fascia di valore (<60, 60-150, >150; shrink
+     n/40 verso il ruolo e poi verso il globale). Nel JSON: `value_q10`,
+     `value_q25`, `value_q75`, `value_q90`, `sigma` = (q90 - q10) / 2.56;
+     `value_up` = q75 calibrato (prima value + 0.674 x 43 per tutti).
+     `market_adjust` li scala col fattore del resto (f_all) e propaga `k`;
+     `montecarlo.build_dists` usa `sigma` per giocatore (diviso per
+     p_play x (38 - k), stessi clamp e floor dei nuovi).
+   - calibrazione "in avanti" (`CALIB_FORWARD`): i fold OOF predicono ogni
+     stagione con le SOLE precedenti (2025/26 col fold 2024/25; 2026/27 coi
+     fold 2024/25 e 2025/26, gia' in cache). Il leave-one-season-out
+     classico ha bias di segno opposto fra i fold (+11 sul 2023/24 predetto
+     col 2024/25, -9 in avanti) e la media OOF si annullava: la sottostima
+     dell'anno dopo non veniva corretta. Intercetta ricalcolata col b
+     vincolato. Effetto 2025/26: MAE 31.2 -> 30.0, bias -11.0 -> -4.0,
+     fascia value>=50 MAE 37.4 -> 35.1 e bias -16.6 -> -7.8, rho invariata
+     (.876), bias per ruolo P -0.1 / D -5.5 / C -3.0 / A -5.1 (obiettivo +-5
+     quasi raggiunto). Nuovi MAE 27.0 -> 27.3 (rumore). Il 2024/25 non ha
+     fold di calibrazione (solo il 2021/22 prima del 2023/24) e resta
+     identico allo stage S2, con quantili dalla normale di default (sigma 43).
+   - tabella dei quantili 2025/26 (prima: P(reale>value_up) 0.31, per ruolo
+     P .12 D .32 C .36 A .30, coverage non misurabile):
+     P(reale>value_up) 0.246 (P .25 D .23 C .20 A .33; fasce .24/.28/.19),
+     coverage q10-q90 0.802 (P .77 D .79 C .85 A .76; fasce .80/.79/.83),
+     P(reale<q10) P .13 D .12 C .08 A .07, sigma media 35.7 (eteroschedastica:
+     stimata per giocatore invece della costante 43). 2024/25 (default):
+     P(reale>value_up) 0.28, coverage 0.83. Con i quantili nativi NON
+     calibrati (tag `s3_quant`) il 2024/25 dava 0.32 / 0.73: senza fold la
+     normale di default e' piu' sicura. Tenuto.
+8. **Feature a costo zero** (Lista 1, "Extra", stage S4), misurate con
+   `backtest_valore.py --k 2 --extra ...` (nuova opzione: feature extra del
+   solo modello valore, base = tag `s3_final`):
+   - in `f0b_build_outputs.build_players` 11 colonne nuove nei
+     `players_*.parquet` (tutte dalla stagione precedente o dalle 3
+     precedenti; colonne preesistenti identiche a `data/baseline_20260905`):
+     (a) `tm_prev_min_per_app`, `tm_prev_share90` (TM appearances Serie A,
+     che coprono 2019-2025 quindi anche la 2025/26 per il listone 2026/27),
+     `prev1_pres_last10` (presenze con voto nelle giornate 29-38); (b)
+     `amm_pp_w`, `esp_pp_w` (ammonizioni/espulsioni per presenza su 3
+     stagioni pesate 3/2/1), `squal_att` (giornate di squalifica attese su
+     38 presenze); (d) `team_prev_xga`, `team_prev_xpts` (understat squadre),
+     `team_prev_cs` (porte inviolate reali dai voti raw, portiere a 0 gol
+     subiti); (e) `rig_tirati_prev1` (segnati + sbagliati),
+     `rigorista_1_prev` (primo tiratore della squadra). (c) cambio
+     allenatore SALTATO: `games.csv.gz` ha gli allenatori ma finisce alla
+     2025/26, per il listone 2026/27 la feature sarebbe NaN al 100%.
+   - tasso di NaN test 2024/25 / 2025/26 vs listone 2026/27: (a) .41/.40 vs
+     .35, (b) .37/.32 vs .27, (d) .17/.17 vs .16, (e) .42/.39 vs .35 (lo
+     scarto e' la quota di nuovi: 36%/31% nel test, 26% nel listone).
+   - tabella dei guadagni col blend (MAE tutti / rho / MAE value>=50 / MAE
+     nuovi, 2024/25 e 2025/26; base 30.31 .874 38.51 23.37 e 30.00 .876
+     35.11 27.26):
+     (a) minuti+trend: 30.19 .873 38.41 23.29 | 29.93 .878 34.92 27.03
+     (b) disciplina:   30.13 .873 38.43 23.31 | 30.20 .877 35.23 27.28
+     (d) squadra:      30.35 .873 38.33 23.61 | 29.78 .878 34.74 26.68
+     (e) rigorista:    30.27 .874 38.30 23.45 | 30.01 .878 35.18 26.91
+     (a)+(e):          30.26 .873 38.24 23.42 | 30.18 .877 35.44 27.10
+     (a)+(d):          30.49 .872 38.29 23.65 | 29.77 .879 34.78 26.57
+     tutte:            30.47 .873 38.67 23.58 | 29.76 .877 34.67 26.73
+     Col solo CatBoost (screening veloce) tutti i gruppi stanno entro +-0.2
+     MAE, cioe' rumore. TENUTO solo il gruppo (a) (unico che non peggiora
+     nessuna stagione: MAE -0.11/-0.07, fascia rosterabile -0.10/-0.19,
+     nuovi -0.08/-0.23; scarti a rumore: presenze MAE 5.28 -> 5.34 nel
+     2024/25, rho -.001/+.002). Il cumulato +0.03-0.06 rho stimato
+     dall'audit NON si vede: la rho resta .873/.878. Le altre colonne
+     restano nei parquet, fuori da `FEATS_EXTRA`.
+   Pipeline 2026/27 rigirata (f1 K=2, f9, f2), pack aggiornato. f12 sul
+   pack nuovo da rilanciare prima dell'asta.
+9. **Rerun completo e confronto con la baseline** (stage S5, 6 settembre,
+   log `data/refresh/chain_lista1.log`): f1 (tutte le stagioni, K=0 per
+   2024/25 e 2025/26, K=2 per 2026/27), f9, f2, f12 (100 sim) 2025/26 e
+   2026/27, f13 2025/26 e 2024/25, tutto exit 0 in 14 minuti (fit TabPFN
+   quasi tutti in cache). Le predizioni 2026/27 sono identiche allo stage S4.
+   - backtest `--tag finale --k 2` contro `baseline` (stagione intera):
+     2024/25 MAE 33.48 -> 30.19, rho .833 -> .873, presenze 5.60 -> 5.34,
+     fascia value>=50 MAE 40.5 -> 38.4, nuovi 27.4 -> 23.3; 2025/26 MAE
+     34.25 -> 29.93, bias -11.0 -> -4.8, rho .843 -> .878, presenze 5.70 ->
+     5.31, fascia 40.4 -> 34.9 e bias -15.8 -> -8.6, nuovi 30.8 -> 27.0,
+     P(reale>value_up) .31 -> .25, coverage q10-q90 .80. NaN delle feature
+     nuove test vs listone: cambio_squadra .38/.34 vs .30, tm_prev_* .41/.40
+     vs .35, prev1_pres_last10 .41/.39 vs .35 (quota di nuovi), fm_gk .51 vs .42.
+   - f12 2026/27: obiettivo lam 0, attacco 50-65%, 3-4-3, P(1o) 40% (era
+     35% con attacco 35-50%), punti attesi 3324 (era 3209); rosa 15/25 in
+     comune (entrano Malen, Diao, Kalulu, Vlasic, Palmisani; escono Ramos G.,
+     Kvernadze, Wesley, Vasquez, Atta, Falcone). f12 2025/26: stesso
+     obiettivo (lam 0, 20-35%, 3-5-2), P(1o) 49% (era 70%, sd 6.6 contro 8.0).
+   - f13 a prezzi di mercato: 2024/25 (nuovo, non nel log baseline) 2968
+     punti, win 79%; 2025/26 2882 punti (era 2919), win 9% nella tabella
+     perche' la variante PIANO_B(q50) da 624 crediti sale a 89%. Confronto
+     equo nella stessa lega (script scratch, stessi archetipi, senza la
+     variante q50): 2025/26 piano nuovo 2882 vs baseline 2919, testa a testa
+     13-18% contro 77-81%, ma da solo batte ancora gli archetipi al 58-67%
+     (miglior archetipo 2788-2803); 2024/25 piano nuovo 2968 vs baseline 2843
+     (sotto GUIDA1 2862), testa a testa 91-96%. Una stagione meglio (+125),
+     una peggio (-37): il piano finale resta il migliore contro gli archetipi
+     in entrambe.
+   - value 2026/27 vs baseline: +11.3 medio (|delta| 17.5, rho .970): +2.7
+     dalle giornate giocate (S1), -0.7 dal blend (S2), +9.3 dalla
+     calibrazione in avanti (S3), -0.1 dai minuti (S4); +25 a chi ha 2
+     presenze, -4 a chi ne ha 0. Copilota verificato (import, piano,
+     consiglio, chiamata) sul pack nuovo.
+
+10. **Dopo la revisione (6 settembre, ore 03:15).** Applicati i due fix
+    minori segnalati dalla revisione S6: in `montecarlo.build_dists` la sigma
+    di stagione e' divisa per 38 giornate (la simulazione le gioca tutte,
+    dividere per 38 - K la gonfiava del 5%); in `market_adjust` la coda
+    destra non scende mai sotto la mediana (`value_up`, `value_q75`,
+    `value_q90` >= `value`: 91 giocatori a valore basso avevano upside
+    negativo). Rerun f9, f2, f12 e f13: piano 2026/27 invariato, obiettivo
+    lam 0, attacco 50-65%, modulo 3-4-3, P(1o) 39% contro archetipi 5-27%,
+    3311 punti attesi. Validazione sui voti reali a prezzi di mercato:
+    2024/25 2968 punti, vittoria 79% (baseline 2843, sotto un archetipo);
+    2025/26 2882 punti, secondo posto medio 2.18 (baseline 2919): una
+    stagione +125, una -37, con due sole stagioni il segnale a livello di
+    piano e' rumoroso. Il win% del 2025/26 in tabella (9%) e' schiacciato
+    dalla variante a prezzi q50 (624 crediti, irrealistica) inclusa nella
+    stessa lega.
+
+    Riepilogo del round (backtest leave-future-out, K = 2 giornate giocate):
+
+    | | 2024/25 prima | dopo | 2025/26 prima | dopo |
+    |---|---|---|---|---|
+    | MAE punti | 33.5 | 30.2 | 34.3 | 29.9 |
+    | rho punti | .833 | .873 | .843 | .878 |
+    | MAE presenze | 5.6 | 5.3 | 5.7 | 5.3 |
+    | MAE fascia value>=50 | 40.5 | 38.4 | 40.4 | 34.9 |
+    | bias fascia value>=50 | -9.3 | -8.7 | -15.8 | -8.6 |
+    | P(reale > value_up) | .29 | .28 | .31 | .25 |
+    | copertura q10-q90 | n.d. | .83 | n.d. | .80 |
+
+    Per usare il pack nuovo: riavviare il Copilota dal menu.
