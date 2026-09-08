@@ -107,12 +107,23 @@ class MarketInputs:
     fvm: dict[str, float] = field(default_factory=dict)  # master_id -> FVM listone
 
 
-# Premio "hype" sui nuovi cari: il mercato paga i nuovi +18-20% a punto
-# rispetto ai vecchi a parita' di valore (misurato su aste 2024/25 e 2025/26:
-# bias q50 nuovi >=20cr -18.5 contro -7 dei vecchi). Solo se il prezzo live
-# non e' noto (quando lo e', il blend col mercato incorpora gia' l'hype).
-HYPE_NUOVI = 1.20
-HYPE_FVM_MIN = 30.0
+# Premio "hype" sui nuovi: RIMOSSO il 6/9/2026 dopo averlo validato sulle aste
+# estive reali (scripts/indagine/prova_premio_nuovi.py, 1019 righe di aste
+# 2021-22/2023-24/2024-25).
+#   - il premio esiste sul mercato (+18.6%, IC95 +4.8%..+34.2%, a parita' di
+#     quotazione e ruolo), ma sui soli giocatori cari (>=10 crediti, dove la
+#     correzione veniva applicata) non e' distinguibile da zero (+7.8%,
+#     IC95 -4.4%..+21.6%, n=46);
+#   - soprattutto e' DOPPIO CONTEGGIO: `nuovo_in_serie_a` e' gia' una feature
+#     del modello prezzo, che infatti predice i nuovi con rapporto
+#     predetto/reale 1.18 (2023-24) e 1.01 (2024-25). Applicare x1.20 sopra
+#     peggiora l'errore sui nuovi (MAE 3.78 -> 4.38 nel 2023-24) e nell'altra
+#     stagione non aiuta (5.29 -> 4.98, segno incoerente).
+#   - anche l'allargamento della coda (q90 += 0.5 q50) era ingiustificato: la
+#     dispersione del prezzo fra aste diverse e' identica per nuovi e vecchi
+#     (coefficiente di variazione mediano 0.64 contro 0.63, rapporto 1.02).
+# L'incertezza piu' alta dei nuovi resta dov'e' misurata: sul VALORE (punti),
+# in montecarlo.py e bot_c.py.
 
 
 def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
@@ -166,12 +177,6 @@ def adjust_predictions(pred: dict[str, dict], inputs: MarketInputs,
             motivi.append("rigorista")
         value_adj = pts_gk + (value - pts_gk) * f_disp * f_tit * f_rig
         nuovo = pid in inputs.nuovi
-        if nuovo and inputs.fvm.get(pid, 0.0) >= HYPE_FVM_MIN:
-            # coda alta piu' larga: sui nuovi la copertura q10-q90 e' 0.37
-            q90 = q90 + 0.5 * q50
-            if pid not in mkt:
-                q50 = q50 * HYPE_NUOVI
-                motivi.append("nuovo in A: premio hype sul prezzo")
         if pid in mkt:
             q50_new = w_mkt * mkt[pid] + (1 - w_mkt) * q50
             delta = q50_new - q50

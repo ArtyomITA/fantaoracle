@@ -14,7 +14,7 @@ import pandas as pd
 
 sys.path.insert(0, r"src")
 
-BASE = Path(r".")
+BASE = Path(r"fantabot")
 IND = BASE / "data" / "processed" / "indagine"
 SEASONS = ["2024-25", "2025-26"]
 BUDGET = 500

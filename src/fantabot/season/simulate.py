@@ -70,20 +70,26 @@ def simulate_season(rosters: dict[str, dict[str, list[str]]],
     fvoto_sum: dict[str, float] = {}
     fvoto_n: dict[str, int] = {}
 
+    prev_votes: set[str] = set()
     for g, votes in enumerate(votes_by_g):
         voti_puri = voti_by_g[g] if voti_by_g else None
         form = {pid: form_sum[pid] / form_n[pid] for pid in form_sum}
         form_voto = {pid: fvoto_sum[pid] / fvoto_n[pid] for pid in fvoto_sum}
-        # disponibilita' nota prima della formazione (infortuni/squalifiche):
-        # nel backtest = chi ha giocato davvero quella giornata; identica per
-        # tutte le squadre, quindi il confronto resta pulito
-        available = set(votes.keys())
+        # Disponibilita' NOTA PRIMA della formazione: chi ha giocato la
+        # giornata precedente. Alla prima giornata non esiste un passato,
+        # quindi nessuna informazione (None) e l'ordine viene dalla sola forma
+        # attesa. Passare l'elenco di chi prendera' voto in quel turno sarebbe
+        # guardare avanti: la scelta degli undici deve precedere gli esiti,
+        # mentre le sostituzioni automatiche piu' sotto li usano, come da
+        # regolamento.
+        available = prev_votes if g else None
         for t in teams:
             _, starters, bench = pick_lineup(rosters[t], form, form_voto,
                                              use_mod_difesa, available)
             pts, _ = score_giornata(starters, bench, votes, max_subs,
                                     voti_puri, use_mod_difesa)
             giornata_scores[t].append(pts)
+        prev_votes = set(votes.keys())
         for pid, fv in votes.items():   # la forma si aggiorna DOPO la giornata
             form_sum[pid] = form_sum.get(pid, 0.0) + fv
             form_n[pid] = form_n.get(pid, 0) + 1

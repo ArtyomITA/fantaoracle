@@ -23,8 +23,11 @@ class BBot(Bot):
     name = "B"
 
     def __init__(self, rng, predictions: dict[str, dict], replan_every: int = 10,
-                 objective: dict | None = None):
+                 objective: dict | None = None, peso_ombra: float = 0.5):
         super().__init__(rng)
+        # quanto del prezzo-ombra si aggiunge al q90 per i titolari di piano.
+        # 0.5 e' il comportamento storico; il valore non e' mai stato misurato.
+        self.peso_ombra = float(peso_ombra)
         self.pred = predictions
         # obiettivo scelto dal Monte Carlo (lam = peso dell'upside,
         # attack_share = (min, max) quota budget attacco); default neutro
@@ -73,8 +76,11 @@ class BBot(Bot):
         heat = self.market_heat()
         if pid in self.starter_targets:
             # base q90, ampliata dal prezzo-ombra se il drop-off e' grande
-            # (un unicum merita oltre q90; un sostituibile no)
-            cap = self._q(pid, "q90") + 0.5 * self._dropoff_credits(pid)
+            # (un unicum merita oltre q90; un sostituibile no). Il peso del
+            # prezzo-ombra e' un parametro: 0.5 e' il valore storico, non
+            # misurato. Serve a confrontare politiche diverse a parita' di
+            # tutto il resto (esperimento O3b).
+            cap = self._q(pid, "q90") + self.peso_ombra * self._dropoff_credits(pid)
             return cap * heat
         return max(self._q(pid, "q50") * 1.10, 2.0) * heat
 

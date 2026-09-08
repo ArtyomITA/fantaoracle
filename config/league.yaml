@@ -1,4 +1,16 @@
-# Configurazione lega target — confermata dal committente 6/8/2026
+# Configurazione lega target — PROMEMORIA LEGGIBILE, NON E' LA FONTE.
+#
+# Chi governa davvero, file per file:
+#   src/fantabot/rules.py          rosa, budget, sostituzioni, fasce del
+#                                  modificatore, bonus porta inviolata, quota
+#                                  minima di spesa del piano iniziale
+#   src/fantabot/season/lineup.py  soglie dei gol (66, poi uno ogni 6) e moduli
+#   scripts/f2_build_packs.py      quote e budget con cui si costruiscono i pack
+# Questo file non e' letto da nessuno script: serve solo a leggere le regole in
+# chiaro e va tenuto allineato a quelli sopra. In caso di disaccordo vale il
+# codice.
+# Corretto il 6/9/2026: la fascia 7.0 del modificatore vale +5 (non +6) e i
+# crediti aggiunti a gennaio sono 100 (non 50), come confermato dal committente.
 participants: 10
 budget: 500
 roster:
@@ -19,9 +31,9 @@ scoring:
     "6.25": 2
     "6.5": 3
     "6.75": 4
-    "7.0": 6
+    "7.0": 5
 repair_context:          # contesto lega reale (non ancora nel modello)
-  extra_credits: 50      # a gennaio si aggiungono 50 crediti
+  extra_credits: 100     # a gennaio si aggiungono 100 crediti + svincoli
   typical_leftover: "<50"  # quasi nessuno arriva a gennaio con piu' di 50
 auction:
   role_order: ["P", "D", "C", "A"]   # asta per ruoli in blocchi

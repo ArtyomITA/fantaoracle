@@ -31,11 +31,16 @@ def season_detail(rosters: dict[str, dict[str, list[str]]],
                  "fanta": 0.0} for t in teams}
     giornate = []
 
+    prev_votes: set[str] = set()
     for g, votes in enumerate(votes_by_g):
         voti_puri = voti_by_g[g] if voti_by_g else None
         form = {pid: form_sum[pid] / form_n[pid] for pid in form_sum}
         form_voto = {pid: fvoto_sum[pid] / fvoto_n[pid] for pid in fvoto_sum}
-        available = set(votes.keys())
+        # come in simulate_season: la formazione si sceglie con quello che si
+        # sapeva alla vigilia (chi ha giocato la giornata prima), mai con gli
+        # esiti del turno in corso. Le sostituzioni, piu' sotto, usano i voti
+        # realizzati: quelle avvengono a consuntivo.
+        available = prev_votes if g else None
         team_detail = {}
         for t in teams:
             module, starters, bench = pick_lineup(
@@ -114,6 +119,7 @@ def season_detail(rosters: dict[str, dict[str, list[str]]],
         giornate.append({"giornata": g + 1, "scontri": matches,
                          "squadre": team_detail,
                          "classifica": {t: dict(v) for t, v in table.items()}})
+        prev_votes = set(votes.keys())
         for pid, fv in votes.items():
             form_sum[pid] = form_sum.get(pid, 0.0) + fv
             form_n[pid] = form_n.get(pid, 0) + 1

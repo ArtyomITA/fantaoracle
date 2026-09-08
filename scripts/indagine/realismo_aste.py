@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy.stats import ks_2samp
 
-ROOT = Path(r".")
+ROOT = Path(r"fantabot")
 CSV = ROOT / "data" / "processed" / "aste_reali_clean.csv"
 SIM_MOD = ROOT / "data" / "tournament_mod" / "2024-25" / "main_1B_2A_7C" / "logs"
 SIM_NOMOD = ROOT / "data" / "tournament" / "2024-25" / "main_1B_2A_7C" / "logs"

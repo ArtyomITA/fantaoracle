@@ -3,7 +3,16 @@
 Protocollo leave-future-out:
   R1: train 2021-22            -> test 2023-24
   R2: train 2021-22 + 2023-24  -> test 2024-25
-  R3: train 21+23+24           -> test 2025-26 (target = wayback p500_10sq/500)
+
+Il target ammesso e' UNO SOLO: il prezzo medio delle aste reali giocate prima
+o a ridosso della prima giornata (`target_mean_pct_all_estiva`, periodo <= 1),
+piu' i listini catturati prima dell'asta della stessa stagione. Gli snapshot
+di listino presi a campionato in corso NON sono un target d'asta: misurato il
+6/9/2026 (`scripts/indagine/prova_target_prezzo.py`), addestrare su quelli
+raddoppia l'errore sul test delle aste vere (MAE 5.96 -> 11.95 sul 2023-24 e
+6.43 -> 16.39 sul 2024-25) e gonfia la fascia sotto i 15 crediti di +10/+17
+crediti, perche' un listino di gennaio comprime la scala verso l'alto.
+Vedi PRICE_SOURCES per la data e la validita' di ogni fonte.
 
 Modelli: Ridge, CatBoost MultiQuantile, TabPFN (quantili nativi), VORP (Marcel).
 Output: reports/f1_price_eval.md + data/processed/pred_{modello}_{stagione}.csv
@@ -44,8 +53,40 @@ QUANTILES = [0.1, 0.5, 0.9]
 RUNS = [
     ("R1", ["2021-22"], "2023-24"),
     ("R2", ["2021-22", "2023-24"], "2024-25"),
-    ("R3", ["2021-22", "2023-24", "2024-25"], "2025-26"),
+    # R3 (test 2025-26) rimosso: per quella stagione non esiste un prezzo
+    # d'asta osservato prima del via (vedi PRICE_SOURCES). Misurarci sopra
+    # significava misurare contro un listino di aprile 2026.
 ]
+
+# Fonte del target prezzo per stagione, con la data della rilevazione e se e'
+# utilizzabile come prezzo d'asta (cioe' nota PRIMA dell'asta di quella
+# stagione). Aggiornare qui quando arriva una fonte nuova.
+PRICE_SOURCES = {
+    # stagione: (chiave target, data rilevazione, valido come target d'asta, nota)
+    "2021-22": ("estiva", "2021-08", True, "aste reali periodo<=1"),
+    "2023-24": ("estiva", "2023-08", True, "aste reali periodo<=1"),
+    "2024-25": ("estiva", "2024-08", True, "aste reali periodo<=1"),
+    "2025-26": (None, None, False,
+                "nessuna asta reale raccolta; i listini disponibili sono del "
+                "12/12/2025, 11/4/2026 e 6/8/2026, tutti a campionato iniziato"),
+    "2026-27": ("listino_preasta", "2026-09-01", True,
+                "listino fantacalcio-online del 1/9/2026, prima dell'asta"),
+}
+
+
+def price_target(df: pd.DataFrame, season: str) -> tuple[pd.Series, pd.Series]:
+    """(y, peso) del prezzo per la stagione, secondo PRICE_SOURCES.
+    y = NaN dove la fonte non e' un prezzo d'asta noto prima dell'asta."""
+    kind, _data, valido, nota = PRICE_SOURCES.get(season, (None, None, False, "stagione ignota"))
+    nan = pd.Series(np.nan, index=df.index)
+    if not valido:
+        print(f"   prezzo {season}: nessun target valido ({nota})")
+        return nan, pd.Series(1.0, index=df.index)
+    if kind == "listino_preasta":
+        return df["target_wayback_p500_10sq"].astype(float) / 500.0, pd.Series(1.0, index=df.index)
+    y = df["target_mean_pct_all_estiva"].astype(float)
+    n = df["target_n_obs_all_estiva"].fillna(0).astype(float)
+    return y.where(n >= 2), np.sqrt(n)
 
 
 def load_season(season: str) -> pd.DataFrame:
@@ -55,14 +96,8 @@ def load_season(season: str) -> pd.DataFrame:
     df["ruolo_ord"] = df["ruolo"].map(ROLE_ORD)
     for c in ("nuovo_in_serie_a", "squadra_neopromossa"):
         df[c] = df[c].astype(float)
-    # target: estive tutte le config (campione grande); 2025-26 solo wayback
-    if season in ("2025-26", "2026-27"):
-        df["y"] = df["target_wayback_p500_10sq"].astype(float) / 500.0
-        df["y_w"] = 1.0
-    else:
-        df["y"] = df["target_mean_pct_all_estiva"].astype(float)
-        df["y_w"] = np.sqrt(df["target_n_obs_all_estiva"].fillna(0).astype(float))
-        df.loc[df["target_n_obs_all_estiva"].fillna(0) < 2, "y"] = np.nan
+    # target: solo prezzi noti PRIMA dell'asta della stagione (PRICE_SOURCES)
+    df["y"], df["y_w"] = price_target(df, season)
     return df
 
 

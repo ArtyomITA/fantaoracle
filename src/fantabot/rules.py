@@ -17,6 +17,14 @@ QUOTAS = {"P": 3, "D": 8, "C": 8, "A": 6}
 BUDGET = 500
 MAX_SUBS = 3
 
+# Quota minima del budget che il PIANO INIZIALE deve impegnare. A fine asta i
+# crediti non spesi valgono zero: se il modello non trova niente di meglio da
+# comprare, deve comunque cercare il miglior modo di spenderli, non tenerli.
+# Vale solo per il piano costruito prima dell'asta; ad asta iniziata il budget
+# e' quello residuo e forzare la spesa vorrebbe dire alzare le offerte senza
+# motivo. Configurabile qui.
+MIN_SPEND_FRAC = 0.95
+
 
 def clean_sheets(root: Path, season: str) -> set[tuple[str, int]]:
     """(master_id, giornata) in cui il portiere ha giocato senza subire gol.

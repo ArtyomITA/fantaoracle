@@ -659,7 +659,7 @@ function r0(x){ return x == null ? "—" : String(Math.round(x)); }
 const params = new URLSearchParams(location.search);
 const BASE = String(params.get("live") || "http://localhost:8770").replace(/\/+$/, "");
 const C = {
-  state:null, plan:null, down:false, lastN:-1,
+  state:null, plan:null, down:false, lastN:-1, lastBids:-1,
   sel:null,           // giocatore al banco (oggetto player_info)
   price:1,
   advice:null, advTimer:null, advSeq:0,
@@ -717,6 +717,12 @@ function onState(st){
   $("btnSetup").hidden = st.n_events > 0;
   const changed = st.n_events !== C.lastN;
   renderTeams(st);
+  // i rilanci cambiano senza che cambino le aggiudicazioni: si aggiornano sempre
+  if(st.n_bids !== C.lastBids){
+    C.lastBids = st.n_bids;
+    renderUndoBid();
+    renderBidTitle();
+  }
   if(changed){
     renderTicker(st, !first && st.n_events > C.lastN);
     C.lastN = st.n_events;
@@ -728,6 +734,8 @@ function onState(st){
       else requestAdvice(0);
     }
     renderUndo(st);
+    renderUndoBid();
+    renderBidTitle();
     if(C.results.length) doSearch();   // il venduto sparisce dai risultati
   }
 }
@@ -916,6 +924,8 @@ function setPrice(v, fromInput){
   const inp = $("priceIn");
   if(inp && !fromInput) inp.value = v;
   renderHammerTitle();
+  renderBidTitle();
+  renderBidGrid();
   requestAdvice(200);
 }
 function requestAdvice(delay){
@@ -996,6 +1006,9 @@ function renderLot(){
       <button class="pbtn plus p5" data-d="10">+10</button>
     </div>
     <div id="advice" class="wait"><div class="tag">consiglio dell'oracolo</div><div class="head">…</div><div class="sub">chiedo al modello</div></div>
+    <div class="hammer-title" id="bidTitle"></div>
+    <div class="hammer-grid" id="bidGrid"></div>
+    <div class="undo-row" style="margin-top:6px"><button class="undo" id="btnUndoBid" disabled><span>↶ nessun rilancio registrato</span></button></div>
     <div class="hammer-title" id="hammerTitle"></div>
     <div class="hammer-grid" id="hammerGrid"></div>`;
   $("lotClose").onclick = clearLot;
@@ -1010,6 +1023,9 @@ function renderLot(){
   });
   renderHammerGrid();
   renderHammerTitle();
+  renderBidGrid();
+  renderBidTitle();
+  renderUndoBid();
 }
 function renderAdvice(pop){
   const box = $("advice"); if(!box || !C.advice) return;
@@ -1029,6 +1045,56 @@ function renderAdvice(pop){
     <span>affare sotto: <b>${r0(a.bargain_sotto)}</b></span>`;
   const cur = $("forkCur");
   if(cur && C.sel){ const span = Math.max((C.sel.q90 ?? 0) * 1.15, 5); cur.style.left = (100*Math.min(C.price, span)/span).toFixed(1) + "%"; }
+}
+// ---- rilanci: chi ha offerto quanto, prima del martelletto ----
+function bidsDelLotto(){
+  const st = C.state;
+  if(!st || !C.sel) return [];
+  return (st.last_bids || []).filter(b => b.id === C.sel.id);
+}
+function renderBidGrid(){
+  const g = $("bidGrid"); if(!g || !C.state || !C.sel) return;
+  const st = C.state;
+  g.innerHTML = (st.teams || []).map(t => {
+    const me = t.index === st.my_index;
+    return `<button class="hbt ${me ? "me" : ""}" data-ti="${t.index}">
+      <span><span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>${esc(t.name)}</span>
+      <span class="b">rilancia a ${C.price}</span></button>`;
+  }).join("");
+  g.querySelectorAll(".hbt").forEach(b => b.onclick = () => registraRilancio(+b.dataset.ti));
+}
+function renderBidTitle(){
+  const t = $("bidTitle"); if(!t || !C.sel) return;
+  const n = bidsDelLotto().length;
+  t.innerHTML = `CHI HA RILANCIATO? <b>${C.price} cr</b>` +
+    (n ? ` <span style="color:var(--overlay1); letter-spacing:0; font-weight:600">· ${n} su questo lotto</span>` : "");
+}
+function renderUndoBid(){
+  const b = $("btnUndoBid"); if(!b) return;
+  const st = C.state;
+  const last = ((st && st.last_bids) || []).slice(-1)[0];
+  if(!last){ b.disabled = true; b.innerHTML = `<span>↶ nessun rilancio registrato</span>`; return; }
+  const team = (st.teams || []).find(t => t.index === last.team_index);
+  b.disabled = false;
+  b.innerHTML = `<span>↶ annulla rilancio: ${esc(last.nome)} · ${esc(team ? team.name : "?")} ${last.price}</span>`;
+  b.onclick = async () => {
+    if(C.busy) return;
+    C.busy = true;
+    try{ await post("/copilot/undo_bid", {}); await poll(); }
+    finally{ C.busy = false; }
+  };
+}
+async function registraRilancio(ti){
+  if(!C.sel || C.busy) return;
+  if(!(C.price >= 1)){ toast("metti l'importo del rilancio (≥ 1)", "err"); $("priceIn").focus(); return; }
+  C.busy = true;
+  try{
+    const d = await post("/copilot/bid", {player_id: C.sel.id, team_index: ti, price: C.price, fonte: "osservato"});
+    if(!d.ok){ toast("⚠ " + (d.err || "rifiutato"), "err"); return; }
+    const st = C.state, team = (st.teams || []).find(t => t.index === ti);
+    toast(`rilancio segnato: ${team ? team.name : "#" + ti} a ${C.price}`, "ok");
+    await poll();
+  } finally { C.busy = false; }
 }
 function renderHammerTitle(){
   const t = $("hammerTitle"); if(!t || !C.sel) return;

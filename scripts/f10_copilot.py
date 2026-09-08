@@ -14,6 +14,9 @@ API (JSON, CORS aperto):
   POST /copilot/setup                 -> {"names":[...], "my_index":0, "budget":500}
   POST /copilot/hammer                -> {"player_id":..,"team_index":..,"price":..}
   POST /copilot/undo                  -> annulla l'ultima aggiudicazione
+  POST /copilot/bid                   -> {"player_id":..,"team_index":..,"price":..}
+                                         registra un rilancio osservato al tavolo
+  POST /copilot/undo_bid              -> cancella l'ultimo rilancio registrato
   GET  /copilot/advice?player_id=&price=   -> consiglio sul giocatore al banco
   GET  /copilot/plan                  -> rosa target corrente + max bid per target
   GET  /copilot/nominate?role=        -> chi chiamare ora (esca o riempitivo)
@@ -45,7 +48,14 @@ STATE = {
     "season": None, "names": [], "my_index": 0, "budget": 500,
     "quotas": {"P": 3, "D": 8, "C": 8, "A": 6},
     "events": [],            # [{"player_id","team_index","price","ts"}]
+    # rilanci OSSERVATI al tavolo, uno per offerta pronunciata: sono il solo
+    # dato che manca al modello per capire come si comportano gli avversari
+    # (chi rilancia su chi, fino a che cifra, quando passa). Restano separati
+    # dalle aggiudicazioni e non vengono mai inventati: `fonte` dice sempre da
+    # dove arriva la riga.
+    "bids": [],              # [{"lot","player_id","team_index","price","ts","fonte"}]
 }
+FONTI_BID = ("osservato", "consiglio")
 ADVISOR: BBot | None = None
 
 
@@ -212,6 +222,10 @@ class Handler(BaseHTTPRequestHandler):
                     "season": STATE["season"], "names": STATE["names"],
                     "my_index": STATE["my_index"], "budget": STATE["budget"],
                     "quotas": STATE["quotas"], "n_events": len(STATE["events"]),
+                    "n_bids": len(STATE.get("bids", [])),
+                    "last_bids": [{**player_info(b["player_id"]), "team_index": b["team_index"],
+                                   "price": b["price"], "fonte": b["fonte"], "lot": b["lot"]}
+                                  for b in STATE.get("bids", [])[-15:]],
                     "ledger": str(LEDGER_PATH) if LEDGER_PATH else None,
                     "teams": [{"index": i, "name": t.bot_name, "budget": t.budget,
                                "max_bid": t.max_bid(STATE["quotas"]),
@@ -290,6 +304,37 @@ class Handler(BaseHTTPRequestHandler):
                     save()
                     rebuild_advisor()
                 return self._send({"ok": True, "n_events": len(STATE["events"])})
+            if u.path == "/copilot/bid":
+                # rilancio osservato: non tocca rose ne' budget (il lotto e'
+                # ancora aperto), serve solo a registrare come si e' svolta
+                # la contesa. L'aggiudicazione resta /copilot/hammer.
+                pid, ti, price = body.get("player_id"), body.get("team_index"), body.get("price")
+                fonte = str(body.get("fonte", "osservato"))
+                if fonte not in FONTI_BID:
+                    return self._send({"ok": False, "err": f"fonte ammesse: {FONTI_BID}"})
+                if pid not in PACK.players:
+                    return self._send({"ok": False, "err": "giocatore inesistente"})
+                try:
+                    ti, price = int(ti), int(price)
+                except (TypeError, ValueError):
+                    return self._send({"ok": False, "err": "squadra o importo non validi"})
+                if not (0 <= ti < len(STATE["names"])):
+                    return self._send({"ok": False, "err": "squadra inesistente"})
+                if price < 1:
+                    return self._send({"ok": False, "err": "importo minimo 1"})
+                bids = STATE.setdefault("bids", [])
+                aperti = [b["lot"] for b in bids if b["player_id"] == pid]
+                lot = aperti[0] if aperti else (max([b["lot"] for b in bids], default=-1) + 1)
+                bids.append({"lot": lot, "player_id": pid, "team_index": ti,
+                             "price": price, "ts": time.time(), "fonte": fonte})
+                save()
+                return self._send({"ok": True, "n_bids": len(bids), "lot": lot})
+            if u.path == "/copilot/undo_bid":
+                bids = STATE.setdefault("bids", [])
+                if bids:
+                    bids.pop()
+                    save()
+                return self._send({"ok": True, "n_bids": len(bids)})
         self._send({"ok": False, "err": "not found"}, 404)
 
 
@@ -323,8 +368,10 @@ if __name__ == "__main__":
     if "--resume" in args:
         LEDGER_PATH = Path(args[args.index("--resume") + 1])
         STATE.update(json.loads(LEDGER_PATH.read_text(encoding="utf-8")))
+        STATE.setdefault("bids", [])   # ledger scritti prima del registro rilanci
         rebuild_advisor()
-        print(f"Ripreso ledger {LEDGER_PATH.name}: {len(STATE['events'])} acquisti")
+        print(f"Ripreso ledger {LEDGER_PATH.name}: {len(STATE['events'])} acquisti, "
+              f"{len(STATE['bids'])} rilanci")
     else:
         LEDGER_PATH = ROOT / "data" / "copilot" / f"ledger_{int(time.time())}.json"
     print(f"Copilota {season} su http://localhost:{porta} — ledger {LEDGER_PATH}")

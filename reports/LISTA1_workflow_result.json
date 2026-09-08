@@ -1,0 +1,822 @@
+{
+ "stages": [
+  {
+   "stage": "S1",
+   "kept": true,
+   "files_changed": [
+    "scripts\\indagine\\backtest_valore.py",
+    "scripts\\f1_make_predictions.py",
+    "src\\fantabot\\market_adjust.py",
+    "scripts\\f9_apply_market.py",
+    "reports\\ARCHITETTURE_E_OTTIMIZZAZIONI.md",
+    "data\\processed\\b_predictions_2026-27.json",
+    "data\\processed\\b_predictions_2026-27_adj.json",
+    "data\\processed\\market_adjust_2026-27.csv",
+    "data\\packs\\pack_2026-27.pkl",
+    "data\\indagine\\backtest_valore_baseline.json",
+    "data\\indagine\\backtest_valore_presenze_gk.json",
+    "data\\indagine\\backtest_valore_baseline_resto.json",
+    "data\\indagine\\backtest_valore_k0_check.json"
+   ],
+   "metrics_before": {
+    "tag": "baseline (codice pre-patch, K=0)",
+    "2024-25": {
+     "mae": 33.48,
+     "bias": -7.5,
+     "rho": 0.8334,
+     "mae_pres": 5.6,
+     "roster_n": 445,
+     "roster_mae": 40.49,
+     "roster_bias": -9.33,
+     "roster_rho": 0.7066,
+     "bias_P": 3.9,
+     "bias_D": -9.7,
+     "bias_C": -11.3,
+     "bias_A": -4,
+     "rho_P": 0.8,
+     "rho_D": 0.829,
+     "rho_C": 0.813,
+     "rho_A": 0.78,
+     "nuovi_mae": 27.43,
+     "nuovi_bias": -6.2,
+     "p_real_gt_value_up": 0.289,
+     "resto_g3_38_mae": 33.27,
+     "resto_g3_38_rho": 0.8173
+    },
+    "2025-26": {
+     "mae": 34.25,
+     "bias": -10.99,
+     "rho": 0.8426,
+     "mae_pres": 5.7,
+     "roster_n": 459,
+     "roster_mae": 40.36,
+     "roster_bias": -15.76,
+     "roster_rho": 0.733,
+     "bias_P": -6,
+     "bias_D": -13.1,
+     "bias_C": -9.9,
+     "bias_A": -11.8,
+     "rho_P": 0.735,
+     "rho_D": 0.844,
+     "rho_C": 0.833,
+     "rho_A": 0.804,
+     "nuovi_mae": 30.77,
+     "nuovi_bias": -8.43,
+     "p_real_gt_value_up": 0.314,
+     "resto_g3_38_mae": 34.12,
+     "resto_g3_38_rho": 0.8209
+    },
+    "nota": "resto_* dal tag baseline_resto (codice nuovo con K modello=0: stesse feature pre-asta, MAE 33.27/34.12 vs 33.48/34.25 del baseline puro = rumore da colonne costanti aggiunte)"
+   },
+   "metrics_after": {
+    "tag": "presenze_gk (K=2)",
+    "2024-25": {
+     "mae": 32.31,
+     "bias": -5.78,
+     "rho": 0.8461,
+     "mae_pres": 5.35,
+     "roster_n": 462,
+     "roster_mae": 39.36,
+     "roster_bias": -8.67,
+     "roster_rho": 0.705,
+     "bias_P": 4.7,
+     "bias_D": -8.1,
+     "bias_C": -9.8,
+     "bias_A": -1.2,
+     "rho_P": 0.776,
+     "rho_D": 0.834,
+     "rho_C": 0.829,
+     "rho_A": 0.814,
+     "nuovi_mae": 26.24,
+     "nuovi_bias": -5.2,
+     "p_real_gt_value_up": 0.277,
+     "resto_g3_38_mae": 32.31,
+     "resto_g3_38_rho": 0.8273
+    },
+    "2025-26": {
+     "mae": 32.31,
+     "bias": -11.47,
+     "rho": 0.8669,
+     "mae_pres": 5.35,
+     "roster_n": 442,
+     "roster_mae": 39.29,
+     "roster_bias": -17.19,
+     "roster_rho": 0.7452,
+     "bias_P": -6,
+     "bias_D": -13,
+     "bias_C": -10.5,
+     "bias_A": -13.3,
+     "rho_P": 0.732,
+     "rho_D": 0.857,
+     "rho_C": 0.86,
+     "rho_A": 0.845,
+     "nuovi_mae": 27.48,
+     "nuovi_bias": -8.21,
+     "p_real_gt_value_up": 0.3,
+     "resto_g3_38_mae": 32.31,
+     "resto_g3_38_rho": 0.8509
+    }
+   },
+   "nan_rate_check": "pres_gk 0.00 test / 0.00 listone 2026-27; pts_gk 0.00 / 0.00; fm_gk 0.51 (2024-25) e 0.51 (2025-26) / 0.42 listone 2026-27 (NaN = 0 presenze nelle prime 2 giornate, costruzione identica dai voti; il listone 2026-27 ha meno righe mai scese in campo, 587 vs 663-679)",
+   "summary": "Parte A. Scritto scripts/indagine/backtest_valore.py: importa catboost_values/_season_points_frame/TARGETS reali da f1_make_predictions, predice 2024-25 (train 21-22+23-24) e 2025-26 (train +24-25), confronta coi punti reali di tutta la stagione (fantavoto +1 porta inviolata, sv esclusi) e stampa/salva MAE, bias, rho (tutti, value>=50, per ruolo, nuovi), MAE/bias presenze, P(reale>value_up), coverage q10-q90 se presenti, metriche sul resto g(K+1)-38, tasso NaN delle feature *_gk test vs listone 2026-27. Opzioni --tag, --k, --model-k (K visto dal modello, per confronto sullo stesso resto), --seasons. Gira in ~5-13 s per stagione con CatBoost; predizioni per riga in data/indagine/pred_valore_{tag}_{stagione}.csv. Baseline misurato PRIMA della patch (tag baseline).\n\nParte B. K reale 2026-27 = 2 (votes_2026-27: giornate 1-2, 290/292 voti). In f1_make_predictions: _season_votes, giornate_giocate(s), gk_features(s,k) (pres_gk, fm_gk NaN se 0 presenze, pts_gk, SOLO giornate <= K), _season_points_frame(s,k) con target points_resto/pres_resto, xmat_valore = FEATURES_NUM + FEATS_GK, catboost_values(season, train_ss, te, k): CatBoost sul resto (calibrazione OOF sul resto), output value = pts_gk + resto, pres = pres_gk + resto (clip 38-K), value_up = value + 0.674 sigma_resto; nel JSON anche pts_gk, pres_gk, k. main: --k N, default 2026-27 = giornate nei voti, stagioni del torneo = 0 (asta pre-campionato, pack 24-25/25-26 invariati). market_adjust.fattore_titolarita: tolta la scala 1/0.85/0.60 sulle presenze (doppio conteggio), resta solo pct probabili; i fattori disp/tit/rig si applicano al solo resto (value, value_up, pres = gk + resto*f). f9: non riempie piu' inputs.presenze, stampa K delle predizioni e avvisa se diverso dalle giornate nei voti; motivi con 'presenze' passati da 16 a 0.\n\nNumeri (K=2, stagione intera): 2024-25 MAE 33.48->32.31, rho .833->.846, presenze MAE 5.60->5.35, value>=50 MAE 40.49->39.36, nuovi MAE 27.43->26.24; 2025-26 MAE 34.25->32.31, rho .843->.867, presenze 5.70->5.35, value>=50 MAE 40.36->39.29 e rho .733->.745, nuovi 30.77->27.48. Sul resto g3-38: rho .817->.827 e .821->.851. Nessun peggioramento sulle metriche principali in nessuna stagione; unici scarti minimi a rumore: roster rho 2024-25 .707->.705 (campione diverso, 445 vs 462) e bias roster 2025-26 -15.8->-17.2, bias P 2024-25 +3.9->+4.7. Decisione: KEPT. Le stime dell'audit (MAE ~31.6/31.0 con K=3) non sono raggiunte con K=2 ma la direzione e l'entita' sono coerenti.\n\nPipeline: f1_make_predictions 2026-27 rigirato (K=2, q50 prezzo identici al baseline, valore -9.9 medio a chi ha 0 presenze, +12.8 a chi ne ha 2), f9 e f2 2026-27 rigirati (pack aggiornato). py_compile ok su tutti i file toccati. Baseline intatto in data/baseline_20260905.",
+   "open_issues": [
+    "f12_choose_objective e f13_validate_plan NON rilanciati su 2026-27/2025-26 (pack 2026-27 aggiornato con i nuovi valori: rerun f12 2026-27 consigliato prima dell'asta; pack 2025-26 e' con K=0 quindi f13 invariato)",
+    "Bias residuo negativo (sottostima) su D/C/A in entrambe le stagioni (-8/-13) e roster bias -17 nel 2025-26: la calibrazione lineare OOF vincola b>=1 ma non corregge l'offset per ruolo (Lista 1 punto 3)",
+    "fm_gk NaN 51% nel test vs 42% nel listone: coerente per costruzione ma da ricontrollare se K cambia prima dell'asta (rilanciare f1 con K nuovo: f9 avvisa se le predizioni hanno K diverso dai voti)",
+    "Nel Monte Carlo sigma_shift usa (value_up-value) su 38 giornate: con K>0 la sigma e' del resto, leggermente sottostimata per giornata (trascurabile con K=2)",
+    "K per le stagioni del torneo resta 0 di default (asta simulata pre-campionato): usare --k se si vuole il torneo con asta dopo K giornate",
+    "Il modello prezzo (TabPFN+CatBoost) non usa le feature *_gk: possibile stage successivo"
+   ]
+  },
+  {
+   "stage": "S2",
+   "kept": true,
+   "files_changed": [
+    "scripts\\f1_make_predictions.py",
+    "scripts\\f0b_build_outputs.py",
+    "scripts\\indagine\\backtest_valore.py",
+    "reports\\ARCHITETTURE_E_OTTIMIZZAZIONI.md",
+    "data\\processed\\players_2021-22.parquet",
+    "data\\processed\\players_2023-24.parquet",
+    "data\\processed\\players_2024-25.parquet",
+    "data\\processed\\players_2025-26.parquet",
+    "data\\processed\\players_2026-27.parquet",
+    "data\\processed\\b_predictions_2026-27.json",
+    "data\\processed\\b_predictions_2026-27_adj.json",
+    "data\\processed\\market_adjust_2026-27.csv",
+    "data\\packs\\pack_2026-27.pkl",
+    "data\\indagine\\backtest_valore_tabpfn_value.json",
+    "data\\indagine\\backtest_valore_blend_07.json",
+    "data\\indagine\\backtest_valore_role_calib.json",
+    "data\\indagine\\backtest_valore_role_calib_blend.json",
+    "data\\indagine\\backtest_valore_cambio_sq.json",
+    "data\\indagine\\backtest_valore_cambio_sq_cat.json",
+    "data\\indagine\\backtest_valore_s2_final.json",
+    "data\\indagine\\tabpfn_cache\\",
+    "data\\indagine\\_s1_b_predictions_2026-27.json",
+    "data\\indagine\\_s1_pack_2026-27.pkl"
+   ],
+   "metrics_before": {
+    "protocollo": "K=2, stagione intera, modello S1 (CatBoost resto, tag s2_base)",
+    "2024-25": {
+     "mae": 32.31,
+     "bias": -5.78,
+     "rho": 0.846,
+     "mae_pres": 5.35,
+     "roster_mae": 39.36,
+     "roster_rho": 0.705,
+     "roster_bias": -8.7,
+     "bias_ruolo": {
+      "P": 4.7,
+      "D": -8.1,
+      "C": -9.8,
+      "A": -1.2
+     },
+     "nuovi_mae": 26.24,
+     "nuovi_bias": -5.2,
+     "p_real_gt_value_up": 0.277,
+     "resto_rho": 0.827
+    },
+    "2025-26": {
+     "mae": 32.31,
+     "bias": -11.47,
+     "rho": 0.867,
+     "mae_pres": 5.35,
+     "roster_mae": 39.29,
+     "roster_rho": 0.745,
+     "roster_bias": -17.2,
+     "bias_ruolo": {
+      "P": -6,
+      "D": -13,
+      "C": -10.5,
+      "A": -13.3
+     },
+     "nuovi_mae": 27.48,
+     "nuovi_bias": -8.2,
+     "p_real_gt_value_up": 0.3,
+     "resto_rho": 0.851
+    }
+   },
+   "metrics_after": {
+    "protocollo": "K=2, blend 0.7 TabPFN + 0.3 CatBoost + cambio_squadra (tag s2_final = cambio_sq)",
+    "2024-25": {
+     "mae": 30.31,
+     "bias": -8.76,
+     "rho": 0.874,
+     "mae_pres": 5.28,
+     "roster_mae": 38.51,
+     "roster_rho": 0.716,
+     "roster_bias": -14.9,
+     "bias_ruolo": {
+      "P": 0.6,
+      "D": -10.7,
+      "C": -12.4,
+      "A": -4.8
+     },
+     "nuovi_mae": 23.37,
+     "nuovi_bias": -6.8,
+     "p_real_gt_value_up": 0.28,
+     "resto_rho": 0.858
+    },
+    "2025-26": {
+     "mae": 31.16,
+     "bias": -10.98,
+     "rho": 0.876,
+     "mae_pres": 5.31,
+     "roster_mae": 37.37,
+     "roster_rho": 0.759,
+     "roster_bias": -16.6,
+     "bias_ruolo": {
+      "P": -5.1,
+      "D": -12.5,
+      "C": -10.7,
+      "A": -12.1
+     },
+     "nuovi_mae": 26.98,
+     "nuovi_bias": -8.2,
+     "p_real_gt_value_up": 0.306,
+     "resto_rho": 0.862
+    },
+    "varianti_intermedie": {
+     "tabpfn_value": {
+      "2024-25": "MAE 30.54 rho .874 bias -10.4",
+      "2025-26": "MAE 31.20 rho .871 bias -9.2 roster_rho .751"
+     },
+     "blend_07": {
+      "2024-25": "MAE 30.49 rho .872 bias -9.1",
+      "2025-26": "MAE 31.33 rho .874 bias -11.1 roster_rho .763"
+     },
+     "role_calib_catboost": {
+      "2024-25": "identico (1 sola stagione OOF: offset 0)",
+      "2025-26": "MAE 32.88 bias -14.4 (peggio)"
+     },
+     "role_calib_blend": {
+      "2025-26": "MAE 31.40 bias_A -16.9 (peggio)"
+     }
+    },
+    "live_2026-27": {
+     "q50_prezzo": "identici",
+     "value_rho_vs_S1": 0.988,
+     "delta_value_medio": -0.9,
+     "abs_delta_medio": 7.5,
+     "delta_cambio_squadra_1": 3.2
+    }
+   },
+   "nan_rate_check": "cambio_squadra: test 2024-25 0.376, test 2025-26 0.344, listone 2026-27 0.305 (= quota di chi non era nel listone precedente: 244/679, 205/663, 179/587; coerente per costruzione, nei nuovi e' sempre NaN). pres_gk/pts_gk 0.00/0.00; fm_gk 0.51/0.42 invariato da S1.",
+   "summary": "Trovata una sessione S2 precedente interrotta prima della chiusura: codice e backtest gia' scritti (f1_make_predictions: VALUE_MODEL/BLEND_W/ROLE_CALIB/FEATS_EXTRA, _tabpfn_regress con cache su disco in data/indagine/tabpfn_cache, _resto_predictor; f0b_build_outputs: colonna cambio_squadra dal registry, parquet rigenerati per tutte le stagioni; backtest_valore: opzioni --model/--role-calib e NaN rate di FEATS_EXTRA) ma VALUE_MODEL era ancora \"catboost\" e la pipeline 2026-27 non rigirata. Ho verificato i parquet contro data/baseline_20260905: in tutte le stagioni l'unica differenza e' la colonna nuova cambio_squadra (righe e tutte le altre colonne identiche). Ho finalizzato e rimisurato.\n\n(1) TabPFN vs blend (K=2, stagione intera, base S1 MAE 32.31/32.31, rho .846/.867): tabpfn_value MAE 30.54/31.20 rho .874/.871; blend_07 MAE 30.49/31.33 rho .872/.874, roster MAE 38.49/37.35 e rho .718/.763, nuovi 23.22/26.91. Il TabPFN solo ha bias migliore nel 2025-26 ma rho e fascia rosterabile peggiori: tenuto il BLEND (VALUE_MODEL=\"blend\"). Unico scarto vs base: bias 2024-25 da -5.8 a -9.1 (stessa direzione della sottostima gia' presente). L'audit stimava -3.1/-1.6 MAE: misurato -1.8/-1.0.\n\n(2) Calibrazione per ruolo (offset OOF centrato, shrink n/(n+100)): 2024-25 nessun effetto (una sola stagione OOF), 2025-26 PEGGIO (catboost: MAE 32.31->32.88, bias -11.5->-14.4, bias A -13->-20; blend: bias A -13->-17). Il bias per ruolo cambia segno da un anno all'altro (2024-25 P +0.6/A -4.8; 2025-26 P -5.1/A -12.1): gli offset non si trasferiscono, la sottostima e' globale. SCARTATA (ROLE_CALIB=False, codice lasciato come opzione documentata). Verificato anche che i voti sono completi (38 giornate) e i punti medi per stagione stabili (97-100): il bias non e' un trend di stagione.\n\n(3) cambio_squadra nel solo modello valore (FEATS_EXTRA): su blend MAE 30.49->30.31 e 31.33->31.16, rho .872->.874 e .874->.876, presenze MAE 5.35->5.28/5.31, bias -9.1->-8.8; scarti a rumore: roster rho -.002/-.004, nuovi MAE +0.15/+0.07 (nei nuovi la feature e' sempre NaN). TENUTA. Non provata in FEATURES_NUM (prezzo): q50 restano identici al baseline.\n\nStato finale = tag s2_final (identico a cambio_sq): 2024-25 MAE 30.31 rho .874, 2025-26 MAE 31.16 rho .876; nessuna metrica principale peggiora in nessuna stagione.\n\nPipeline 2026-27 rigirata (f1 K=2 con 4 fit TabPFN ~13 min, f9, f2, exit 0): q50 identici, valore rho .988 con S1, delta medio -0.9 (|delta| 7.5), +3.2 a chi ha cambiato squadra; pack_2026-27.pkl aggiornato. py_compile ok su f1_make_predictions, f0b_build_outputs, backtest_valore, f9, f2. Baseline intatto. Report aggiornato (punto 6 dello stato implementazione). Copie S1 in data/indagine/_s1_*.",
+   "open_issues": [
+    "f12_choose_objective NON rilanciato sul pack 2026-27 nuovo (valori cambiati, rho .988 con S1): rerun consigliato prima dell'asta; f13 su pack 2025-26 (K=0, catboost) invariato",
+    "Sottostima globale residua (bias -9/-11, fascia rosterabile -15/-17) in entrambe le stagioni, non correggibile per ruolo: obiettivo bias per ruolo entro +-5 non raggiunto; ipotesi da provare: offset globale sul test di validazione o su pres_gk, non su OOF",
+    "cambio_squadra non provata nel modello prezzo (FEATURES_NUM): richiederebbe f1_train_price con fit TabPFN aggiuntivi",
+    "Un rerun di f1 per 2024-25/2025-26 ora usa il blend (TabPFN, minuti per fit): i pack del torneo restano quelli S1 (catboost K=0); la cache TabPFN in data/indagine/tabpfn_cache va tenuta per non rifittare",
+    "Se K cambia prima dell'asta (nuova giornata nei voti) rilanciare f1 2026-27 (~15 min per i fit TabPFN), f9, f2, f12"
+   ]
+  },
+  {
+   "stage": "S3 — incertezza per giocatore (quantili conformalizzati, value_up = q75, sigma nel Monte Carlo)",
+   "kept": true,
+   "files_changed": [
+    "scripts\\f1_make_predictions.py",
+    "scripts\\indagine\\backtest_valore.py",
+    "src\\fantabot\\market_adjust.py",
+    "src\\fantabot\\montecarlo.py",
+    "reports\\ARCHITETTURE_E_OTTIMIZZAZIONI.md",
+    "data\\processed\\b_predictions_2026-27.json",
+    "data\\processed\\b_predictions_2026-27_adj.json",
+    "data\\processed\\market_adjust_2026-27.csv",
+    "data\\packs\\pack_2026-27.pkl",
+    "data\\indagine\\backtest_valore_s3_quant.json",
+    "data\\indagine\\backtest_valore_s3_fwd.json",
+    "data\\indagine\\backtest_valore_s3_final.json",
+    "data\\indagine\\pred_valore_s3_final_2024-25.csv",
+    "data\\indagine\\pred_valore_s3_final_2025-26.csv",
+    "data\\indagine\\tabpfn_cache\\*_q.npz",
+    "data\\indagine\\_s2_b_predictions_2026-27.json",
+    "data\\indagine\\_s2_b_predictions_2026-27_adj.json",
+    "data\\indagine\\_s2_pack_2026-27.pkl",
+    "data\\indagine\\_bt_s3_quant.log",
+    "data\\indagine\\_bt_s3_fwd.log",
+    "data\\indagine\\_bt_s3_final.log",
+    "data\\indagine\\_f1_s3_2026-27.log",
+    "data\\indagine\\_f9_s3_2026-27.log",
+    "data\\indagine\\_f2_s3_2026-27.log"
+   ],
+   "metrics_before": {
+    "tag": "s2_final (K=2)",
+    "2024-25": {
+     "mae": 30.31,
+     "bias": -8.76,
+     "rho": 0.874,
+     "roster_mae": 38.51,
+     "roster_bias": -14.87,
+     "roster_rho": 0.716,
+     "mae_pres": 5.28,
+     "nuovi_mae": 23.37,
+     "p_real_gt_value_up": 0.28,
+     "p_real_gt_value_up_per_ruolo": {
+      "P": 0.096,
+      "D": 0.31,
+      "C": 0.327,
+      "A": 0.26
+     },
+     "coverage_q10_q90": "non misurabile (sigma costante 43)"
+    },
+    "2025-26": {
+     "mae": 31.16,
+     "bias": -10.98,
+     "rho": 0.876,
+     "roster_mae": 37.37,
+     "roster_bias": -16.61,
+     "roster_rho": 0.759,
+     "mae_pres": 5.31,
+     "nuovi_mae": 26.98,
+     "bias_ruolo": {
+      "P": -5.1,
+      "D": -12.5,
+      "C": -10.7,
+      "A": -12.1
+     },
+     "p_real_gt_value_up": 0.306,
+     "p_real_gt_value_up_per_ruolo": {
+      "P": 0.12,
+      "D": 0.315,
+      "C": 0.364,
+      "A": 0.302
+     },
+     "coverage_q10_q90": "non misurabile"
+    }
+   },
+   "metrics_after": {
+    "tag": "s3_final (K=2)",
+    "2024-25": {
+     "mae": 30.31,
+     "bias": -8.76,
+     "rho": 0.874,
+     "roster_mae": 38.51,
+     "roster_bias": -14.87,
+     "roster_rho": 0.716,
+     "mae_pres": 5.28,
+     "nuovi_mae": 23.37,
+     "p_real_gt_value_up": 0.28,
+     "p_real_gt_value_up_per_ruolo": {
+      "P": 0.096,
+      "D": 0.31,
+      "C": 0.327,
+      "A": 0.26
+     },
+     "coverage_q10_q90": 0.829,
+     "coverage_per_ruolo": {
+      "P": 0.904,
+      "D": 0.854,
+      "C": 0.783,
+      "A": 0.817
+     },
+     "coverage_per_fascia": {
+      "<60": 0.928,
+      "60-150": 0.725,
+      ">150": 0.832
+     },
+     "p_real_lt_q10_per_ruolo": {
+      "P": 0.036,
+      "D": 0.029,
+      "C": 0.044,
+      "A": 0.076
+     },
+     "nota": "nessun fold di calibrazione disponibile: quantili dalla normale di default sigma 43 (identico a S2); coi quantili TabPFN nativi non calibrati (tag s3_quant): P(reale>value_up) 0.32, coverage 0.73"
+    },
+    "2025-26": {
+     "mae": 30,
+     "bias": -3.95,
+     "rho": 0.876,
+     "roster_mae": 35.11,
+     "roster_bias": -7.76,
+     "roster_rho": 0.77,
+     "mae_pres": 5.31,
+     "nuovi_mae": 27.26,
+     "bias_ruolo": {
+      "P": -0.1,
+      "D": -5.5,
+      "C": -3,
+      "A": -5.1
+     },
+     "p_real_gt_value_up": 0.246,
+     "p_real_gt_value_up_per_ruolo": {
+      "P": 0.253,
+      "D": 0.233,
+      "C": 0.203,
+      "A": 0.331
+     },
+     "p_real_gt_value_up_per_fascia": {
+      "<60": 0.235,
+      "60-150": 0.283,
+      ">150": 0.189
+     },
+     "coverage_q10_q90": 0.802,
+     "coverage_per_ruolo": {
+      "P": 0.773,
+      "D": 0.793,
+      "C": 0.848,
+      "A": 0.763
+     },
+     "coverage_per_fascia": {
+      "<60": 0.799,
+      "60-150": 0.79,
+      ">150": 0.832
+     },
+     "p_real_lt_q10_per_ruolo": {
+      "P": 0.133,
+      "D": 0.116,
+      "C": 0.083,
+      "A": 0.065
+     },
+     "sigma_media": 35.7
+    },
+    "live_2026-27": {
+     "calibrazione": "a=5.0 b=1.07 sigma=40 su fold 2024-25 + 2025-26",
+     "q50_prezzo": "identici a S2",
+     "value_vs_S2": "rho 1.0, delta medio +10.35 (correzione della sottostima)",
+     "value_up_meno_value": "media 23.4 (prima 27.4 costante), range -12.3..69.2",
+     "sigma_per_fascia": {
+      "<60": 18.1,
+      "60-150": 50.3,
+      ">150": 35
+     },
+     "montecarlo_sigma_shift": "media 1.36 (prima 1.31), corr 0.59 con la vecchia formula, 420/587 al cap 1.5"
+    }
+   },
+   "nan_rate_check": "Nessuna feature nuova in input (i quantili sono output). Feature esistenti, test backtest vs listone 2026-27: pres_gk 0.00/0.00, pts_gk 0.00/0.00, fm_gk 0.51/0.42 (2024-25 e 2025-26), cambio_squadra 0.38 (2024-25) e 0.34 (2025-26) / 0.30: invariati rispetto a S2. Conformal per ruolo x fascia: sul fold live n per gruppo 20-220 (P 60-150 e >150 ~20-25, shrink n/40 verso il ruolo).",
+   "summary": "Stage S3 TENUTO. Fatto: (1) f1_make_predictions: _tabpfn_regress ritorna media + quantili q10/q25/q50/q75/q90 dallo stesso forward (output_type=\"main\", cache *_q.npz; col modello catboost usa MultiQuantile); nel blend i quantili TabPFN sono traslati sulla media del blend, passano per la stessa calibrazione lineare della media e vengono conformalizzati per livello sull'OOF per ruolo x fascia di valore (<60/60-150/>150, shrink n/40 verso ruolo poi globale). JSON: value_q10/q25/q75/q90, sigma=(q90-q10)/2.56, value_up=q75 calibrato. (2) Diagnosi chiave: il leave-one-season-out classico predice il 2023-24 col 2024-25 e ha bias +11 contro -9 dei fold \"in avanti\": la media OOF si annullava e la sottostima dell'anno dopo non veniva corretta; i quantili conformalizzati su quell'OOF davano P(reale>value_up) 0.33 (A 0.42) sul 2025-26. Introdotto CALIB_FORWARD: fold che predicono ogni stagione con le sole precedenti (2025-26 col fold 2024-25; 2026-27 coi fold 2024-25 e 2025-26, gia' in cache, zero fit extra), intercetta ricalcolata col b vincolato. Senza fold (solo 2024-25 nel backtest) i quantili tornano alla normale di default sigma 43 (i nativi non calibrati davano P 0.32 / coverage 0.73). (3) market_adjust propaga value_q*, sigma (x f_all) e k; montecarlo.build_dists usa pr[\"sigma\"] diviso per p_play x (38-k), stessi clamp e floor nuovi. (4) backtest_valore: P(reale>value_up) per ruolo e fascia, coverage q10-q90 per ruolo e fascia, P(reale<q10) per ruolo, sigma media.\n\nNumeri (K=2): 2024-25 identico a S2 (MAE 30.31, rho .874, P(>value_up) 0.28, coverage ora 0.83). 2025-26: MAE 31.16 -> 30.00, bias -11.0 -> -4.0, roster MAE 37.4 -> 35.1 e bias -16.6 -> -7.8, rho .876 invariata, bias per ruolo P -0.1 / D -5.5 / C -3.0 / A -5.1 (obiettivo +-5 quasi raggiunto); P(reale>value_up) 0.306 -> 0.246 (P .25 D .23 C .20 A .33, fasce .24/.28/.19), coverage 0.80 (ruoli .76-.85, fasce .79-.83), P(reale<q10) .07-.13, sigma media 35.7. Unico scarto: nuovi MAE 26.98 -> 27.26 (rumore, rho .848 -> .847). Obiettivi [0.20,0.32]/[0.70,0.90]/[0.05,0.15] rispettati tranne A 0.331 (marginale).\n\nPipeline 2026-27 rigirata (f1 con 1 fit TabPFN nuovo, f9, f2, exit 0): q50 prezzo identici, value rho 1.0 con S2 ma +10.35 medio (correzione sottostima), value_up-value media 23.4 (range -12..+69, 85 righe con q75<value), sigma per fascia 18/50/35, pack aggiornato con sigma per tutti i 587; build_dists testato sul pack. py_compile ok su tutti i file toccati. Backup S2 in data/indagine/_s2_*, baseline_20260905 intatto. Report aggiornato (punto 7).",
+   "open_issues": [
+    "f12_choose_objective NON rilanciato sul pack 2026-27 nuovo (valori +10 medio e sigma per giocatore): rerun consigliato prima dell'asta (~150 sim); f13 su pack 2025-26 (K=0) invariato",
+    "Nel Monte Carlo il cap sigma_shift=1.5 punti/giornata satura per 420/587 giocatori (era gia' cosi' con la formula vecchia, media 1.31): la sigma per giocatore arriva alla simulazione solo sotto il cap; alzare il cap (o passare a sigma di stagione diretta) e' da misurare con f12/f13",
+    "85 giocatori con value_q75 < value (code destre lunghe, tipicamente valori bassi): l'ottimizzatore con lam>0 assegna upside negativo; se indesiderato clampare value_up >= value (abbassa di poco P(reale>value_up))",
+    "2024-25 nel backtest non ha fold di calibrazione (solo 2021-22 prima del 2023-24): quantili dalla normale di default, non verifica la conformal; la config di deploy (2026-27, 2 fold) e' riprodotta solo dal 2025-26 (1 fold)",
+    "Deltas conformal per ruolo x fascia instabili fra anni (segno opposto fra fold 2023-24 e 2024-25): con CALIB_FORWARD il 2026-27 usa 2 fold (n 20-25 per P nelle fasce alte, shrink verso ruolo); se la conformal per fascia dovesse peggiorare con dati nuovi, ridurre a solo ruolo (FASCE_VALORE=[])",
+    "CALIB_FORWARD cambia anche la media (a=+5, b=1.07 sul live): il bias P(reale>value_up) A 0.331 resta marginalmente sopra 0.32",
+    "Se K cambia prima dell'asta rilanciare f1 2026-27 (1 fit TabPFN finale ~5 min + fold in cache), f9, f2, f12"
+   ]
+  },
+  {
+   "stage": "S4 — Feature a costo zero (minuti/trend, disciplina, squadra, rigorista)",
+   "kept": true,
+   "files_changed": [
+    "scripts\\f0b_build_outputs.py",
+    "scripts\\f1_make_predictions.py",
+    "scripts\\indagine\\backtest_valore.py",
+    "reports\\ARCHITETTURE_E_OTTIMIZZAZIONI.md",
+    "data\\processed\\players_2021-22.parquet",
+    "data\\processed\\players_2023-24.parquet",
+    "data\\processed\\players_2024-25.parquet",
+    "data\\processed\\players_2025-26.parquet",
+    "data\\processed\\players_2026-27.parquet",
+    "data\\processed\\votes_*.parquet (rigenerati identici)",
+    "data\\processed\\b_predictions_2026-27.json",
+    "data\\processed\\b_predictions_2026-27_adj.json",
+    "data\\processed\\market_adjust_2026-27.csv",
+    "data\\packs\\pack_2026-27.pkl",
+    "data\\indagine\\backtest_valore_s4c_{base,a,a1,a2,b,d,e,ab,e1,all}.json",
+    "data\\indagine\\backtest_valore_s4b_{a,b,d,e,ae,ad,all}.json",
+    "data\\indagine\\backtest_valore_s4_final.json",
+    "data\\indagine\\pred_valore_s4_final_2024-25.csv",
+    "data\\indagine\\pred_valore_s4_final_2025-26.csv",
+    "data\\indagine\\tabpfn_cache\\*_q.npz (nuovi fit)",
+    "data\\indagine\\_s3_b_predictions_2026-27.json",
+    "data\\indagine\\_s3_b_predictions_2026-27_adj.json",
+    "data\\indagine\\_s3_pack_2026-27.pkl",
+    "data\\indagine\\_f0b_s4.log",
+    "data\\indagine\\_bt_s4*.log",
+    "data\\indagine\\_f1_s4_2026-27.log",
+    "data\\indagine\\_f9_s4_2026-27.log",
+    "data\\indagine\\_f2_s4_2026-27.log"
+   ],
+   "metrics_before": {
+    "tag": "s3_final (blend, K=2)",
+    "2024-25": {
+     "mae": 30.31,
+     "bias": -8.76,
+     "rho": 0.874,
+     "mae_pres": 5.28,
+     "roster_mae": 38.51,
+     "roster_rho": 0.716,
+     "nuovi_mae": 23.37,
+     "p_real_gt_value_up": 0.28,
+     "coverage_q10_q90": 0.829,
+     "rho_P": 0.82
+    },
+    "2025-26": {
+     "mae": 30,
+     "bias": -3.95,
+     "rho": 0.876,
+     "mae_pres": 5.31,
+     "roster_mae": 35.11,
+     "roster_rho": 0.77,
+     "nuovi_mae": 27.26,
+     "p_real_gt_value_up": 0.246,
+     "coverage_q10_q90": 0.802,
+     "rho_P": 0.806
+    }
+   },
+   "metrics_after": {
+    "tag": "s4_final = s4b_a (blend, K=2, FEATS_EXTRA + tm_prev_min_per_app, tm_prev_share90, prev1_pres_last10)",
+    "2024-25": {
+     "mae": 30.19,
+     "bias": -8.13,
+     "rho": 0.873,
+     "mae_pres": 5.34,
+     "roster_mae": 38.41,
+     "roster_rho": 0.714,
+     "nuovi_mae": 23.29,
+     "p_real_gt_value_up": 0.281,
+     "coverage_q10_q90": 0.832,
+     "rho_P": 0.817
+    },
+    "2025-26": {
+     "mae": 29.93,
+     "bias": -4.79,
+     "rho": 0.878,
+     "mae_pres": 5.31,
+     "roster_mae": 34.92,
+     "roster_rho": 0.772,
+     "nuovi_mae": 27.03,
+     "p_real_gt_value_up": 0.247,
+     "coverage_q10_q90": 0.796,
+     "rho_P": 0.799
+    },
+    "tabella_gruppi_blend (MAE / rho / MAE roster / MAE nuovi; 2024-25 | 2025-26)": {
+     "a_minuti_trend": "30.19 .873 38.41 23.29 | 29.93 .878 34.92 27.03",
+     "b_disciplina": "30.13 .873 38.43 23.31 | 30.20 .877 35.23 27.28",
+     "d_squadra": "30.35 .873 38.33 23.61 | 29.78 .878 34.74 26.68",
+     "e_rigorista": "30.27 .874 38.30 23.45 | 30.01 .878 35.18 26.91",
+     "a+e": "30.26 .873 38.24 23.42 | 30.18 .877 35.44 27.10",
+     "a+d": "30.49 .872 38.29 23.65 | 29.77 .879 34.78 26.57",
+     "tutte": "30.47 .873 38.67 23.58 | 29.76 .877 34.67 26.73"
+    },
+    "pipeline_2026-27": {
+     "q50_prezzo": "identici (587/587)",
+     "value_rho_vs_S3": 0.9986,
+     "value_delta_medio": -0.06,
+     "value_abs_delta_medio": 2.37,
+     "calibrazione": "a=4.9 b=1.07 sigma=40, fold 2024-25+2025-26"
+    }
+   },
+   "nan_rate_check": "Test 2024-25 / 2025-26 vs listone 2026-27: tm_prev_min_per_app .41/.40 vs .35; tm_prev_share90 .41/.40 vs .35; prev1_pres_last10 .41/.39 vs .35 (tenute). Scartate: amm_pp_w/esp_pp_w/squal_att .37/.32 vs .27; team_prev_xga/xpts/cs .17/.17 vs .16; rig_tirati_prev1/rigorista_1_prev .42/.39 vs .35. Lo scarto test/live e' la quota di nuovi_in_serie_a (36%/31% nel test, 26% nel listone): NaN = nessuno storico precedente, per costruzione identico in train, test e live. Le feature *_gk restano fm_gk .51/.42, pres_gk/pts_gk 0/0 come in S1-S3.",
+   "summary": "Verificati i dati: TM appearances Serie A coprono 2019-2025 (quindi la 2025/26 per il listone 2026/27), voti raw hanno ammonizione/espulsione/rigori/gol_subiti, understat_teams hanno xGA/xpts, team_maps.json mappa nomi voti -> sigle. games.csv.gz ha gli allenatori ma finisce alla 2025/26: cambio allenatore (c) SALTATO perche' per il 2026/27 sarebbe NaN al 100% (viola la coerenza train/live).\n\nf0b_build_outputs.build_players: 11 colonne nuove in tutti i players_*.parquet (NEW_FEATS), tutte dalla stagione precedente o dalle 3 precedenti: (a) tm_prev_min_per_app, tm_prev_share90 (minuti/38*90), prev1_pres_last10 (presenze con voto g29-38); (b) amm_pp_w, esp_pp_w (per presenza, 3 stagioni pesate 3/2/1), squal_att (38*(esp + amm/5)); (d) team_prev_xga, team_prev_xpts, team_prev_cs (giornate col portiere a 0 gol subiti); (e) rig_tirati_prev1, rigorista_1_prev (primo tiratore di squadra). Verificato: righe e tutte le colonne preesistenti identiche a data/baseline_20260905 in tutte e 5 le stagioni. backtest_valore: opzione --extra (aggiunge feature a f1.FEATS_EXTRA, registrate nel JSON).\n\nMisure (K=2). Screening CatBoost: tutti i gruppi entro +-0.2 MAE (rumore). Blend (deploy, base s3_final MAE 30.31/30.00, rho .874/.876): (a) 30.19/29.93, rho .873/.878, roster MAE 38.41/34.92, nuovi 23.29/27.03: unico gruppo che non peggiora nessuna stagione (scarti a rumore: presenze MAE 5.28->5.34 nel 2024-25, rho -.001). (b) peggiora il 2025-26 (+0.20 MAE); (d) peggiora il 2024-25 (+0.04 MAE, presenze +0.14, nuovi +0.24); (e) neutro (30.27/30.01, nessun guadagno); a+e, a+d e \"tutte\" peggiorano il 2024-25. TENUTO solo (a) in FEATS_EXTRA del modello valore (non in FEATURES_NUM del prezzo, che non ha harness: q50 identici). Guadagno reale marginale (-0.1 MAE, rho invariata): il +0.03-0.06 rho stimato dall'audit NON si vede. Le altre colonne restano nei parquet fuori dal modello.\n\nPipeline 2026-27 rigirata (f1 K=2 con 1 fit TabPFN nuovo, f9, f2, exit 0): q50 identici, value rho .9986 con S3, |delta| medio 2.4 (max +14 Buongiorno/Carlos Augusto, -13 Stulic), pack aggiornato e caricabile. py_compile ok su f0b, f1, backtest, f9, f2. Backup S3 in data/indagine/_s3_*, baseline intatto. Report aggiornato (punto 8 dello stato implementazione).",
+   "open_issues": [
+    "f12_choose_objective NON rilanciato sul pack 2026-27 nuovo (valori rho .9986 con S3, |delta| 2.4): rerun consigliato prima dell'asta; f13 su pack 2025-26 (K=0) invariato",
+    "Il guadagno del gruppo (a) e' marginale (-0.11/-0.07 MAE, rho invariata): se un rerun futuro lo mostra negativo, togliere le 3 feature da FEATS_EXTRA (le colonne nei parquet non danno fastidio)",
+    "Cambio allenatore estivo non implementato: games.csv.gz (dcaribou) finisce alla 2025/26, serve una fonte con l'allenatore al 1/9 anche per il 2026/27 (kader TM non lo riporta)",
+    "Le feature di squadra (d) migliorano il 2025-26 (-0.22 MAE, roster rho +.009) ma peggiorano il 2024-25: da riprovare con piu' stagioni di train o solo per i portieri (interazione ruolo)",
+    "Nessuna feature nuova provata nel modello prezzo (FEATURES_NUM): richiederebbe un harness sul prezzo con fit TabPFN",
+    "Le nuove colonne prev{i}_espulsioni e prev{i}_pres_last10 sono calcolate in season_stats ma nel parquet finisce solo prev1_pres_last10 (le altre servono a amm/esp_pp_w)",
+    "Se K cambia prima dell'asta rilanciare f1 2026-27 (1 fit TabPFN ~5 min + fold in cache), f9, f2, f12"
+   ]
+  },
+  {
+   "stage": "S5 — Rerun completo e confronto con la baseline",
+   "kept": true,
+   "files_changed": [
+    "data\\refresh\\chain_lista1.sh",
+    "data\\refresh\\chain_lista1.log",
+    "data\\refresh\\chain_lista1_stdout.log",
+    "data\\processed\\b_predictions_2024-25.json",
+    "data\\processed\\b_predictions_2025-26.json",
+    "data\\processed\\b_predictions_2026-27.json",
+    "data\\processed\\b_predictions_2026-27_adj.json",
+    "data\\processed\\market_adjust_2026-27.csv",
+    "data\\packs\\pack_2024-25.pkl",
+    "data\\packs\\pack_2025-26.pkl",
+    "data\\packs\\pack_2026-27.pkl",
+    "data\\indagine\\backtest_valore_finale.json",
+    "data\\indagine\\pred_valore_finale_2024-25.csv",
+    "data\\indagine\\pred_valore_finale_2025-26.csv",
+    "data\\indagine\\_bt_finale.log",
+    "data\\indagine\\_s4_b_predictions_2024-25.json",
+    "data\\indagine\\_s4_b_predictions_2025-26.json",
+    "data\\indagine\\_s4_b_predictions_2026-27.json",
+    "data\\indagine\\_s4_b_predictions_2026-27_adj.json",
+    "data\\indagine\\_s4_market_adjust_2026-27.csv",
+    "data\\indagine\\_s4_pack_2024-25.pkl",
+    "data\\indagine\\_s4_pack_2025-26.pkl",
+    "data\\indagine\\_s4_pack_2026-27.pkl",
+    "data\\indagine\\tabpfn_cache\\*_q.npz (fit nuovi K=0 per 2024-25/2025-26)",
+    "reports\\ARCHITETTURE_E_OTTIMIZZAZIONI.md"
+   ],
+   "metrics_before": {
+    "backtest_2024-25": {
+     "mae": 33.48,
+     "bias": -7.5,
+     "rho": 0.833,
+     "mae_pres": 5.6,
+     "roster_mae": 40.49,
+     "roster_rho": 0.707,
+     "nuovi_mae": 27.43,
+     "p_real_gt_value_up": 0.289,
+     "bias_ruolo": {
+      "P": 3.9,
+      "D": -9.7,
+      "C": -11.3,
+      "A": -4
+     }
+    },
+    "backtest_2025-26": {
+     "mae": 34.25,
+     "bias": -11,
+     "rho": 0.843,
+     "mae_pres": 5.7,
+     "roster_mae": 40.36,
+     "roster_bias": -15.8,
+     "roster_rho": 0.733,
+     "nuovi_mae": 30.77,
+     "p_real_gt_value_up": 0.314,
+     "bias_ruolo": {
+      "P": -6,
+      "D": -13.1,
+      "C": -9.9,
+      "A": -11.8
+     }
+    },
+    "f12_2026-27": {
+     "obiettivo": "lam 0, attacco (0.35,0.5), 3-4-3",
+     "p_win": 0.35,
+     "punti": 3209,
+     "costo": 500,
+     "sd": 8.54
+    },
+    "f12_2025-26": {
+     "obiettivo": "lam 0, attacco (0.2,0.35), 3-5-2",
+     "p_win": 0.7,
+     "punti": 3301,
+     "sd": 8
+    },
+    "f13_2025-26_mercato": {
+     "costo": 499,
+     "punti": 2919,
+     "media_g": 76.8,
+     "win": 0.603,
+     "rank": 1.53,
+     "win_equo_solo_vs_archetipi": "72-78%"
+    },
+    "f13_2024-25_mercato": {
+     "nota": "assente nel log baseline; ricalcolato col pack baseline: punti 2843, sotto GUIDA1 2862, win 18-24%"
+    }
+   },
+   "metrics_after": {
+    "backtest_2024-25": {
+     "mae": 30.19,
+     "bias": -8.1,
+     "rho": 0.873,
+     "mae_pres": 5.34,
+     "roster_mae": 38.41,
+     "roster_bias": -14.1,
+     "roster_rho": 0.714,
+     "nuovi_mae": 23.29,
+     "p_real_gt_value_up": 0.281,
+     "coverage_q10_q90": 0.832,
+     "bias_ruolo": {
+      "P": 1.3,
+      "D": -10.4,
+      "C": -11.9,
+      "A": -3.4
+     }
+    },
+    "backtest_2025-26": {
+     "mae": 29.93,
+     "bias": -4.8,
+     "rho": 0.878,
+     "mae_pres": 5.31,
+     "roster_mae": 34.92,
+     "roster_bias": -8.6,
+     "roster_rho": 0.772,
+     "nuovi_mae": 27.03,
+     "p_real_gt_value_up": 0.247,
+     "coverage_q10_q90": 0.796,
+     "sigma_media": 34.8,
+     "bias_ruolo": {
+      "P": -0.4,
+      "D": -5.9,
+      "C": -3.9,
+      "A": -6.7
+     }
+    },
+    "f12_2026-27": {
+     "obiettivo": "lam 0, attacco (0.5,0.65), 3-4-3",
+     "p_win": 0.4,
+     "punti": 3324,
+     "costo": 500,
+     "sd": 8.23,
+     "rosa_in_comune": "15/25"
+    },
+    "f12_2025-26": {
+     "obiettivo": "lam 0, attacco (0.2,0.35), 3-5-2",
+     "p_win": 0.49,
+     "punti": 3273,
+     "sd": 6.58
+    },
+    "f13_2025-26_mercato": {
+     "costo": 499,
+     "punti": 2882,
+     "media_g": 75.8,
+     "win_tabella": 0.09,
+     "rank": 2.18,
+     "nota": "PIANO_B(q50) 624cr sale a 89% nella stessa lega",
+     "win_equo_solo_vs_archetipi": "58-67%",
+     "testa_a_testa_vs_baseline": "13-18% contro 77-81%"
+    },
+    "f13_2024-25_mercato": {
+     "costo": 497,
+     "punti": 2968,
+     "media_g": 78.1,
+     "win": 0.793,
+     "rank": 1.25,
+     "win_equo_solo_vs_archetipi": "63-72%",
+     "testa_a_testa_vs_baseline": "91-96% contro 0%"
+    },
+    "value_2026-27_vs_baseline": {
+     "delta_medio": 11.3,
+     "abs_delta": 17.5,
+     "rho": 0.97,
+     "per_stage": {
+      "S1": 2.7,
+      "S2": -0.7,
+      "S3": 9.3,
+      "S4": -0.1,
+      "S5": 0
+     },
+     "per_pres_gk": {
+      "0": -3.9,
+      "1": 15,
+      "2": 25.2
+     }
+    },
+    "tempo_catena_min": 14
+   },
+   "nan_rate_check": "Test backtest 2024-25/2025-26 vs listone 2026-27: pres_gk 0/0 vs 0, pts_gk 0/0 vs 0, fm_gk .51/.51 vs .42, cambio_squadra .38/.34 vs .30, tm_prev_min_per_app .41/.40 vs .35, tm_prev_share90 .41/.40 vs .35, prev1_pres_last10 .41/.39 vs .35. Lo scarto e' la quota di nuovi (36%/31% nel test, 26% nel listone): coerente per costruzione. Parquet verificati: righe e colonne preesistenti identiche a data/baseline_20260905 in tutte e 5 le stagioni, 12 colonne nuove presenti.",
+   "summary": "S5 rerun completo (log data/refresh/chain_lista1.log): parquet verificati (colonne preesistenti identiche alla baseline, 12 nuove), f1 tutte le stagioni (K=0 per 24-25/25-26, K=2 per 26-27; 13 min, fit TabPFN quasi tutti in cache), f9, f2, f12 25-26/26-27 (100 sim), f13 25-26/24-25: exit 0. Predizioni 26-27 identiche a S4.\n(1) Backtest finale vs baseline (K=2): 24-25 MAE 33.48->30.19, rho .833->.873, presenze 5.60->5.34, roster MAE 40.5->38.4, nuovi 27.4->23.3; 25-26 MAE 34.25->29.93, bias -11.0->-4.8, rho .843->.878, presenze 5.70->5.31, roster 40.4->34.9 (bias -15.8->-8.6), nuovi 30.8->27.0, P(>value_up) .31->.25, coverage .80. Nessun peggioramento.\n(2) f12 26-27: lam 0, attacco 50-65%, 3-4-3, P(1o) 40% (base 35%), punti 3324 (3209). f12 25-26: stesso obiettivo, P(1o) 49% (base 70%). f13 25-26 a mercato: 2882 pt (base 2919); win 9% in tabella perche' PIANO_B(q50) da 624cr sale a 89%. Confronto equo (stessa lega, senza q50): nuovo batte gli archetipi 58-67% (base 72-78%), testa a testa perde 13-18 vs 77-81. f13 24-25 (nuovo): 2968 pt, win 79%; base 2843 (sotto GUIDA1), testa a testa 91-96% per il nuovo. Una stagione +125 punti, una -37.\n(3) Rosa 26-27 (15/25 comuni): P esce Falcone entra Palmisani; D escono Gallo Obert Vasquez Wesley entrano Bracaglia Kalulu Mangas Ze Pedro; C escono Adopo Atta Pierotti entrano Calo Romano Vlasic; A escono Kvernadze Ramos G. entrano Diao Malen. Value +11.3 medio (rho .970): S1 +2.7, S2 -0.7, S3 +9.3, S4 -0.1; +25 a chi ha 2 presenze, -4 a chi ne ha 0. Top 15 (base->fin, causa): Rowe 66->141 S1 +28 (1 pres) + S2 +35 blend/cambio sq; Scamacca 127->192 S2 +38 blend, S1 +16 (11.5 pt gk); Abankwah 78->138 S1 +49 (12 pt in 2 g, senza storico); Malen 246->305 S3 +21 calib, S1 +19 (31 pt gk), S2 +16; Cacciamani 108->166 S1 +44 (13 pt gk); Belghali 48->106 S2 +39 blend+cambio sq (0 pres); Dybala 169->226 S2 +41 blend, S3 +17; Valdepenas 86->143 S1 +38 (nuovo, 1 pres); Pedersen 70->124 S1 +42 (1 pres); Cisse A. 112->166 S1 +32 (15.5 pt gk); Floriani Mussolini 98->150 S1 +34; Berardi 156->206 S2 +34 blend, S3 +15; Pisilli 116->165 S1 +24, S3 +12, S4 +5 (10/10 ultime presenze); Messias 32->80 S1 +32; Tiago Gabriel 135->183 S2 +22, S3 +14. Tutti hanno +7..+21 da S3 (calibrazione in avanti). Cali: Walukiewicz -43, Ngonge -41, Toure I. -40 (0 presenze in 2 giornate).\n(4) Copilota: import + setup + plan + advice + nominate OK sul pack nuovo (--help non esiste: avvierebbe il server). py_compile OK. Report aggiornato (punto 9). Baseline intatta, backup S4 in data/indagine/_s4_*. Decisione: TENUTO.",
+   "open_issues": [
+    "f13 2025-26 a prezzi di mercato: piano nuovo 2882 punti contro 2919 della baseline (-1 punto/giornata); da solo batte ancora gli archetipi (58-67%) ma testa a testa perde (13-18%); 2024-25 invece +125 punti (91-96%). Con 2 stagioni il segnale a livello di piano e' rumoroso: da riverificare con piu' sim/seed prima di trarre conclusioni",
+    "Il win% di f13 in tabella e' relativo a una lega che include anche PIANO_B(q50) (624 crediti, irrealistico): il 9% del 2025-26 e' un artefatto; valutare di escludere la variante q50 dalla lega o stamparne il win% separato",
+    "f12 2025-26 P(1o) 70% -> 49% con lo stesso obiettivo: sd a giornata 8.0 -> 6.6 (sigma per giocatore e cap 1.5 punti/giornata nel Monte Carlo), gli avversari archetipo sono cambiati (pres predette diverse); non e' un confronto a parita' di avversari",
+    "Nel Monte Carlo il cap sigma_shift=1.5 satura per la maggior parte dei giocatori: sigma per giocatore arriva alla simulazione solo sotto il cap (aperto da S3)",
+    "91 giocatori con value_q75 < value nel listone 2026-27 (code destre lunghe): con lam>0 l'ottimizzatore assegna upside negativo",
+    "Sottostima residua nel 2024-25 (bias -8, roster -14) perche' senza fold di calibrazione in avanti; 2025-26 ok (-4.8)",
+    "Se K cambia prima dell'asta (nuova giornata nei voti): rilanciare f1 2026-27 (1 fit TabPFN nuovo ~5 min), f9, f2, f12 2026-27; f9 avvisa se K delle predizioni differisce dai voti",
+    "Il copilota va riavviato dal menu per caricare il pack 2026-27 nuovo (obiettivo lam 0, attacco 50-65%, 3-4-3)"
+   ]
+  }
+ ],
+ "review": {
+  "verdict": "REVISIONE OK, nessun problema bloccante. (1) LEAKAGE: nessuno trovato. pres_gk/fm_gk/pts_gk usano solo giornate <= K (votes 2026-27 ha g1-2, K=2, raw voti idem); cambio_squadra confronta la squadra dello snapshot fanta.soccer di inizio settembre con il registry della stagione precedente; tm_prev_*/prev1_pres_last10/rigorista_1_prev/team_prev_* sono tutte dalla stagione y-1 (TM appearances IT1 y-1, voti g29-38 prev, understat prev); la calibrazione CALIB_FORWARD usa fold che predicono s con le sole t<s del train e la stagione test non entra mai (2026-27: fold 24-25 su [21-22,23-24] e 25-26 su [21-22,23-24,24-25]); le fasce conformal usano il value predetto sia in OOF sia nel test. Lo snapshot fanta.soccer 2026-27 e' la g3 (quotazioni pubblicate dopo la g2, coerente con K=2). (2) COERENZA TRAIN/LIVE (K=2, test 24-25 / 25-26 vs listone 26-27): cambio_squadra NaN .38/.34 vs .30, tm_prev_min_per_app .41/.40 vs .35, prev1_pres_last10 .42/.39 vs .35, fm_gk .51/.51 vs .42, medie quasi identiche (min/app 58.5/60.8/59.5, share90 .43/.44/.45, fm_gk 6.11/6.10/6.13). Lo scarto e' tutto quota di nuovi (36%/31% test vs 26% live): dentro i vecchi i tassi coincidono (cambio .08 vs .09, tm .13 vs .13, last10 .12 vs .12); dentro i nuovi sono NaN ~100% ovunque. Residuo: eta/tm_value dei nuovi NaN .07/.15 nel test 25-26 vs .05/.06 live (la rosa TM riempie solo la stagione corrente), direzione conservativa. (3) SEMANTICA: value = pts_gk + resto >= pts_gk (0 violazioni), pres = pres_gk + resto in [pres_gk, 38] (0 violazioni), q10<=q25<=q75<=q90 sempre, value_up = value_q75, sigma = (q90-q10)/2.56, k=2 su tutte le 587 righe, q50 identici al baseline. market_adjust applica i fattori al solo resto (verificato Kean: 6 + (210.3-6)*0.88 = 185.8) e scala value_up/q*/sigma con f_all; montecarlo legge sigma e k con fallback corretto se sigma<=0 (4 righe a valore ~0); f10_copilot/f6 leggono q10/q50/q90/value/motivi, bot_b/f13 value_up, f12 build_dists su pack: tutti campi presenti nel JSON adj. (4) GIOCATORI (baseline -> finale adj, value modello): Lautaro 227->257 (2 pres, 11 pt, calibrazione in avanti), Dimarco 229->249, Paz N. 260->263 (stabile, sigma 16), Calhanoglu 212->259 (19.5 pt in 2 g, rigorista), Malen 246->305 (31 pt in 2 g; value_up solo +3.6: fascia >150 A con banda asimmetrica), Svilar/Carnesecchi P 188->211 / 173->199, Dybala 169->226 (18 pt gk), Kean 170->186 (1 pres su 2, ballottaggio 55%, pres 22.6->19.9), Yildiz modello 199->215 (adj 127->163 per out 9 giornate), Pulisic 163->148 (0 pres, sigma 63 -> value_up 193), Woltemade nuovo caro 117->133 (0 pres, value_up 143->168, sigma 61), Rowe 66->141 (1 pres + cambio squadra + blend: il movimento piu' aggressivo), cali a 0 presenze Walukiewicz 148->105, Ngonge 142->101: tutti coerenti con S1-S3. Delta medio modello +10.9, rho .959. Unica stranezza fuori scopo: Frattesi value 250 con q50 13 (modello prezzo, identico al baseline). (5) STILE: nessun percorso assoluto nei file toccati, italiano ok; rimosso da README.md la parentesi sul paywall e aggiornato il docstring stale di f1_make_predictions (valore non e' piu' Marcel); py_compile OK. Fix minori applicati: 2. Segnalati senza applicare (cambiano i numeri): sigma_shift nel Monte Carlo diviso per 38-k ma applicato su 38 giornate simulate, value_up<value su 93 righe (clamp), bande asimmetriche fascia >150 A, percorsi assoluti preesistenti in f0b_lib.py.",
+  "issues": [
+   {
+    "severity": "minor",
+    "file": "src\\fantabot\\montecarlo.py",
+    "line": 101,
+    "problem": "sigma_shift = sigma_season / (p_play * (38 - k)) ma la simulazione gioca tutte le 38 giornate con p_play = pres/38 e mean_needed = value/(p_play*38): l'incertezza eps viene applicata anche alle K giornate gia' giocate (in realta' deterministiche) e la sigma di stagione risulta gonfiata di 38/(38-k) (+5.6% con K=2). Trascurabile oggi, cresce se K aumenta.",
+    "fix": "Dividere per p_play * GIORNATE (coerente con la simulazione a 38 giornate) oppure simulare solo 38-k giornate partendo da pts_gk fissi. Cambia i numeri di f12: da misurare, non applicato."
+   },
+   {
+    "severity": "minor",
+    "file": "scripts\\f1_make_predictions.py",
+    "line": 358,
+    "problem": "93 righe del JSON modello (91 adj) hanno value_q75 < value (upside negativo con lam>0 nell'ottimizzatore); 9 righe a valore <20 hanno value fuori [q10,q90] e 4 hanno sigma 0 (quantili del resto clippati a 0). Tutte righe a valore quasi nullo, il Monte Carlo ha il fallback per sigma<=0, f12 ha scelto lam 0: effetto nullo oggi.",
+    "fix": "value_up = np.maximum(value_up, value) (o clip dell'upside a >=0 in optimizer.optimize_roster). Cambia value_up e P(reale>value_up) di poco: da misurare col backtest, non applicato."
+   },
+   {
+    "severity": "minor",
+    "file": "scripts\\f1_make_predictions.py",
+    "line": 225,
+    "problem": "Fascia >150 attaccanti: q75-value medio 14.9 e q90-value 26.0 contro value-q10 76.9 (Malen value_up = value+3.5, Hojlund +1.3, Lautaro +3.5): i delta conformal (2 fold, n~20-25 per ruolo x fascia, shrink n/40) rendono la banda dei top A molto asimmetrica verso il basso. E' la correzione della sovrastima OOF ai top (coerente con P(reale>value_up) A 0.33), ma con lam>0 i top attaccanti avrebbero upside quasi nullo.",
+    "fix": "Nessuna azione oggi (lam 0). Se in un rerun le bande dei top A sembrano sbagliate: FASCE_VALORE = [] (conformal per solo ruolo) e rimisurare coverage/P(>value_up) per fascia col backtest."
+   },
+   {
+    "severity": "minor",
+    "file": "scripts\\f0b_lib.py",
+    "line": 21,
+    "problem": "RAW, FONTI e PROC sono percorsi assoluti (...), contro la regola dei percorsi relativi da ROOT. Preesistente, non introdotto dagli stage S1-S5; f0b_build_outputs li importa.",
+    "fix": "ROOT = Path(__file__).resolve().parents[1]; RAW = ROOT/'data'/'raw'; PROC = ROOT/'data'/'processed'; FONTI (cartella esterna al repo) resta una costante esplicita. Non applicato: tocca il caricamento dati della fase 0b, da fare con un rerun di verifica dei parquet contro la baseline."
+   },
+   {
+    "severity": "minor",
+    "file": "scripts\\f0b_build_outputs.py",
+    "line": 382,
+    "problem": "Coerenza train/live residua sui nuovi: la rosa TM (map_tm_kader) riempie eta/tm_value solo per la stagione corrente; nel test 2025-26 i nuovi hanno tm_value NaN 15% ed eta NaN 7% contro 6%/5% nel listone 2026-27. Direzione conservativa (il live ha piu' informazione), effetto piccolo.",
+    "fix": "Se si vuole chiudere lo scarto: map_tm_kader anche per 2024 e 2025 (snapshot Wayback delle rose TM) e rigenerare i parquet. Non applicato."
+   },
+   {
+    "severity": "minor",
+    "file": "README.md",
+    "line": 57,
+    "problem": "Menzione del paywall nella descrizione della fonte prezzi (contro le regole di stile).",
+    "fix": "APPLICATO: rimossa la parentesi, resta 'fantacalcio-online via Wayback Machine'."
+   },
+   {
+    "severity": "minor",
+    "file": "scripts\\f1_make_predictions.py",
+    "line": 3,
+    "problem": "Docstring del modulo stale: diceva 'valore (Marcel exp_points)', ma il valore e' da S2 il blend TabPFN/CatBoost sul resto con quantili conformalizzati.",
+    "fix": "APPLICATO: docstring aggiornato (prezzo ensemble conformalizzato; valore = prime K giornate reali + resto predetto, presenze, sigma). py_compile OK."
+   }
+  ]
+ },
+ "fix": null
+}

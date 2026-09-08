@@ -157,7 +157,8 @@ def main():
         pl["master_id"] = pl["master_id"].astype(str)
         inputs.nuovi = set(pl.loc[pl["nuovo_in_serie_a"].fillna(0).astype(int) == 1, "master_id"])
         inputs.fvm = dict(zip(pl["master_id"], pl["fvm"].fillna(0).astype(float)))
-        print(f"nuovi in Serie A: {len(inputs.nuovi)} (premio hype se FVM >= 30)")
+        print(f"nuovi in Serie A: {len(inputs.nuovi)} (il premio di prezzo e' gia' "
+              f"dentro il modello, nessuna correzione a valle)")
 
     adj, log = adjust_predictions(pred, inputs)
     out = PROC / f"b_predictions_{season}_adj.json"

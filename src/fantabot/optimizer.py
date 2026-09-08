@@ -33,7 +33,8 @@ def optimize_roster(candidates: dict[str, Player],
                     lam: float = 0.0,
                     bench_weight: float = BENCH_WEIGHT,
                     time_limit: int = 10,
-                    starters_owned=None) -> dict | None:
+                    starters_owned=None,
+                    min_spend: float | None = None) -> dict | None:
     """candidates: pool disponibile (venduti esclusi). fixed: giocatori gia'
     posseduti (x=1, prezzo 0). quotas = quote PIENE della rosa; budget =
     crediti residui. forced_spend: ruolo -> (min, max) spesa sui soli acquisti.
@@ -52,6 +53,13 @@ def optimize_roster(candidates: dict[str, Player],
                        for pid in allp)
     cost = {pid: (0.0 if pid in fixed else max(1.0, prices.get(pid, 1.0))) for pid in allp}
     prob += pulp.lpSum(cost[pid] * x[pid] for pid in candidates) <= budget
+    if min_spend:
+        # soglia di spesa: si tiene comunque un credito per ogni slot ancora da
+        # riempire, cosi' la rosa resta completabile
+        slot_da_riempire = sum(quotas[r] for r in ROLES) - len(fixed)
+        soglia = min(float(min_spend), budget - max(0, slot_da_riempire - 1))
+        if soglia > 0:
+            prob += pulp.lpSum(cost[pid] * x[pid] for pid in candidates) >= soglia
     prob += pulp.lpSum(m.values()) == 1
     by_role: dict[str, list[str]] = {r: [] for r in ROLES}
     for pid, p in allp.items():

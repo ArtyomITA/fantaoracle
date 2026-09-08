@@ -54,6 +54,11 @@ def main():
     for r in res["table"]:
         print(f"{r['lam']:4.1f} {str(r['attack_share']):>11} {r['module']:>6} {r['cost']:6.0f} "
               f"{r['mean_pts']:6.0f} {r['sd_g']:5.2f} {r['p_win']:7.1%}")
+    ver = res.get("verifica_fuori_scelta")
+    if ver:
+        print(f"\nverifica su scenari nuovi (mai usati per scegliere): "
+              f"P(1o) {ver['p_win']:.1%} +- {ver['se']:.1%} "
+              f"(IC95 {ver['ic95'][0]:.1%}..{ver['ic95'][1]:.1%}, {ver['n_sims']} scenari)")
     best = res["best"]
     names = {r: [pack.players[p].name for p in best["roster"][r]] for r in "PDCA"}
     print(f"\nMIGLIORE: lam {best['lam']}, attacco {best['attack_share']}, modulo {best['module']}, "
@@ -61,7 +66,7 @@ def main():
     for r in "PDCA":
         print(f"  {r}: {names[r]}")
     pack.b_objective = {"lam": best["lam"], "attack_share": best["attack_share"],
-                        "p_win": best["p_win"], "table": [
+                        "p_win": best["p_win"], "verifica": ver, "table": [
                             {k: v for k, v in row.items() if k != "roster"} for row in res["table"]]}
     with open(PACKS / f"pack_{season}.pkl", "wb") as f:
         pickle.dump(pack, f)

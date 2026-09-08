@@ -1,168 +1,119 @@
-# FantaOracle 🔮 — il modello che legge l'asta
+# 🔮 FantaOracle
 
-*(EN: a machine-learning oracle for Italian fantasy football auctions — price + value models, MILP roster optimizer, live re-planning at the table, realistic opponent bots, full-season backtests on real votes, and a playable auction arena.)*
+**Il sistema che fa l'asta del fantacalcio al posto tuo — e ti dimostra perché funziona.**
 
-Un modello che impara da **centinaia di aste vere** e da 5 stagioni di voti, e all'asta del fantacalcio **vince il 75-91% dei campionati simulati** contro avversari realistici — poi ti lascia sedere al tavolo a sfidarlo. Predice quanto costerà ogni giocatore (con forchetta di incertezza), quanti punti farà, costruisce la rosa ottima e **ricalcola la strategia a ogni martelletto**. Config di riferimento: **10 partecipanti, 500 crediti, rosa 3P/8D/8C/6A, modificatore difesa, lineup 11 con max 3 cambi, soglie gol 66+6** (tutto in `config/league.yaml`).
+Predice quanto costerà ogni giocatore con una forchetta d'incertezza, costruisce la rosa ottima col tuo budget, ricalcola tutto a ogni martelletto, e poi rigioca stagioni intere coi voti veri per misurare quanto vale davvero.
 
-## ⚡ Prova subito (demo inclusa, zero dati da scaricare)
-
-```bash
-pip install -r requirements.txt
-# 1) GUARDA un'asta simulata: servi la cartella e apri il replay
-python -m http.server 8899
-# → http://localhost:8899/viz/replay.html?log=../demo/logs/asta_2025-26_esempio.jsonl
-
-# 2) GIOCA tu contro i 9 bot (asta completa, pack demo incluso)
-python scripts/f6_live_auction.py 2025-26
-# → http://localhost:8899/viz/replay.html?live=http://localhost:8765
-```
-
-I dati grezzi (voti, quotazioni, prezzi reali) **non sono nel repo** e si rigenerano in locale con gli script inclusi: **leggi [DATA.md](DATA.md)** — spiega cosa è incluso (i derivati dei nostri modelli), cosa no e perché, e cosa cambia (la stagione post-asta richiede i voti).
-
-## 🏟️ L'asta vera (Copilota) e l'aggiornamento al minuto
-
-- **Asta vera coi tuoi amici**: dal menu, card "ASTA VERA — Copilota": inserisci i nomi dei partecipanti, registra ogni martelletto (chi, quanto) e per ogni giocatore al banco l'oracolo ti dice fin dove salire (verde / giallo bargain / rosso lascialo), chi chiamare al tuo turno e come cambia il piano rosa. Ogni acquisto è salvato su disco: chiudi e riprendi quando vuoi. Guida passo-passo: **[ASTA_VERA.md](ASTA_VERA.md)**.
-- **Aggiorna mercato** (`scripts/f11_refresh_all.py`, anche dal menu): scarica listone e quotazioni ufficiali, prezzi medi delle aste già fatte quest'anno, probabili formazioni con % titolarità, infortunati/squalificati con rientro, rigoristi, voti delle giornate giocate, xG; poi riallena le predizioni (ensemble TabPFN+CatBoost su tutto lo storico) e applica lo **strato di aggiustamento mercato** (`src/fantabot/market_adjust.py`: giornate perse, titolarità, rigoristi, blend coi prezzi reali — ogni correzione con il suo motivo). Ogni download è conservato datato in `data/snapshots/`.
-- Il pack demo `demo/pack_2026-27_demo.json` incluso nel repo è l'uscita di questa catena al 1 settembre 2026.
+*In sviluppo attivo: il Livello 3 e la nuova valutazione sono in corso.*
 
 ---
 
-## 1. Cosa fa, in una frase
+## Perché è un problema difficile
 
-Impara dai prezzi di **aste vere** (225 aste reali crowdsourced + storici piattaforme) e dai **voti di 5 stagioni**, predice quanto costerà ogni giocatore e quanti punti farà, costruisce la rosa ottima col budget, e **al tavolo ricalcola tutto a ogni martelletto** — poi dimostra di funzionare vincendo campionati simulati su stagioni realmente accadute.
+Un'asta di fantacalcio sembra un problema di ottimizzazione. Non lo è.
 
-## 2. Risultati (torneo finale, modelli aggiornati, modificatore attivo)
+I prezzi non sono dati: si formano mentre giochi, contro nove persone che hanno le loro idee. Il budget è un vincolo duro e irreversibile — un rilancio di troppo al terzo giocatore ti toglie il centrocampo. E l'obiettivo non è «massimizzare i punti attesi»: è **arrivare primo in un campionato a scontri diretti**, dove le fasce gol trasformano 66 punti in un gol e 71 in due, e dove una rosa più forte in media può vincere meno spesso di una più esplosiva.
 
-Win rate di B su 150 repliche (asta completa + stagione coi fantavoti veri + campionato H2H su 100 calendari; caso puro = 10%):
+FantaOracle affronta tutti e tre i pezzi.
 
-| Tavolo | 2024/25 | 2025/26 |
-|---|---|---|
-| B + 2 ragionieri + 7 profili umani | **90.4%** | **80.5%** |
-| B + 9 profili umani | 83.2% | 75.6% |
-| B + 4 ragionieri + 5 profili | 77.5% | 91.5% |
+## Che cosa fa
 
-**Da dove viene il vantaggio** (misurato, non dichiarato): il modello valore vede i punti futuri meglio del mercato (correlazione 0.83-0.85 contro 0.48-0.57). Il controfattuale lo prova: B col valore "di mercato" al posto del suo crolla all'8.8% — sotto il caso. MILP e disciplina sono il sistema di consegna; il motore è il modello valore. Contro amici veri: aspettarsi 35-60%, annate d'oro sopra.
+**Predice i prezzi.** Ensemble TabPFN-2 + CatBoost addestrato su **225 aste reali** crowdsourced e sugli storici delle piattaforme dal 2018. Non un numero: quantili conformali q10/q50/q90, perché sapere che un giocatore «costa 40» è inutile se la forchetta vera è 25-70.
 
-## 3. Architettura
+**Predice i punti.** CatBoost sui punti di stagione. Questo è il motore del vantaggio, ed è misurato: correlazione **0,83-0,85** con i punti realmente fatti, contro **0,48-0,57** del prezzo di mercato. Il controfattuale lo conferma — lo stesso bot, con il valore di mercato al posto del suo, crolla sotto il caso.
+
+**Costruisce la rosa.** MILP a due livelli (titolari e panchina) con modulo libero, prezzo-ombra sui ruoli, e ripianificazione completa a ogni martelletto: quando perdi un obiettivo, il piano si riscrive prima della chiamata successiva.
+
+**Simula il mondo, non un modello del mondo.** Un generatore di stagioni che parte dal risultato della partita (Dixon-Coles con prior xG), decide chi scende in campo e per quanti minuti, distribuisce gol, assist e cartellini rispettando chi era davvero in campo in quel minuto, e solo alla fine calcola il voto. Undici in campo, un portiere sempre, espulsi che non vengono sostituiti, sostituzioni che seguono le regole.
+
+**Si mette alla prova.** Aste complete contro avversari che si comportano come persone — otto profili calibrati su aste vere: il tifoso, il panic buyer, il tirchio, chi si fissa su un nome. Poi la stagione rigiocata coi fantavoti reali, formazioni, cambi, modificatore di difesa, campionato H2H su cento calendari.
+
+## I numeri
+
+| | |
+|---|---|
+| Correlazione del modello valore coi punti veri | **0,83-0,85** (mercato: 0,48-0,57) |
+| Vittorie nei tornei simulati, 150 repliche | **75-91 %** (caso puro: 10 %) |
+| Errore sulle presenze del generatore di stagioni | **0,4-0,7 %** |
+| Test automatici | **271** |
+
+I tornei sono contro i nostri bot: è il banco su cui il sistema è stato costruito, e contro persone vere ci si aspetta meno. Ogni numero qui sopra è riproducibile con un comando, e il comando sta nel report che lo contiene.
+
+## Come è fatto
 
 ```
-DATI (data/raw → data/processed)          MODELLI (Fase 1)
-  aste reali GruppoEsperti 225              PREZZO: TabPFN-2 + CatBoost ensemble,
-  prezzi piattaforme 2018/19→25/26                  quantili q10/q50/q90 conformali
-  voti+bonus 5 stagioni (59.306 righe)      VALORE: CatBoost → punti stagione
-  quotazioni ufficiali Qt.I/FVM                     (rho 0.82 vs 0.41 del metodo classico)
-  xG Understat, Transfermarkt
-        │                                        │
-        ▼                                        ▼
-  MOTORE D'ASTA (src/fantabot/engine)  ←  BOT (src/fantabot/bots)
-  chiamata a giro P→D→C→A, rilanci,        B: MILP titolari/panchina + quantili
-  vincolo crediti/slot, event log             + prezzo-ombra + replanning live
-  JSONL con "pensieri"                     A: ragioniere VORP (baseline onesta)
-        │                                  C: 8 profili umani calibrati su aste vere
-        ▼
-  STAGIONE (src/fantabot/season)          INTERFACCE (viz/replay.html)
-  38 giornate coi fantavoti reali,          TEATRO: replay animato di ogni asta
-  lineup solo tra disponibili,              SEDIA: giochi tu contro i 9 bot
-  modificatore difesa, H2H                  STAGIONE: scontri e voti giornata per giornata
+  DATI                          MODELLI                      DECISIONE
+  ────                          ───────                      ─────────
+  aste reali (225)              prezzo: TabPFN-2 +           MILP titolari + panchina
+  quotazioni 2018-2026          CatBoost, quantili           con prezzo-ombra
+  voti, 5 stagioni              conformali                   e ripianificazione a
+  xG Understat                                               ogni martelletto
+  formazioni ed eventi          valore: CatBoost sui                 │
+  Transfermarkt                 punti di stagione                    ▼
+        │                              │                     MOTORE D'ASTA
+        └──────────────┬───────────────┘                     chiamata a giro,
+                       ▼                                     rilanci, vincoli,
+              GENERATORE DI STAGIONI                         registro con i
+              risultato della partita,                       «pensieri» dei bot
+              partecipazione, eventi,                                │
+              voto puro, punteggio                                   ▼
+                       │                                     STAGIONE E CAMPIONATO
+                       └─────────────────────────────────────  formazioni, cambi,
+                                                                modificatore, H2H
 ```
 
-## 4. I tre bot
+Tre livelli, uno sopra l'altro:
 
-**B — l'oracolo** (il modello forte). Pre-asta: modello prezzo distribuzionale (per ogni giocatore: mediana attesa e forchetta q10-q90, calibrata sulle aste reali) + modello valore + MILP che ottimizza titolari a peso pieno e panchina al 30%. Al tavolo: misura il "calore" del mercato confrontando i prezzi battuti con le proprie stime, ricalcola il piano a ogni evento rilevante, max bid = quantile alto + prezzo-ombra (quanto perdo se ripiego sull'alternativa), guardie anti-zavorra (mai >5 crediti su valore basso), caccia ai bargain veri, nomination-esca per drenare i budget altrui (efficacia misurata: +21 punti sul farli strapagare).
+| livello | che cosa aggiunge |
+|---|---|
+| **0-1** | dati, modelli di prezzo e valore, motore d'asta, bot, torneo |
+| **2** | generatore di stagioni fisicamente coerente — chi gioca, chi segna, chi prende voto |
+| **3** | scelta della rosa che massimizza la probabilità di **arrivare primo**, e prezzo di indifferenza per ogni giocatore |
 
-**A — il ragioniere** (baseline). Il metodo classico fatto bene: proiezione fantamedia → VORP → conversione crediti, lista rigida; variante "flessibile" con correzione inflazione. Lasciato volutamente com'è: è il metro per misurare se l'ML paga.
+Il Livello 3 è la parte in costruzione: risponde alla domanda «fino a che prezzo mi conviene questo giocatore, considerando che comprarlo mi toglie i crediti per gli altri».
 
-**C — gli amici** (avversari realistici). 8 profili dai pattern documentati: stars&scrubs, semitop, tifoso (+30% sui suoi), ancorato ai prezzi visti, panic buyer, tirchio, enforcer che alza per farti male, medio. Rumore calibrato sullo spread osservato dello stesso giocatore tra aste reali; tetto umano sul singolo (0.36-0.42 del budget, dalle aste vere); giocatore feticcio. Realismo verificato: curva prezzi-rank simulata vs 16 aste reali estive 10×500 sovrapposta dal rank 5 in giù, spesa e concentrazione fedeli.
+## Provalo
 
-## 5. I dati (tutti verificati, tutti gratis)
+La demo funziona senza i dati originali (esclusi perché scaricati da fonti terze — vedi [`DATA.md`](DATA.md)):
 
-- **Aste reali**: forum GruppoEsperti "Progetto Prezzi Asta" — 225 aste complete deduplicate (2021/22, 2023/24, 2024/25), 51.113 acquisti con prezzo; 61 esattamente 10 squadre × 500.
-- **Prezzi medi storici**: medie d'acquisto per configurazione di lega da archivi web pubblici, stagioni 2018/19 → 2025/26, inclusa la configurazione 10 squadre/500 crediti.
-- **Voti**: fantacalcio.it, 5 stagioni × 38 giornate complete, voto+fantavoto+bonus dettagliati.
-- **Quotazioni**: Qt.I/Qt.A/FVM ufficiali 2020/21→2025/26 + fanta.soccer per OGNI giornata (snapshot d'asta di inizio settembre).
-- **Avanzate**: xG/xA Understat 7 stagioni, valori di mercato e anagrafiche Transfermarkt.
-- Qualità garantita da **doppio audit avversariale** (round 1 trovò Lautaro corrotto da un omonimo e aste di riparazione dentro il target; round 2: PASS su tutto).
-
-## 6. Validazione dei modelli (protocollo leave-future-out, zero senno di poi)
-
-Allenato SOLO su stagioni precedenti, testato sulla successiva:
-- Prezzo (test 2024/25): correlazione di rango 0.84, errore medio 13 crediti sui 50 più costosi, copertura forchetta 86%. VORP classico: 0.35. 
-- Valore (test 2024/25 e 2025/26): rho 0.82 coi punti reali totali — contro 0.41 del metodo fantamedia classico e 0.45-0.55 del prezzo di mercato.
-- Tetto di realismo noto (fonte fantacalcio.dev): la fascia top si conferma ~50% — il vantaggio sta nell'ordinamento e nei prezzi, non nell'indovinare i campioni.
-
-## 7. Come si usa
-
-Prerequisiti: Python 3.12 + `pip install -r requirements.txt`; per la webapp basta un server statico dalla radice del repo (`python -m http.server 8899`).
-
-**Guardare un'asta simulata (replay)**
 ```bash
-# apri nel browser:
-# http://localhost:8899/viz/replay.html?log=../demo/logs/asta_2025-26_esempio.jsonl
-```
-Palco col giocatore chiamato, ticker dei rilanci col "pensiero" di ogni bot, barre budget, inflazione, scrubber, velocità 1-64x, riepilogo finale con le 10 rose.
-
-**Giocare TU (modalità Sedia)**
-```bash
-python scripts/f6_live_auction.py 2025-26
-```
-poi apri `http://localhost:8899/viz/replay.html?live=http://localhost:8765`. Tavolo: tu + B + 2 ragionieri + 6 profili (`--no-b` per togliere B; `--porta N` se la 8765 è occupata da un run precedente — un processo = un'asta). L'asta si ferma quando tocca a te, senza timeout. Comandi: **+1 / +5 / importo / PASSO / NON LO VOGLIO** (passo automatico su quel giocatore fino al martelletto) / **AUTO** (delega singola); scorciatoie R e P; pannello suggerimenti richiudibile (mediana, tetto q90, max consigliato, termometro mercato, giudizio). Chiamata con ricerca, stemmi, filtro per squadra e ordinamento per valore/mediana/media aste reali.
-
-**A fine asta: la stagione.** Coi dati rigenerati (vedi DATA.md), si simulano le 38 giornate coi fantavoti veri: classifica finale con la tua posizione, navigazione giornata per giornata, 5 scontri con punteggi e gol, click su uno scontro → le due formazioni coi voti di ognuno (subentri, assenti, bonus modificatore evidenziato), sparkline del tuo andamento. Col solo pack demo la stagione è disattivata (l'asta resta completa).
-
-**Rilanciare i tornei / rigenerare tutto** (richiede i dati ricostruiti, vedi DATA.md)
-```bash
-python scripts/f1_train_price.py        # gara modelli prezzo con metriche
-python scripts/f1_make_predictions.py   # predizioni B per stagione
-python scripts/f2_build_packs.py        # pack stagione (ref mercato calibrato)
-python scripts/f3_run_tournament.py NOME_CARTELLA   # torneo completo, riprendibile
-python scripts/f5_counterfactuals.py    # esperimenti controfattuali
+pip install -r requirements.txt
+python scripts/fantaoracle_app.py
 ```
 
-## 8. Documenti
+Tre modi per guardarlo lavorare:
 
-- `PIANO.md` — il piano completo (con §11-bis riparazione, §11-ter agenda miglioramenti, §11-quater modulo statisticamente migliore)
-- `BRAINSTORMING.md` — le 3 metodologie a confronto (origine del progetto)
-- `reports/REPORT_FINALE.md` — verdetto + indagine sul 98% + fix list
-- `reports/RAGIONAMENTI_UMANI.md` — 28 pattern dei fantallenatori veri (quantificati, con fonti) mappati su bot/feature/riparazione
-- `reports/indagine/` — mining: comportamento di B, realismo aste, origine del vantaggio
-- `reports/VERDETTO_*.md` — tabelle dei tre tornei (senza modificatore / con / coi fix)
-- `DATA.md` — politica dati: cosa è incluso, cosa rigenerare e come
-- `viz/README.md` — le tre modalità della webapp
+- **Replay** — un'asta simulata come un teatro, con i pensieri di ogni bot a ogni rilancio: perché ha rilanciato, quanto era disposto a pagare, cosa ha ricalcolato dopo averlo perso.
+- **Sedia** — ti siedi tu al tavolo, contro i bot.
+- **Copilota** — l'assistente per l'asta vera: consiglio a ogni chiamata, piano aggiornato, budget residuo, tetto massimo per giocatore.
 
-## 9. Mappa del repository
+## Come è tenuto insieme
+
+Tre regole di metodo, applicate anche quando fanno perdere tempo. Sono la ragione per cui i numeri qui sopra si possono citare:
+
+1. **Prima la causa riprodotta, poi la correzione, poi la misura.** Un test che fallisce non si risolve indebolendo il test.
+2. **I criteri si scrivono prima dell'esperimento.** Una soglia non si sposta dopo aver visto i risultati.
+3. **Un esito inconcludente resta inconcludente.** Non diventa equivalenza, e non diventa una promozione.
+
+Ogni conclusione nei report porta il suo stato e il comando che la riproduce. Quando una verifica successiva ne ribalta una, la correzione viene scritta accanto all'originale invece di riscrivere la storia: [`reports/PROTOCOLLO_v2.md`](reports/PROTOCOLLO_v2.md).
+
+## Struttura
 
 ```
-fantabot/
-├── config/league.yaml           # regole della lega (10×500, 3/8/8/6, modificatore...)
-├── src/fantabot/
-│   ├── engine/auction.py        # motore d'asta a eventi
-│   ├── bots/                    # base + A + B + C
-│   ├── season/                  # lineup, simulazione, dettaglio giornate
-│   ├── modeling/                # Marcel, VORP
-│   ├── optimizer.py             # MILP titolari/panchina (PuLP/CBC)
-│   ├── tournament.py            # repliche parallele + aggregazione
-│   └── verdict.py               # report verdetto
-├── scripts/                     # f0b_* dati, f1_* modelli, f2 pack, f3 torneo,
-│                                # f5 controfattuali, f6 asta live, indagine/
-├── data/
-│   ├── raw/ processed/ packs/   # dati grezzi → integrati → pack per stagione
-│   ├── tournament*/             # risultati tornei (replicas, logs, summary)
-│   └── live_logs/               # le TUE aste giocate (+ stagione json)
-├── viz/replay.html              # teatro: replay + Sedia + stagione (un file)
-├── reports/                     # tutti i documenti
-└── tests/                       # smoke test (asta, stagione, torneo, live)
+src/fantabot/
+  engine/      motore d'asta a eventi, con registro JSONL
+  bots/        A (baseline), B (il nostro), C (otto profili umani)
+  season/      formazioni, sostituzioni, punteggio di lega, campionato H2H
+  tabellino/   generatore di stagioni: partita, partecipazione, eventi, voto
+  livello3/    valutatore, ricerca su candidate, MILP esatto, indifferenza
+scripts/       pipeline dei dati, banchi, esperimenti
+tests/         271 test
+reports/       ogni conclusione con la sua prova
+viz/           replay, Sedia, Copilota
 ```
 
-## 10. Onestà e limiti (letti prima di fidarsi)
+## Licenza e dati
 
-1. Gli avversari C sono calibrati sulle ASTE reali ma non leggono le notizie: contro umani informati il vantaggio si riduce (per questo la forchetta realistica è 35-60%, non 80-90%).
-2. I top 1-3 delle aste simulate costavano +25% del reale; corretto col tetto umano, ma i prezzi assoluti dei primissimi vanno letti con prudenza.
-3. Il backtest usa il senno del "chi ha giocato davvero" per la disponibilità di formazione (identico per tutti — confronto pulito, punteggi assoluti leggermente ottimisti).
-4. Le mie valutazioni qualitative (Claude) NON sono nei modelli del backtest: conosco l'esito di quelle stagioni, sarebbe barare. Entrano solo in avanti, sull'asta 2026/27.
-5. Predire la fascia alta resta ~50%: il bot vince di disciplina, replacement e prezzi — non di profezie.
+Codice sotto licenza MIT. I dati grezzi non sono ridistribuiti: si scaricano da fonti terze e si rigenerano in locale con gli script della pipeline. Provenienza e dettagli in [`DATA.md`](DATA.md).
 
-## 11. Roadmap
-
-- **Asta reale 2026/27** (la ragione di tutto): pack sul listone uscito il 4/8, predizioni fresche, feature umane (rigoristi, infortuni al 1/9, titolarità), B2 coi giudizi Claude, e la Sedia come sparring in attesa dell'asta vera — dove il live tool ti fa da co-pilota.
-- **Modulo riparazione** (progettato in PIANO §11-bis, ~1 giornata): svincoli, +50 crediti, asta di gennaio — saremo i primi a quantificare quanto incide davvero.
-- Miglioramenti B in coda: modello titolarità dedicato, rollout Monte Carlo in-asta, valore distribuzionale con vincolo di varianza.
+Progetto personale, costruito per una lega di amici.
