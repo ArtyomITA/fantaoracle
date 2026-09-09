@@ -94,17 +94,134 @@ class VerificaFallita(RuntimeError):
     """La verifica non ha potuto concludere che i due artefatti coincidono."""
 
 
+def _identificativo_unico(t: pd.DataFrame, nome: str) -> str | None:
+    """L'identificativo di esecuzione della tabella, se ce n'e' **uno solo**.
+
+    Prima si leggeva `t["esecuzione"].iloc[0]`: bastava che la prima riga
+    dichiarasse `run_A` perche' una riga `run_B` piu' in basso passasse
+    inosservata. Una tabella con due identificativi non viene da
+    un'esecuzione: viene da due, ed e' un errore.
+    """
+    if "esecuzione" not in t.columns or not len(t):
+        return None
+    valori = t["esecuzione"]
+    if valori.isna().any():
+        quante = int(valori.isna().sum())
+        raise VerificaFallita(
+            f"{nome}: {quante} righe senza identificativo di esecuzione. "
+            "La provenienza o c'e' su tutte le righe o non c'e'.")
+    distinti = sorted({str(x).strip() for x in valori})
+    if any(x == "" for x in distinti):
+        raise VerificaFallita(f"{nome}: identificativo di esecuzione vuoto")
+    if len(distinti) > 1:
+        raise VerificaFallita(
+            f"{nome}: {len(distinti)} identificativi di esecuzione diversi "
+            f"nella stessa tabella {distinti[:4]}. Una tabella viene da "
+            "un'esecuzione sola.")
+    return distinti[0]
+
+
+def _controlla_manifesto(stagione: str, identificativo: str | None) -> dict:
+    """Confronta l'identificativo con `esecuzione.json`, quando c'e'.
+
+    Per gli artefatti anteriori al contratto (R4) non c'e' manifesto: quella e'
+    la **modalita' storica**, dichiarata, non un difetto da nascondere.
+    """
+    base = cartella_stagione(stagione)
+    reg = base / "esecuzione.json"
+    if not reg.exists():
+        return {"modalita": "storica",
+                "nota": ("nessun `esecuzione.json` accanto agli artefatti: "
+                         "sono anteriori al contratto delle esecuzioni")}
+    m = json.loads(reg.read_text("utf-8"))
+    if identificativo and m.get("identificativo") != identificativo:
+        raise VerificaFallita(
+            f"il manifesto dichiara l'esecuzione {m.get('identificativo')}, "
+            f"gli artefatti {identificativo}")
+    conf = m.get("configurazione") or {}
+    if conf.get("stagione") and conf["stagione"] != stagione:
+        raise VerificaFallita(
+            f"il manifesto e' della stagione {conf['stagione']}, non {stagione}")
+    mancanti = [f for f in (m.get("file") or [])
+                if not (base / f).exists()]
+    if mancanti:
+        raise VerificaFallita(
+            f"il manifesto elenca file che non ci sono: {mancanti[:4]}")
+    alterati = []
+    for f, atteso in (m.get("impronte_uscite") or {}).items():
+        ora = esec.impronta_file(base / f)
+        if atteso and ora and ora != atteso:
+            alterati.append(f)
+    if alterati:
+        raise VerificaFallita(
+            f"artefatti modificati dopo la registrazione: {alterati[:4]}")
+
+    # Gli INGRESSI: il manifesto ne registrava le impronte e nessuno le
+    # riverificava, quindi un ingresso cambiato dopo l'esecuzione passava
+    # inosservato. I numeri continuerebbero a coincidere fra loro — sono
+    # coerenti — ma non sarebbero piu' rifacibili da quegli ingressi.
+    ing = (conf.get("impronte_ingressi") or {})
+    cambiati, spariti = [], []
+    for chiave, atteso in ing.items():
+        if atteso is None:
+            continue
+        if chiave.startswith("fantabot."):
+            import importlib
+            try:
+                f = getattr(importlib.import_module(chiave), "__file__", None)
+            except Exception:
+                f = None
+            ora = esec.impronta_file(f) if f else None
+        else:
+            percorso = Path(chiave)
+            if not percorso.is_absolute():
+                percorso = ROOT / chiave
+            ora = esec.impronta_file(percorso)
+        if ora is None:
+            spariti.append(chiave)
+        elif ora != atteso:
+            cambiati.append(chiave)
+    if cambiati or spariti:
+        raise VerificaFallita(
+            f"ingressi non piu' quelli dichiarati: {len(cambiati)} cambiati "
+            f"{cambiati[:3]}, {len(spariti)} assenti {spariti[:3]}. I numeri "
+            "possono restare coerenti fra loro, ma non sono piu' rifacibili "
+            "da questi ingressi.")
+    return {"modalita": "contratto", "identificativo": m.get("identificativo"),
+            "istante": m.get("istante"),
+            "configurazione": conf,
+            "file_verificati": len(m.get("file") or []),
+            "impronte_verificate": len(m.get("impronte_uscite") or {}),
+            "ingressi_verificati": len([v for v in
+                                        (conf.get("impronte_ingressi") or {}).values()
+                                        if v])}
+
+
 # --------------------------------------------------------------------------
 # lettura
 # --------------------------------------------------------------------------
 
+# quando il chiamante chiede una cartella precisa, la ricaduta sui nomi piatti
+# non deve avvenire in silenzio: un'esecuzione nuova che non trova i suoi file
+# non e' la vecchia
+DA: Path | None = None
+
+
 def cartella_stagione(stagione: str) -> Path:
     """Dove stanno gli artefatti di questa stagione.
 
-    Se c'è un puntatore `corrente` lo si segue; altrimenti si ricade sui nomi
-    piatti dentro `data/l2`, che è dove stanno gli artefatti scritti prima del
-    contratto delle esecuzioni.
+    Tre casi, in ordine:
+
+    1. `DA` impostato (opzione `--da`): quella cartella e basta. Se i file non
+       ci sono e' un errore, **non** si ricade sui nomi piatti: chiedere una
+       corsa nuova e leggere in silenzio quella vecchia e' il modo migliore per
+       verificare l'artefatto sbagliato;
+    2. puntatore `corrente`, se esiste;
+    3. nomi piatti dentro `data/l2`, dove stanno gli artefatti anteriori al
+       contratto delle esecuzioni.
     """
+    if DA is not None:
+        return DA
     c = esec.leggi_corrente(OUT, stagione)
     return c if c is not None else OUT
 
@@ -347,10 +464,8 @@ def _confronta(rifatto: pd.DataFrame, stagione: str,
 
     peggiore = max(scarti.values())
     # provenienza: presente solo negli artefatti scritti dopo il contratto
-    prov_a = (str(a["esecuzione"].iloc[0])
-              if "esecuzione" in a.columns and len(a) else None)
-    prov_b = (str(b["esecuzione"].iloc[0])
-              if "esecuzione" in b.columns and len(b) else None)
+    prov_a = _identificativo_unico(a, "ricostruito")
+    prov_b = _identificativo_unico(b, "pubblicato")
     if prov_a and prov_b and prov_a != prov_b:
         raise VerificaFallita(
             f"identificativi di esecuzione diversi: {prov_a} contro {prov_b}")
@@ -363,9 +478,26 @@ def _confronta(rifatto: pd.DataFrame, stagione: str,
             f"solo il {chi} dichiara l'esecuzione ({prov_a or prov_b}): i due "
             "artefatti non vengono dalla stessa, oppure uno e' anteriore al "
             "contratto delle esecuzioni e va confrontato con un suo pari.")
+
+    # i semi: si confronta la LISTA, non solo quanti sono. Due esecuzioni con
+    # otto semi diversi hanno lo stesso `semi = 8` e non sono la stessa cosa.
+    lista_semi = None
+    try:
+        _, meta = carica(stagione)
+        lista_semi = meta.get("semi")
+    except VerificaFallita:
+        meta = {}
+    manifesto = _controlla_manifesto(stagione, prov_a or prov_b)
+    if lista_semi is not None:
+        attesi = int(a["semi"].iloc[0]) if "semi" in a.columns and len(a) else None
+        if attesi and attesi > 1 and len(lista_semi) != attesi:
+            raise VerificaFallita(
+                f"il verdetto dichiara {attesi} semi, gli artefatti ne "
+                f"elencano {len(lista_semi)}: {lista_semi[:4]}")
     return {"scarti": scarti, "peggiore": peggiore, "righe": len(a),
             "coppie_confrontate": confrontate,
             "provenienza": (prov_a if prov_a and prov_b else None),
+            "manifesto": manifesto, "semi": lista_semi,
             "passata": peggiore <= tolleranza, "tolleranza": tolleranza}
 
 
@@ -397,8 +529,11 @@ def confronta(rifatto: pd.DataFrame, stagione: str, *,
               "osservazioni conservate non vengono dalla stessa esecuzione.")
         return 1
     if r["provenienza"]:
+        m = r.get("manifesto") or {}
         print(f"  {stagione}: RIPRODOTTO (scarto massimo {r['peggiore']:.2e}), "
-              f"esecuzione {r['provenienza']}")
+              f"esecuzione {r['provenienza']}, manifesto {m.get('modalita')}"
+              + (f", {m.get('impronte_verificate')} impronte verificate"
+                 if m.get("impronte_verificate") else ""))
     else:
         print(f"  {stagione}: RIPRODOTTO (scarto massimo {r['peggiore']:.2e}), "
               "PROVENIENZA INCOMPLETA — gli artefatti non portano un "
@@ -413,9 +548,20 @@ def main() -> int:
     ap.add_argument("--verifica", action="store_true",
                     help="confronta con il verdetto pubblicato e torna 1 se "
                          "non coincide")
+    ap.add_argument("--da", default=None,
+                    help="cartella di una esecuzione precisa. Senza, si segue "
+                         "il puntatore `corrente` e in mancanza di quello i "
+                         "nomi piatti storici.")
     ap.add_argument("--scrivi", default=None,
                     help="scrive il verdetto rifatto in questo percorso")
     a = ap.parse_args()
+    global DA
+    if a.da:
+        DA = Path(a.da)
+        if not DA.exists():
+            print(f"NON VERIFICATO — la cartella {DA} non esiste")
+            return 1
+        print(f"  leggo da {DA}")
     uscita = 0
     for st in (a.stagioni or ["2024-25", "2025-26"]):
         print(f"\n== {st}")

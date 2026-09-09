@@ -258,17 +258,12 @@ def genera(modelli: dict, cal, rose_liste, giocatori, sims: int, seme: int
                    modelli["m_ev"], modelli["m_voto"], n_sims=sims, seme=seme,
                    dipendenza=modelli["struttura"],
                    fasce_sv=modelli["fasce_sv"], verifica=True)
-    ixc = {pid: i for i, pid in enumerate(c.giocatori)}
-    ordine = [ixc.get(pid) for pid in giocatori]
-
-    def riordina(A):
-        B = np.zeros((sims, GIORNATE, len(giocatori)), dtype=A.dtype)
-        for j, k in enumerate(ordine):
-            if k is not None:
-                B[:, :len(c.giornate), j] = A[:, :, k]
-        return B
-
+    # riordino per IDENTITA' della giornata, non per posizione: un cubo che
+    # parte dalla giornata 20 finiva nelle prime posizioni
+    ad = gen.riordina_cubo(c, giocatori, range(1, GIORNATE + 1), sims)
+    riordina = ad["riordina"]
     return {"fantavoto": riordina(c.fantavoto), "gioca": riordina(c.gioca),
+            "giornate_coperte": ad["giornate_coperte"],
             "problemi": c.diagnostica["n_problemi_coerenza"]}
 
 
@@ -331,9 +326,12 @@ def main() -> int:
         "stagione": a.stagione, "sims": a.sims, "seme": a.seme,
         "semi": a.semi, "origini": a.origini, "righe": a.righe,
         "rose_da": a.rose_da, "data_fit": a.data_fit,
-        "impronte_ingressi": {
-            n: esec.impronta_file(PROC / n)
-            for n in (f"players_{a.stagione}.parquet", "l2_partite.parquet")},
+        "impronte_ingressi": esec.impronte_ingressi(
+            percorsi=[PROC / f"players_{a.stagione}.parquet",
+                      PROC / "l2_partite.parquet"]
+                     + [PROC / f"l2_panel_{st}.parquet"
+                        for st in STAGIONI_PANEL],
+            moduli=esec.MODULI_RILEVANTI),
         "impronta_script": esec.impronta_file(__file__),
     }
     corsa = esec.apri(OUT, a.stagione, configurazione, istante=istante,
@@ -458,6 +456,7 @@ def main() -> int:
     # --- punteggi ---------------------------------------------------------
     somma = {"congelato": {}, "refit": {}}
     per_seme = {"congelato": {}, "refit": {}}
+    repliche = {}
     semi = [a.seme + 100_003 * r for r in range(max(1, a.semi))]
     for r, seme_r in enumerate(semi):
         t = time.time()
@@ -489,6 +488,11 @@ def main() -> int:
                 somma[nome][chiave] += p[chiave]
                 per_seme[nome].setdefault(chiave, []).append(
                     float(np.nanmean(p[chiave])))
+                # le REPLICHE per osservazione, non solo la loro media: senza,
+                # l'errore Monte Carlo di una statistica qualunque (la MAE, uno
+                # scarto per ruolo) non e' ricalcolabile dagli artefatti
+                repliche.setdefault((nome, chiave), []).append(
+                    np.asarray(p[chiave], dtype=np.float32))
         print(f"  seme {seme_r}: {time.time() - t:.1f} s")
 
     medie = {nome: {k: v / len(semi) for k, v in d.items()}
@@ -510,6 +514,17 @@ def main() -> int:
             oss_df[f"{nome}__{k}"] = medie[nome][k]
     corsa.scrivi_tabella(f"progressivo_osservazioni_{a.stagione}.parquet",
                          oss_df)
+    # un file lungo con una riga per (osservazione, seme): e' quello che rende
+    # ricalcolabile l'errore Monte Carlo di qualunque statistica
+    lunghe = []
+    for (nome, chiave), lista in repliche.items():
+        for r, vals in enumerate(lista):
+            lunghe.append(pd.DataFrame({
+                "braccio": nome, "grandezza": chiave, "seme": semi[r],
+                "riga": np.arange(len(vals)), "valore": vals}))
+    if lunghe:
+        corsa.scrivi_tabella(f"progressivo_repliche_{a.stagione}.parquet",
+                             pd.concat(lunghe, ignore_index=True))
 
     # --- verdetto ----------------------------------------------------------
     righe = []

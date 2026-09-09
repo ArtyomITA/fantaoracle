@@ -123,8 +123,12 @@ def test_il_puntatore_corrente_non_si_aggiorna_senza_verifica(tmp_path):
         esec.promuovi_a_corrente(tmp_path, "2024-25", a,
                                  verifica={"passata": False})
     assert esec.leggi_corrente(tmp_path, "2024-25") is None
+    # dal secondo audit l'associazione all'esecuzione e' OBBLIGATORIA: prima
+    # `{"passata": True}` da solo bastava, e una corsa di prova con un file
+    # finto dentro diventava corrente
     esec.promuovi_a_corrente(tmp_path, "2024-25", a,
-                             verifica={"passata": True, "scarto": 0.0})
+                             verifica={"passata": True, "scarto": 0.0,
+                                       "esecuzione": a.identificativo})
     assert esec.leggi_corrente(tmp_path, "2024-25") == a.cartella
 
 
@@ -220,4 +224,5 @@ def test_non_si_promuove_una_cartella_senza_artefatti(tmp_path):
     a = esec.apri(tmp_path, "2024-25", CONF, istante=QUANDO)
     with pytest.raises(RuntimeError, match="nessun artefatto"):
         esec.promuovi_a_corrente(tmp_path, "2024-25", a,
-                                 verifica={"passata": True})
+                                 verifica={"passata": True,
+                                           "esecuzione": a.identificativo})

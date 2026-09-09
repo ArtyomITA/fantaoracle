@@ -71,26 +71,49 @@ def fascia(p: float) -> str:
     return "?"
 
 
+CATENA = ("convocato_estratto", "convocato", "titolare", "subentrato",
+          "in_campo", "gioca")
+
+
 def simula(cal, rose_liste, mp, m_part, m_ev, m_voto, struttura, fasce_sv,
            giocatori, sims: int, seme: int) -> dict:
-    """Probabilità simulate di titolarità, ingresso e voto, per giocatore."""
+    """La catena della partecipazione, per giocatore, in una replica.
+
+        convocato_estratto -> convocato -> titolare -> subentrato
+          -> in_campo -> minuti -> gioca (presenza a voto)
+
+    Sono i fatti che il generatore conosce mentre simula, non ricostruzioni:
+    la titolarità viene dalla lista dei titolari, non dedotta dai minuti.
+
+    Se un campo della catena manca, la funzione **si ferma**: la versione
+    precedente cercava un attributo che il cubo non esponeva e restituiva NaN
+    per tutti e 679 i giocatori, quindi il percorso promesso non era osservato.
+    """
     c = gen.genera(cal, rose_liste, mp, m_part, m_ev, m_voto, n_sims=sims,
                    seme=seme, dipendenza=struttura, fasce_sv=fasce_sv,
                    verifica=True)
+    mancanti = [k for k in CATENA if getattr(c, k, None) is None]
+    if mancanti:
+        raise RuntimeError(
+            f"il cubo non espone {mancanti}: la catena non e' osservabile e "
+            "una diagnosi con colonne vuote non e' una diagnosi. Strumentare "
+            "`generatore.genera` invece di ricostruire dai minuti.")
     ixc = {pid: i for i, pid in enumerate(c.giocatori)}
     n_g = len(c.giornate)
+    minuti = getattr(c, "minuti", None)
     fuori = {}
-    gioca = c.gioca
-    titolare = getattr(c, "titolare", None)
     for pid in giocatori:
         k = ixc.get(pid)
         if k is None:
-            fuori[pid] = {"p_voto_simulata": np.nan, "p_titolare_simulata": np.nan}
+            fuori[pid] = {f"p_{n}": np.nan for n in CATENA}
+            fuori[pid]["minuti_medi"] = np.nan
             continue
-        g = gioca[:, :n_g, k]
-        d = {"p_voto_simulata": float(g.mean())}
-        if titolare is not None:
-            d["p_titolare_simulata"] = float(titolare[:, :n_g, k].mean())
+        d = {f"p_{n}": float(getattr(c, n)[:, :n_g, k].mean()) for n in CATENA}
+        d["minuti_medi"] = (float(minuti[:, :n_g, k].mean())
+                            if minuti is not None else np.nan)
+        # completamento forzato: convocato ma non estratto
+        d["p_completamento_forzato"] = float(
+            (c.convocato[:, :n_g, k] & ~c.convocato_estratto[:, :n_g, k]).mean())
         fuori[pid] = d
     return fuori
 
@@ -210,9 +233,13 @@ def main() -> int:
             print(f"  {nome} seme {s}: {time.time() - t1:.1f} s")
         per_braccio[nome] = repliche
 
+    def matrice(nome, campo):
+        """(repliche, giocatori): e' da qui che si ricava qualunque incertezza."""
+        return np.array([[r[p].get(campo, np.nan) for p in giocatori]
+                         for r in per_braccio[nome]], dtype=float)
+
     def raccogli(nome, campo):
-        M = np.array([[r[p].get(campo, np.nan) for p in giocatori]
-                      for r in per_braccio[nome]], dtype=float)
+        M = matrice(nome, campo)
         return M.mean(axis=0), (M.std(axis=0, ddof=1) / np.sqrt(len(semi))
                                 if len(semi) > 1 else np.full(M.shape[1], np.nan))
 
@@ -229,11 +256,14 @@ def main() -> int:
                                            if c in dett.columns]),
                         on="master_id", how="left")
     for nome in ("C0", "C1"):
-        m, es = raccogli(nome, "p_voto_simulata")
-        tab[f"p_voto_simulata_{nome}"] = m
-        tab[f"es_mc_{nome}"] = es
-        mt, _ = raccogli(nome, "p_titolare_simulata")
-        tab[f"p_titolare_simulata_{nome}"] = mt
+        for campo in CATENA:
+            m, es = raccogli(nome, f"p_{campo}")
+            tab[f"{campo}_{nome}"] = m
+            if campo == "gioca":
+                tab[f"p_voto_simulata_{nome}"] = m
+                tab[f"es_mc_{nome}"] = es
+        for campo in ("minuti_medi", "p_completamento_forzato"):
+            tab[f"{campo}_{nome}"], _ = raccogli(nome, campo)
     tab["scarto_C1"] = tab["p_voto_simulata_C1"] - tab["p_voto_richiesta"]
     tab["scarto_C0"] = tab["p_voto_simulata_C0"] - tab["p_voto_richiesta"]
     tab["fascia"] = tab["p_voto_richiesta"].map(
@@ -249,6 +279,47 @@ def main() -> int:
     tab["nuovo"] = tab.master_id.isin(nuovi)
 
     corsa.scrivi_tabella(f"presenze_dettaglio_{a.stagione}.csv", tab)
+
+    # Le REPLICHE, una riga per (braccio, seme, giocatore, grandezza). Senza,
+    # l'errore standard di una statistica aggregata — la MAE, lo scarto di un
+    # ruolo — non e' ricalcolabile: `es_mc_medio` era la media degli errori
+    # standard INDIVIDUALI, che non e' l'errore di nessuna di quelle.
+    lunghe = []
+    for nome in ("C0", "C1"):
+        for campo in list(CATENA) + ["minuti_medi"]:
+            M = matrice(nome, f"p_{campo}" if campo in CATENA else campo)
+            for r in range(M.shape[0]):
+                lunghe.append(pd.DataFrame({
+                    "braccio": nome, "seme": semi[r], "grandezza": campo,
+                    "master_id": giocatori, "valore": M[r]}))
+    rep = pd.concat(lunghe, ignore_index=True)
+    corsa.scrivi_tabella(f"presenze_repliche_{a.stagione}.parquet", rep)
+
+    # incertezza delle statistiche AGGREGATE, calcolata per replica
+    def per_replica(nome, statistica):
+        M = matrice(nome, "p_gioca")
+        fuori = []
+        for r in range(M.shape[0]):
+            fuori.append(statistica(pd.Series(M[r], index=giocatori)))
+        v = np.asarray(fuori, dtype=float)
+        return (float(v.mean()),
+                float(v.std(ddof=1) / np.sqrt(len(v))) if len(v) > 1 else np.nan)
+
+    bers_ser = pd.Series({p: bers.per_giocatore.get(p, np.nan)
+                          for p in giocatori})
+    ruolo_ser = pd.Series({p: ruolo.get(p) for p in giocatori})
+    incertezza = {}
+    for nome in ("C0", "C1"):
+        m, es = per_replica(nome, lambda x: float((x - bers_ser).abs().mean()))
+        incertezza[f"mae_dal_bersaglio_{nome}"] = {"media": m, "es_mc": es}
+        m, es = per_replica(nome, lambda x: float((x - bers_ser).mean()))
+        incertezza[f"scarto_medio_{nome}"] = {"media": m, "es_mc": es}
+        for r in sorted(set(ruolo_ser.dropna())):
+            sel = ruolo_ser == r
+            m, es = per_replica(
+                nome, lambda x, sel=sel: float((x[sel.values]
+                                                - bers_ser[sel.values]).mean()))
+            incertezza[f"scarto_{r}_{nome}"] = {"media": m, "es_mc": es}
 
     def riassunto(chiave):
         g = tab.dropna(subset=["p_voto_richiesta"]).groupby(chiave)
@@ -317,6 +388,12 @@ def main() -> int:
         "vincolo_fisico": vincolo,
         "assegnazione": {k: v for k, v in d1.items() if k != "dettaglio"},
         "globale": globale,
+        "incertezza_per_replica": incertezza,
+        "nota_incertezza": (
+            "`es_mc` qui e' l'errore standard della STATISTICA, calcolato "
+            "ricalcolandola in ogni replica. Il vecchio `es_mc_medio` era la "
+            "media degli errori standard individuali: non e' l'errore della "
+            "MAE ne' quello dello scarto di un ruolo."),
         "contro_osservato": contro_osservato,
         "nota": ("`p_voto_osservata_riferimento` viene dalla stagione "
                  "valutata ed e' solo descrittiva: non entra in nessuna "
@@ -326,6 +403,9 @@ def main() -> int:
     print("\n-- globale")
     for k, v in globale.items():
         print(f"  {k:<40} {v:+.4f}")
+    print("\n-- incertezza delle statistiche aggregate, per replica")
+    for k, v in incertezza.items():
+        print(f"  {k:<28} {v['media']:+.4f}  es {v['es_mc']:.4f}")
     print("\n-- contro l'osservato (DIAGNOSTICO: usa la stagione valutata)")
     for k, v in contro_osservato.items():
         if isinstance(v, float):

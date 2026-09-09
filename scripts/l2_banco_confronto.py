@@ -600,10 +600,13 @@ def main() -> int:
         "stagione": a.stagione, "sims": a.sims, "seme": a.seme,
         "semi": a.semi, "rose": a.rose, "rose_da": a.rose_da,
         "data_fit": a.data_fit,
-        "impronte_ingressi": {
-            n: esec.impronta_file(PROC / n)
-            for n in (f"players_{a.stagione}.parquet", "l2_partite.parquet",
-                      f"b_predictions_{a.stagione}.json")},
+        "impronte_ingressi": esec.impronte_ingressi(
+            percorsi=[PROC / f"players_{a.stagione}.parquet",
+                      PROC / "l2_partite.parquet",
+                      PROC / f"b_predictions_{a.stagione}.json"]
+                     + [PROC / contratto.nome_panel(st, a.data_fit)
+                        for st in STAGIONI_PANEL],
+            moduli=esec.MODULI_RILEVANTI),
         "impronta_script": esec.impronta_file(__file__),
     }
     corsa = esec.apri(OUT, a.stagione, configurazione, istante=istante,
@@ -770,15 +773,11 @@ def main() -> int:
             c = gen.genera(cal, rose_liste, mp, modello_part, m_ev, m_voto,
                            n_sims=a.sims, seme=seme_scen, dipendenza=struttura,
                            fasce_sv=fasce_sv, verifica=True)
-            ixc = {pid: i for i, pid in enumerate(c.giocatori)}
-            ordine = [ixc.get(pid) for pid in giocatori]
-
-            def riordina(A):
-                B = np.zeros((a.sims, GIORNATE, len(giocatori)), dtype=A.dtype)
-                for j, k in enumerate(ordine):
-                    if k is not None:
-                        B[:, :len(c.giornate), j] = A[:, :, k]
-                return B
+            # riordino per IDENTITA' della giornata: vedi
+            # `generatore.riordina_cubo`. Con un calendario completo il
+            # risultato e' lo stesso di prima; con un calendario parziale no.
+            riordina = gen.riordina_cubo(
+                c, giocatori, range(1, GIORNATE + 1), a.sims)["riordina"]
 
             g[etichetta] = {
                 "fantavoto": riordina(c.fantavoto), "voto": riordina(c.voto),

@@ -116,6 +116,20 @@ class Cubo:
     # e' calcolabile a valle e verrebbe semplicemente perso, come succedeva nel
     # banco del Livello 2 (0,297 punti a giornata per rosa).
     gol_subiti: np.ndarray | None = None
+    # La catena della partecipazione, passo per passo. Serviva a capire dove
+    # l'informazione sulle presenze si perde fra il bersaglio e l'esito: senza
+    # questi array la diagnosi doveva ricostruire la titolarita' dal voto o dai
+    # minuti, che e' un'inferenza, non un'osservazione.
+    #
+    #   convocato_estratto -> convocato -> titolare -> subentrato -> gioca
+    #
+    # `convocato_estratto` e' prima del completamento forzato, `convocato`
+    # dopo: la differenza fra i due dice quante convocazioni il generatore ha
+    # dovuto imporre per arrivare a undici.
+    convocato_estratto: np.ndarray | None = None
+    convocato: np.ndarray | None = None
+    titolare: np.ndarray | None = None
+    subentrato: np.ndarray | None = None
     risultati: dict = field(default_factory=dict)
     diagnostica: dict = field(default_factory=dict)
 
@@ -326,6 +340,10 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
     AS = np.zeros(FV.shape, dtype=np.int8)
     AM = np.zeros(FV.shape, dtype=np.int8)
     MI = np.zeros(FV.shape, dtype=np.int8)
+    CE = np.zeros(FV.shape, dtype=bool)      # convocato prima del completamento
+    CV = np.zeros(FV.shape, dtype=bool)      # convocato dopo
+    TT = np.zeros(FV.shape, dtype=bool)      # titolare iniziale
+    SB = np.zeros(FV.shape, dtype=bool)      # entrato dalla panchina
     risultati = {}
     problemi = []
     # quante volte il ripiego ha dovuto forzare dei convocati per arrivare a
@@ -421,7 +439,20 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
                     stato[sq][pid] = (ok, run + 1 if ok == era else 1)
                     if ok:
                         conv.append(pid)
+                # prima e dopo il completamento forzato: la differenza e' la
+                # quota di convocazioni che il generatore ha dovuto imporre
+                gi_qui = ix_g.get(int(riga.giornata))
+                if gi_qui is not None:
+                    for pid in conv:
+                        j = ix_p.get(pid)
+                        if j is not None:
+                            CE[s, gi_qui, j] = True
                 conv = _completa_convocati(conv, rosa, mod_part, note_rosa)
+                if gi_qui is not None:
+                    for pid in conv:
+                        j = ix_p.get(pid)
+                        if j is not None:
+                            CV[s, gi_qui, j] = True
                 conteggi = {}
                 for pid in conv:
                     ru = mod_part.ruolo.get(pid, "C")
@@ -433,6 +464,17 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
                 titolari, panchina = pa.scegli_undici(conv, mod_part, modulo,
                                                       rr, u=u_sel)
                 presenze = pa.genera_minuti(titolari, panchina, mod_part, rr)
+                if gi_qui is not None:
+                    for pid in titolari:
+                        j = ix_p.get(pid)
+                        if j is not None:
+                            TT[s, gi_qui, j] = True
+                    for pid in panchina:
+                        j = ix_p.get(pid)
+                        # entrato davvero: l'intervallo non e' vuoto
+                        if j is not None and presenze.intervalli[pid][1] > \
+                                presenze.intervalli[pid][0]:
+                            SB[s, gi_qui, j] = True
                 tab[lato] = {"squadra": sq, "titolari": titolari,
                              "panchina": panchina, "presenze": presenze,
                              "rr": rr, "gol_propri": max(gol_propri, 0),
@@ -606,7 +648,9 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
             if verifica and s == 0 and k < 30 and len(tab) == 2:
                 problemi += _verifica_partita(tab, mod_part, gc, gt)
 
-    return Cubo(giocatori=giocatori, giornate=giornate, fantavoto=FV, voto=VV,
+    return Cubo(convocato_estratto=CE, convocato=CV, titolare=TT,
+                subentrato=SB,
+                giocatori=giocatori, giornate=giornate, fantavoto=FV, voto=VV,
                 gioca=GI, in_campo=IC, gol=GO, assist=AS,
                 ammonizione=AM, minuti=MI, gol_subiti=GS, risultati=risultati,
                 diagnostica={"n_sims": n_sims, "seme": seme,
@@ -654,3 +698,76 @@ def _verifica_partita(tab, mod_part, gc, gt) -> list:
     return verifica_coerenza(fuori["casa"], fuori["trasferta"], gc, gt,
                              presenze=presenze, cronologia=cronologia,
                              gol_subiti_portiere=gs_att)
+
+
+# --------------------------------------------------------------------------
+# riordino di un cubo sull'universo condiviso
+# --------------------------------------------------------------------------
+
+def riordina_cubo(cubo, giocatori, giornate_bersaglio, sims: int) -> dict:
+    """Riporta un cubo sull'ordine dei giocatori e sulle giornate dell'universo.
+
+    ## Il difetto che chiude
+
+    L'adattatore precedente scriveva `B[:, :len(c.giornate), j] = A[:, :, k]`:
+    metteva le giornate del cubo nelle **prime posizioni**, qualunque fossero.
+    Con un cubo di calendario completo il difetto non si vede, perche' le
+    prime posizioni sono proprio le giornate 1..N. Con un cubo che parte dalla
+    giornata 20 — cioe' esattamente il caso della simulazione del solo futuro —
+    il fantavoto della giornata 20 finiva in giornata 1, e la giornata 20
+    restava zero.
+
+    Adesso ogni giornata va nella sua posizione, presa dal suo
+    **identificativo** e non dalla sua posizione nell'array.
+
+    Parametri
+    ---------
+    cubo
+        l'uscita di `generatore.genera`, con `giocatori` e `giornate`.
+    giocatori
+        l'universo condiviso, nell'ordine in cui gli array del chiamante sono
+        indicizzati.
+    giornate_bersaglio
+        le giornate dell'array di destinazione, nell'ordine delle posizioni.
+        Di solito `range(1, 39)`.
+    """
+    import numpy as np
+
+    posizione = {int(g): i for i, g in enumerate(giornate_bersaglio)}
+    ixc = {pid: i for i, pid in enumerate(cubo.giocatori)}
+    colonne = [(j, ixc[pid]) for j, pid in enumerate(giocatori)
+               if pid in ixc]
+    righe = []
+    fuori_calendario = []
+    for i, g in enumerate(cubo.giornate):
+        p = posizione.get(int(g))
+        if p is None:
+            fuori_calendario.append(int(g))
+        else:
+            righe.append((p, i))
+    if fuori_calendario:
+        raise ValueError(
+            f"il cubo contiene giornate che il bersaglio non ha: "
+            f"{fuori_calendario[:5]}. Un riordino per identita' non puo' "
+            "inventare una posizione.")
+
+    def riordina(A):
+        if A is None:
+            return None
+        B = np.zeros((sims, len(giornate_bersaglio), len(giocatori)),
+                     dtype=A.dtype)
+        for p, i in righe:
+            for j, k in colonne:
+                B[:, p, j] = A[:, i, k]
+        return B
+
+    return {"riordina": riordina,
+            "campi_catena": [c for c in ("convocato_estratto", "convocato",
+                                         "titolare", "subentrato", "minuti",
+                                         "in_campo")
+                             if getattr(cubo, c, None) is not None],
+            "giornate_coperte": [int(g) for g in cubo.giornate],
+            "giocatori_coperti": len(colonne),
+            "posizioni": {int(g): p for g, p in
+                          zip((cubo.giornate[i] for _, i in righe),
+                              (p for p, _ in righe))}}

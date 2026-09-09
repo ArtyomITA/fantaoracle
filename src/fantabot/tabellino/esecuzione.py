@@ -155,8 +155,47 @@ class Esecuzione:
             "istante": self.istante,
             "ripresa": self.ripresa,
             "configurazione": self.configurazione,
-            "file": sorted(x for x in self.scritti if x != "esecuzione.json"),
+            "file": sorted(x for x in self.scritti
+                           if x not in ("esecuzione.json", NOME_LUCCHETTO)),
+            "impronte_uscite": {
+                x: impronta_file(self.cartella / x)
+                for x in sorted(self.scritti)
+                if x not in ("esecuzione.json", NOME_LUCCHETTO)
+                and (self.cartella / x).exists()},
         })
+
+
+NOME_LUCCHETTO = ".lucchetto"
+
+
+def _acquisisci(cartella: Path) -> None:
+    """Lucchetto esclusivo sulla cartella, per la ripresa concorrente.
+
+    `O_CREAT | O_EXCL` fallisce se il file esiste: e' la primitiva atomica che
+    `exists()` seguito da `mkdir(exist_ok=True)` non e'. Il lucchetto viene
+    rilasciato quando l'esecuzione si registra, o a mano con `rilascia`.
+    """
+    import os as _os
+    p = cartella / NOME_LUCCHETTO
+    try:
+        fd = _os.open(str(p), _os.O_CREAT | _os.O_EXCL | _os.O_WRONLY)
+    except FileExistsError:
+        raise DestinazioneOccupata(
+            f"{cartella} e' gia' in uso da un'altra esecuzione "
+            f"(lucchetto {p.name}). Se l'esecuzione precedente e' morta, "
+            "togli il lucchetto a mano dopo aver controllato che nessuno "
+            "stia scrivendo.")
+    _os.write(fd, str(_os.getpid()).encode("ascii"))
+    _os.close(fd)
+
+
+def rilascia(cartella: Path) -> bool:
+    """Toglie il lucchetto. Vero se c'era."""
+    p = Path(cartella) / NOME_LUCCHETTO
+    if p.exists():
+        p.unlink()
+        return True
+    return False
 
 
 def apri(radice: Path, stagione: str, configurazione: dict, *,
@@ -204,6 +243,25 @@ def apri(radice: Path, stagione: str, configurazione: dict, *,
         cartella = Path(radice) / sotto / f"{stagione}__{istante}__{ident}"
 
     reg = cartella / "esecuzione.json"
+    # C: ACQUISIZIONE ESCLUSIVA. `exists()` seguito da `mkdir(exist_ok=True)`
+    # non e' atomico: due processi possono superare insieme il controllo e
+    # aprire la stessa destinazione, e il secondo registro sovrascrive il
+    # primo. Riprodotto con due fili e una barriera sul controllo di
+    # esistenza. `mkdir` senza `exist_ok` e' invece atomico: o lo crea questo
+    # processo, o alza `FileExistsError`.
+    if not cartella.exists() and not riprendi:
+        cartella.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            cartella.mkdir()                       # esclusivo, senza exist_ok
+        except FileExistsError:
+            raise DestinazioneOccupata(
+                f"{cartella} e' stata creata da un'altra esecuzione mentre "
+                "questa la apriva. Due corse non condividono una "
+                "destinazione.")
+        e = Esecuzione(cartella=cartella, identificativo=ident,
+                       configurazione=configurazione, istante=istante)
+        e.registra()
+        return e
     if cartella.exists():
         # R7: il rifiuto guardava il CONTENUTO. Fra `mkdir` e la prima
         # scrittura la cartella e' vuota, quindi due corse aperte insieme
@@ -226,6 +284,10 @@ def apri(radice: Path, stagione: str, configurazione: dict, *,
                 f"{vecchia.get('identificativo')}, chiesta {ident}. Una "
                 "ripresa deve avere la stessa configurazione e le stesse "
                 "impronte degli ingressi.")
+        # la ripresa concorrente ha lo stesso problema: due processi che
+        # riprendono la stessa cartella si sovrascrivono il registro. Il
+        # lucchetto e' un file creato in modo esclusivo.
+        _acquisisci(cartella)
         e = Esecuzione(cartella=cartella, identificativo=ident,
                        configurazione=configurazione, istante=istante,
                        ripresa=True,
@@ -234,11 +296,10 @@ def apri(radice: Path, stagione: str, configurazione: dict, *,
                        scritti=list(vecchia.get("file") or []))
         e._pulisci_residui()
         return e
-    cartella.mkdir(parents=True, exist_ok=True)
-    e = Esecuzione(cartella=cartella, identificativo=ident,
-                   configurazione=configurazione, istante=istante)
-    e.registra()          # marcatore immediato: la destinazione e' occupata
-    return e
+    # ci si arriva solo con `riprendi=True` su una destinazione che non esiste:
+    # non c'e' niente da riprendere
+    raise RipresaIncompatibile(
+        f"{cartella} non esiste: non c'e' nessuna esecuzione da riprendere.")
 
 
 # --------------------------------------------------------------------------
@@ -265,6 +326,11 @@ def promuovi_a_corrente(radice: Path, stagione: str, es: Esecuzione,
                         *, verifica: dict) -> Path:
     """Aggiorna il puntatore `corrente`. Solo dopo una verifica passata.
 
+    **Riferimento corrente a un esperimento verificato, non attivazione di un
+    modello nel bot.** Sono due cose diverse: questo puntatore dice quale
+    esecuzione i lettori devono usare per leggere i risultati; non promuove
+    niente in produzione e non tocca i pack operativi.
+
     NON ANCORA COLLEGATA. Nessuno script la chiama, e sul disco non esistono
     ne' `data/l2/corrente` ne' `data/l2/esecuzioni`: il consumatore
     (`l2_inferenza_banco.cartella_stagione`) ricade sempre sui nomi piatti.
@@ -279,15 +345,41 @@ def promuovi_a_corrente(radice: Path, stagione: str, es: Esecuzione,
         raise RuntimeError(
             "il puntatore `corrente` si aggiorna solo dopo una verifica "
             f"passata; ricevuto {verifica!r}")
+    # B: l'associazione all'esecuzione e' OBBLIGATORIA, non facoltativa. Prima
+    # `{'passata': True}` senza altro bastava, e una corsa di PROVA con un file
+    # finto dentro diventava corrente.
     quale = verifica.get("esecuzione")
-    if quale is not None and quale != es.identificativo:
+    if not quale:
         raise RuntimeError(
-            f"la verifica riguarda l'esecuzione {quale}, non {es.identificativo}: "
-            "un puntatore non si promuove con la verifica di un'altra corsa.")
-    if not any(p.name != "esecuzione.json" for p in es.cartella.iterdir()):
+            "la verifica non dice a quale esecuzione si riferisce: "
+            "`verifica['esecuzione']` e' obbligatorio.")
+    if quale != es.identificativo:
+        raise RuntimeError(
+            f"la verifica riguarda l'esecuzione {quale}, non "
+            f"{es.identificativo}: un puntatore non si promuove con la "
+            "verifica di un'altra corsa.")
+    if es.configurazione.get("modalita") == "prova":
+        raise RuntimeError(
+            "una corsa di prova non diventa corrente: le prove esplorative "
+            "stanno in una radice separata proprio per questo.")
+    reg = es.cartella / "esecuzione.json"
+    if not reg.exists():
+        raise RuntimeError(f"{es.cartella} non ha `esecuzione.json`")
+    m = json.loads(reg.read_text("utf-8"))
+    attesi = m.get("file") or []
+    if not attesi:
         raise RuntimeError(
             f"{es.cartella} non contiene nessun artefatto oltre al registro: "
             "non c'e' niente da promuovere.")
+    mancanti = [f for f in attesi if not (es.cartella / f).exists()]
+    if mancanti:
+        raise RuntimeError(f"artefatti mancanti: {mancanti[:4]}")
+    alterati = [f for f, h in (m.get("impronte_uscite") or {}).items()
+                if h and impronta_file(es.cartella / f) != h]
+    if alterati:
+        raise RuntimeError(
+            f"artefatti modificati dopo la registrazione: {alterati[:4]}. "
+            "Una verifica vale per i byte che ha verificato.")
     p = percorso_puntatore(radice, stagione)
     p.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -312,3 +404,41 @@ def copia_in(es: Esecuzione, sorgente: Path, nome: str | None = None) -> Path:
     """Copia un file dentro la destinazione, in modo atomico."""
     nome = nome or Path(sorgente).name
     return es._atomico(nome, lambda p: shutil.copyfile(sorgente, p))
+
+
+def impronte_ingressi(percorsi=(), moduli=()) -> dict:
+    """Impronte dei file letti e dei moduli che li interpretano.
+
+    Il manifesto registrava listone, partite e lo script principale: non i
+    **panel realmente letti** e non i moduli importati. Due esecuzioni con lo
+    stesso script ma un `generatore.py` diverso producono cose diverse e
+    avevano lo stesso manifesto.
+    """
+    import importlib
+    fuori = {}
+    for p in percorsi:
+        p = Path(p)
+        fuori[str(p).replace("\\", "/")] = impronta_file(p)
+    for nome in moduli:
+        try:
+            m = importlib.import_module(nome)
+            f = getattr(m, "__file__", None)
+            if f:
+                fuori[nome] = impronta_file(f)
+        except Exception:
+            fuori[nome] = None
+    return fuori
+
+
+MODULI_RILEVANTI = (
+    "fantabot.tabellino.generatore",
+    "fantabot.tabellino.partecipazione",
+    "fantabot.tabellino.partita",
+    "fantabot.tabellino.voto",
+    "fantabot.tabellino.eventi",
+    "fantabot.tabellino.configurazione",
+    "fantabot.tabellino.inferenza",
+    "fantabot.tabellino.presenze",
+    "fantabot.tabellino.contratto",
+    "fantabot.tabellino.esecuzione",
+)

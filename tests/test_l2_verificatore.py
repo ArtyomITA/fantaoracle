@@ -350,3 +350,43 @@ def test_i_numeri_scritti_come_stringhe_restano_confrontabili(cartella):
     pub["differenza"] = pub["differenza"].map(lambda x: f"{x}")
     _pubblica(cartella, pub)
     assert ver.confronta(_tabella(), "prova") == 0
+
+
+# --------------------------------------------------------------------------
+# secondo audit: provenienza su tutte le righe
+# --------------------------------------------------------------------------
+
+def test_un_identificativo_diverso_in_una_riga_sola_viene_visto(cartella):
+    """Il difetto A: l'identificativo era letto con `.iloc[0]`, quindi una
+    tabella con righe `run_A` e una riga `run_B` passava come `run_A`."""
+    pub = _tabella()
+    pub["esecuzione"] = "run_A"
+    _pubblica(cartella, pub)
+    ric = _tabella()
+    ric["esecuzione"] = "run_A"
+    ric.loc[ric.index[-1], "esecuzione"] = "run_B"
+    assert ver.confronta(ric, "prova") != 0
+
+
+def test_un_identificativo_vuoto_o_mancante_e_un_errore(cartella):
+    pub = _tabella()
+    pub["esecuzione"] = "run_A"
+    _pubblica(cartella, pub)
+    ric = _tabella()
+    ric["esecuzione"] = "run_A"
+    ric.loc[ric.index[0], "esecuzione"] = ""
+    assert ver.confronta(ric, "prova") != 0
+    ric2 = _tabella()
+    ric2["esecuzione"] = "run_A"
+    ric2.loc[ric2.index[0], "esecuzione"] = None
+    assert ver.confronta(ric2, "prova") != 0
+
+
+def test_un_identificativo_unico_su_tutte_le_righe_passa(cartella):
+    """Guardia: il caso buono deve restare buono."""
+    pub = _tabella()
+    pub["esecuzione"] = "run_A"
+    _pubblica(cartella, pub)
+    ric = _tabella()
+    ric["esecuzione"] = "run_A"
+    assert ver.confronta(ric, "prova") == 0
