@@ -333,6 +333,15 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
     # un fatto sui giocatori
     note_rosa: dict = {}
 
+    # conti del campionamento dei gol: proiezioni di `rho`, massa fuori dal
+    # supporto, estrazioni non ammissibili. Vanno esposti, non sottintesi.
+    registro_matrice: dict = {}
+    campionamento = {"estrazioni_non_ammissibili": 0,
+                     "partite_non_ammissibili": 0,
+                     "rho_scarto_massimo": 0.0,
+                     "intensita_massima": 0.0}
+    gol_massimo_generato = 0
+
     sd_sq = float((dipendenza or {}).get("sd_squadra", 0.0))
     sd_rep = (dipendenza or {}).get("sd_reparto", {})
     sd_ind = float((dipendenza or {}).get("sd_individuale", mod_voto.sigma))
@@ -341,8 +350,25 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
     media_ruolo = mod_voto.media_ruolo
 
     for s in range(n_sims):
-        mp = (mod_partita.campiona_parametri(rng_di(seme, s, "forze"), n=1)[0]
-              if incertezza_forze else mod_partita)
+        if incertezza_forze:
+            # il controllo di ammissibilita' va fatto sulle partite che questo
+            # scenario simulera' davvero, non sul punto stimato: e' li' che il
+            # `rho` estratto puo' uscire dal suo dominio
+            mp = mod_partita.campiona_parametri(
+                rng_di(seme, s, "forze"), n=1,
+                partite=(cal.casa.values, cal.trasferta.values))[0]
+            for campo in ("partite_non_ammissibili", "rho_scarto_massimo",
+                          "intensita_massima"):
+                v = mp.diagnostica.get(campo)
+                if v is None:
+                    continue
+                if campo == "partite_non_ammissibili":
+                    campionamento["partite_non_ammissibili"] += int(v)
+                    campionamento["estrazioni_non_ammissibili"] += int(v > 0)
+                else:
+                    campionamento[campo] = max(campionamento[campo], float(v))
+        else:
+            mp = mod_partita
         stato = {}
         for sq, rosa in rose.items():
             u = uniformi(seme, s, [f"init:{pid}" for pid in rosa])
@@ -354,12 +380,18 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
             gi = ix_g[int(riga.giornata)]
             chiave = f"{riga.casa}|{riga.trasferta}|{int(riga.giornata)}"
             r = rng_di(seme, s, f"partita:{chiave}")
-            P = matrice_risultato(float(lam[k]), float(mu[k]), mp.rho)
+            # niente `np.maximum(P, 0)`: con `rho` proiettato sull'intervallo
+            # della partita la matrice e' non negativa per costruzione, e il
+            # clipping rompeva le marginali proprio nelle combinazioni che lo
+            # richiedevano. Le proiezioni e la massa fuori supporto finiscono
+            # nel registro, che va in `Cubo.diagnostica`.
+            P = matrice_risultato(float(lam[k]), float(mu[k]), mp.rho,
+                                  registro=registro_matrice)
             larghezza = P.shape[1]
-            piatta = np.maximum(P.ravel(), 0.0)
-            j = int(np.searchsorted(np.cumsum(piatta / piatta.sum()),
-                                    r.random(), side="right"))
+            piatta = P.ravel()
+            j = int(np.searchsorted(np.cumsum(piatta), r.random(), side="right"))
             gc, gt = divmod(min(j, piatta.size - 1), larghezza)
+            gol_massimo_generato = max(gol_massimo_generato, gc, gt)
             risultati[(s, int(riga.giornata), riga.casa)] = (gc, gt)
 
             # autogol: quanti dei gol di una squadra sono segnati da un
@@ -582,7 +614,12 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
                              "incertezza_forze": incertezza_forze,
                              "problemi_coerenza": problemi[:20],
                              "n_problemi_coerenza": len(problemi),
-                             "ripiego_convocati": dict(note_rosa)})
+                             "ripiego_convocati": dict(note_rosa),
+                             "campionamento_gol": {
+                                 **campionamento,
+                                 "matrice": dict(registro_matrice),
+                                 "gol_massimo_generato": int(gol_massimo_generato),
+                             }})
 
 
 def _verifica_partita(tab, mod_part, gc, gt) -> list:

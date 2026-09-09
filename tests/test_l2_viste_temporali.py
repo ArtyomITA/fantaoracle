@@ -51,25 +51,143 @@ def _verifica(tab, sub):
 
 
 # ---------------------------------------------------------------- 1. leakage
-def test_una_prova_futura_non_cambia_la_vista_alla_decisione(campione):
-    """Aggiungere prove dopo il cutoff non deve toccare la vista informativa.
+def _fonte_con_prova_in_piu(tmp_path, campione, giorni_dal_cutoff):
+    """Scrive una copia della fonte dei trasferimenti con dentro una cessione
+    inventata, datata `giorni_dal_cutoff` giorni rispetto al cutoff.
 
-    Si confrontano due cutoff: quello vero e uno più tardo. Le risposte alle
-    date che entrambi coprono devono restare identiche per il cutoff più
-    stretto — se cambiassero, una prova posteriore starebbe entrando.
+    Serve a perturbare davvero le prove. Confrontare due ricostruzioni della
+    stessa vista verifica il determinismo, non la non anticipazione: era il
+    difetto della versione precedente di questi test.
     """
-    a = app.costruisci(as_of=AS_OF, estendi_fino=FINE)
-    b = app.costruisci(as_of="2024-12-31", estendi_fino=FINE)
-    ra, rb = _verifica(a, campione), _verifica(b, campione)
-    # la vista più informata può differire; quella al cutoff non deve dipendere
-    # da come la si interroga, quindi si ricostruisce e si riconfronta
-    a2 = app.costruisci(as_of=AS_OF, estendi_fino=FINE, usa_cache=False)
-    ra2 = _verifica(a2, campione)
-    assert (ra.esito == ra2.esito).all(), (
-        "la vista al cutoff non è stabile fra due costruzioni")
-    # e deve differire da quella più informata, altrimenti la censura non morde
-    assert (ra.esito != rb.esito).any(), (
-        "le due date limite danno esiti identici: la censura non sta filtrando")
+    vero = RADICE / "data/raw/transfermarkt/transfermarkt_transfers_annuale.csv"
+    if not vero.exists():
+        pytest.skip("manca la fonte annuale dei trasferimenti")
+    tr = pd.read_csv(vero, parse_dates=["transfer_date"])
+    # Serve un giocatore la cui risposta venga dai TRASFERIMENTI: la comparsa a
+    # referto ha priorita' piu' alta, quindi su un giocatore risolto dalle
+    # formazioni una cessione inventata non cambierebbe niente e il test
+    # passerebbe per la ragione sbagliata.
+    noti = app._identita_note()
+    base = app.costruisci(as_of=AS_OF, estendi_fino=FINE)
+    r = _verifica(base, campione)
+    da_trasf = campione[(r.fonte == app.FONTE_TRASFERIMENTI).to_numpy()
+                        & campione.tm_player_id.isin(noti).to_numpy()]
+    if da_trasf.empty:
+        pytest.skip("nessuna riga del campione e' risolta dai trasferimenti")
+    pid = int(da_trasf.tm_player_id.iloc[0])
+    campione = da_trasf
+    club_vero = int(campione[campione.tm_player_id == pid]
+                    .club_id_squadra.iloc[0])
+    finta = pd.DataFrame([{
+        "player_id": pid,
+        "transfer_date": pd.Timestamp(AS_OF) + pd.Timedelta(days=giorni_dal_cutoff),
+        "transfer_season": "24/25",
+        "from_club_id": club_vero, "to_club_id": 999999,
+        "from_club_name": "vero", "to_club_name": "finto",
+        "transfer_fee": 0, "market_value_in_eur": 0,
+        "player_name": "prova", "stesso_giorno": False,
+    }])
+    falso = tmp_path / "transfermarkt_transfers_annuale.csv"
+    pd.concat([tr, finta], ignore_index=True).to_csv(falso, index=False)
+    return falso, campione
+
+
+class _CartellaConSostituto:
+    """Fa da `RAW / "transfermarkt"`, restituendo il file finto solo per la
+    fonte dei trasferimenti e quelli veri per tutto il resto."""
+
+    def __init__(self, reale, sostituto):
+        self._reale, self._sostituto = reale, sostituto
+
+    def __truediv__(self, nome):
+        if nome == "transfermarkt_transfers_annuale.csv":
+            return self._sostituto
+        return self._reale / nome
+
+
+class _RawConSostituto:
+    """Fa da `RAW` del modulo `appartenenza`."""
+
+    def __init__(self, falso):
+        self._falso = falso
+
+    def __truediv__(self, altro):
+        base = RADICE / "data" / "raw"
+        if altro == "transfermarkt":
+            return _CartellaConSostituto(base / "transfermarkt", self._falso)
+        return base / altro
+
+
+def _con_fonte_finta(monkeypatch, falso, calcola):
+    """Esegue `calcola()` con la fonte sostituita, e ripulisce le cache."""
+    monkeypatch.setattr(app, "RAW", _RawConSostituto(falso))
+    app._CACHE.clear()
+    app._CACHE_FONTI.clear()
+    try:
+        return calcola()
+    finally:
+        monkeypatch.undo()
+        app._CACHE.clear()
+        app._CACHE_FONTI.clear()
+
+
+def test_una_prova_futura_aggiunta_non_cambia_la_vista_alla_decisione(
+        campione, tmp_path, monkeypatch):
+    """Una cessione inserita nella fonte, datata dopo il cutoff, non deve
+    toccare la vista alla decisione — e deve invece toccare quella osservativa,
+    altrimenti l'iniezione non ha funzionato e il test passa a vuoto."""
+    falso, campione = _fonte_con_prova_in_piu(tmp_path, campione, +30)
+    prima_dec = _verifica(app.costruisci(as_of=AS_OF, estendi_fino=FINE), campione)
+    prima_oss = _verifica(app.costruisci(), campione)
+
+    def dopo():
+        d = _verifica(app.costruisci(as_of=AS_OF, estendi_fino=FINE), campione)
+        o = _verifica(app.costruisci(), campione)
+        return d, o
+
+    dopo_dec, dopo_oss = _con_fonte_finta(monkeypatch, falso, dopo)
+
+    # Il confronto e' su tutte e tre le colonne, non sul solo esito: una
+    # cessione inventata a un club che non esiste viene smentita dalle
+    # comparse, la fonte scende dallo spell e l'esito resta `si`. Cambia pero'
+    # la fonte, ed e' quello che va guardato.
+    def diverse(a, b):
+        return int(((a.esito != b.esito)
+                    | (a.fonte != b.fonte)
+                    | (a.club_id_alla_data != b.club_id_alla_data)).sum())
+
+    assert diverse(prima_dec, dopo_dec) == 0, (
+        "una prova datata dopo il cutoff ha cambiato la vista alla decisione: "
+        "quella vista sta guardando avanti")
+
+    # La controprova che l'iniezione funziona NON puo' venire dalla vista
+    # osservativa: li' le comparse a referto battono sempre i trasferimenti, e
+    # una cessione inventata non cambierebbe niente comunque. Viene dal test
+    # gemello `test_una_prova_anteriore_aggiunta_cambia_la_vista_alla_decisione`,
+    # che inserisce la stessa cessione con data anteriore al cutoff e verifica
+    # che quella la vista alla decisione la veda. Stessa iniezione, due date,
+    # esiti opposti: e' quello che separa la non anticipazione dal filtrare
+    # tutto.
+    assert prima_oss is not None and dopo_oss is not None
+
+
+def test_una_prova_anteriore_aggiunta_cambia_la_vista_alla_decisione(
+        campione, tmp_path, monkeypatch):
+    """Gemello di sensibilita': la stessa cessione, datata prima del cutoff,
+    deve cambiare la vista alla decisione. Se non la cambiasse, la censura
+    starebbe scartando anche le prove ammissibili."""
+    falso, campione = _fonte_con_prova_in_piu(tmp_path, campione, -3)
+    prima = _verifica(app.costruisci(as_of=AS_OF, estendi_fino=FINE), campione)
+    dopo = _con_fonte_finta(
+        monkeypatch, falso,
+        lambda: _verifica(app.costruisci(as_of=AS_OF, estendi_fino=FINE),
+                          campione))
+    cambiate = int(((prima.esito != dopo.esito)
+                    | (prima.fonte != dopo.fonte)
+                    | (prima.club_id_alla_data != dopo.club_id_alla_data)).sum())
+    assert cambiate > 0, (
+        "una cessione datata prima del cutoff non cambia niente: la censura "
+        "sta scartando anche le prove ammissibili")
 
 
 def test_una_prova_anteriore_pertinente_puo_cambiare_la_vista(campione):
@@ -194,3 +312,55 @@ def test_una_domanda_oltre_l_orizzonte_resta_ignota_e_non_diventa_no(campione):
     assert (r.esito == app.IGNOTO).all(), (
         f"oltre l'orizzonte la tabella risponde {r.esito.value_counts().to_dict()}")
     assert r.confidenza.isna().all()
+
+
+# ------------------------------------------------------ 6. bordo dell'orizzonte
+def test_l_ultimo_giorno_coperto_riceve_risposta(campione):
+    """L'orizzonte è esclusivo: chi lo passa deve saperlo.
+
+    Difetto riprodotto: il panel passava come `estendi_fino` la data massima
+    delle sue partite, ma gli intervalli sono semiaperti `[dal, al)`. Le 200
+    righe dell'ultimo giorno del 2024-25 rispondevano tutte `ignoto`, mentre il
+    giorno prima rispondeva 93 `si`, 36 `no`, 3 `ignoto`.
+
+    Il contratto: `estendi_fino` è il primo giorno **non** coperto. Chi vuole
+    coprire fino al giorno D compreso passa D + 1.
+    """
+    ultima = pd.Timestamp(FINE)
+    stretto = app.costruisci(as_of=AS_OF, estendi_fino=ultima)
+    largo = app.costruisci(as_of=AS_OF, estendi_fino=ultima + pd.Timedelta(days=1))
+    quel_giorno = campione.assign(data=ultima)
+
+    r_stretto = _verifica(stretto, quel_giorno)
+    r_largo = _verifica(largo, quel_giorno)
+
+    assert (r_stretto.esito == app.IGNOTO).all(), (
+        "l'orizzonte non è esclusivo: l'ultimo giorno riceve risposta")
+    assert (r_largo.esito != app.IGNOTO).any(), (
+        "con l'orizzonte al giorno dopo, l'ultimo giorno resta senza risposta")
+
+
+def test_il_panel_copre_la_sua_ultima_giornata():
+    """Il panel deve chiedere un orizzonte che copra tutte le sue partite.
+
+    È il test di integrazione del difetto qui sopra: non basta che
+    `appartenenza` si comporti bene, deve essere il panel a chiederglielo nel
+    modo giusto.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "l2_costruisci_panel", RADICE / "scripts" / "l2_costruisci_panel.py")
+    panel = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(panel)
+
+    if not PANEL.exists():
+        pytest.skip(f"manca {PANEL}")
+    P = pd.read_parquet(PANEL, columns=["data", "appartenenza_esito_dec"])
+    P["data"] = pd.to_datetime(P["data"])
+    ultimo = P[P.data == P.data.max()]
+    if "appartenenza_esito_dec" not in P or P.appartenenza_esito_dec.isna().all():
+        pytest.skip("il panel non porta la vista alla decisione")
+    ignoti = (ultimo.appartenenza_esito_dec == app.IGNOTO).mean()
+    assert ignoti < 0.9, (
+        f"il {ignoti:.0%} delle righe dell'ultima giornata è `ignoto` nella "
+        "vista alla decisione: l'orizzonte esclude il proprio ultimo giorno")

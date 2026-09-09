@@ -599,3 +599,621 @@ Questo sostituisce l'affermazione precedente («lo scenario meno disperso è gi�
 calibrato, quindi la sovradispersione è tutta fra scenari»), che era una
 statistica d'ordine letta come una verifica di calibrazione ed è rettificata in
 §10.4.
+
+---
+
+## 13. Il disegno fattoriale, realizzato — e che cosa dice
+
+`scripts/l2_banco_confronto.py`, artefatti `data/l2/banco_confronto_*.csv` e
+`banco_verdetto_*.csv`. Quattro bracci, 30 scenari, stagioni 2024-25 e 2025-26.
+
+Il braccio che mancava è `C1`: il cubo che riceve **le stesse presenze** del
+modello valore che riceveva `I1`. Senza di lui il confronto «a parità di
+presenze» non era realizzabile, e il verdetto costruito su quell'etichetta era
+invalidato (§3). Il collegamento passa da `partecipazione.stima(...,
+bersaglio_presenza=...)`, che traduce la presenza a voto attesa in una
+propensione di convocazione dividendo per la quota osservata di convocati che
+prendono voto, per ruolo — non la sostituisce.
+
+### 13.1 I quattro confronti
+
+CRPS, differenza appaiata; negativo è a favore del primo termine.
+
+> **SUPERATA, E CON UN SEGNO ROVESCIATO.** Questa tabella è stata prodotta
+> prima delle correzioni R1-R3, con intervalli che trattavano le righe come
+> indipendenti. Rifatta in R4, la riga `C1 − I1` **cambia segno e smette di
+> contenere lo zero**: da −0,0031 e −0,0188 «indistinguibili» a **+0,0973 e
+> +0,0505, cioè `C1` peggiore**. Non è una riverniciatura dell'incertezza: il
+> punto stimato è dall'altra parte. La lettura 2 qui sotto è **falsa** allo
+> stato attuale; è tenuta a vista perché il percorso resti leggibile. I numeri
+> correnti sono in §19.
+
+| fattore | 2024-25 | 2025-26 |
+|---|---|---|
+| **meccanismo**, a informazione storica (C0 − I0) | −0,0652 [−0,100; −0,032] | −0,0368 [−0,070; −0,004] |
+| **meccanismo**, con le presenze del modello (C1 − I1) | −0,0031 [−0,036; +0,027] | −0,0188 [−0,050; +0,010] |
+| **informazione**, meccanismo per giocatore (I1 − I0) | −0,1840 [−0,210; −0,159] | −0,2107 [−0,237; −0,183] |
+| **informazione**, meccanismo cubo (C1 − C0) | −0,1219 [−0,144; −0,100] | −0,1926 [−0,217; −0,169] |
+
+Tre letture, in ordine di importanza:
+
+1. **L'informazione pesa molto più del meccanismo.** Dare le presenze del
+   modello valore vale fra 0,12 e 0,21 di CRPS; cambiare meccanismo vale fra
+   0,00 e 0,07. Il confronto precedente misurava soprattutto la prima cosa
+   credendo di misurare la seconda.
+2. ~~**A informazione comparabile i due meccanismi sono indistinguibili** sul
+   CRPS in entrambe le stagioni: gli intervalli attraversano lo zero. Non è
+   equivalenza dimostrata, è assenza di differenza rilevabile con questo
+   disegno.~~ **Rovesciata da R4**: a informazione comparabile il cubo è
+   *peggiore*, e l'intervallo esclude lo zero in entrambe le stagioni. Vedi
+   §19.
+3. **A informazione storica il cubo vince**, su entrambe le stagioni e su
+   entrambe le misure. È il caso in cui i due meccanismi partono dagli stessi
+   dati grezzi.
+
+L'interazione è visibile: il cubo trae dall'informazione meno di quanto ne
+tragga il simulatore per giocatore (−0,122 contro −0,184 nel 2024-25), perché
+partiva già molto più vicino al vero sulle presenze.
+
+### 13.2 Il realismo, che le metriche predittive non catturano
+
+| | presenze per giornata | gol per rosa | corr. fra difensori |
+|---|---:|---:|---:|
+| **vero 2024-25** | **281,9** | **0,216** | **0,311** |
+| I0 per giocatore, storia | 362,3 | 0,472 | 0,161 |
+| I1 per giocatore, presenze del modello | 331,6 | 0,400 | 0,162 |
+| C0 cubo, storia | 284,0 | 0,187 | 0,296 |
+| **C1 cubo, presenze del modello** | **282,6** | 0,236 | **0,300** |
+
+Nel 2025-26 lo stesso quadro: vero 283,6 presenze, `C1` 283,1, `I1` 312,9.
+
+`C1` ha il CRPS più basso del banco (1,4529 e 1,4433) **e** le presenze più
+vicine al vero (errore 0,25 % e 0,18 %) **e** le correlazioni fra compagni più
+vicine. Il simulatore per giocatore, anche con le stesse presenze, continua a
+generare il 17 % e il 10 % di presenze in più del vero e correlazioni fra
+difensori dimezzate.
+
+### 13.3 Che cosa questo non dice
+
+- Non dice che il cubo è **promosso**: il verdetto è che a informazione
+  comparabile la differenza predittiva non è rilevabile, mentre il realismo
+  fisico è nettamente migliore. La promozione richiede una decisione su quale
+  delle due cose conti, e quella decisione non è stata presa.
+- Gli intervalli sono condizionati agli scenari: il ricampionamento è sulle
+  coppie (giocatore, giornata), non sul rumore Monte Carlo dei generatori né
+  sulla dipendenza fra giocatori della stessa partita.
+- Le stagioni 2024-25 e 2025-26 sono state consultate molte volte: sono
+  validazione riusata, non un test incontaminato.
+
+---
+
+## 14. La coda dei gol, rifatta su calendari storici — e che cosa cambia
+
+`scripts/l2_coda_storica.py`, artefatti `data/l2/coda_storica.{csv,json}`.
+
+### 14.1 Perché la misura precedente non poteva concludere
+
+`l2_diagnosi_coda.py` confrontava repliche del calendario **2026-27** con
+l'osservato di **altre** stagioni: squadre diverse, numerosità diversa,
+calendario diverso. La scomposizione della varianza che ne usciva descriveva
+qualcosa, ma non identificava la causa dell'eccesso, e la conclusione «metà
+dell'eccesso resta nella specificazione» (§12.2) non ne seguiva.
+
+Qui il confronto è omogeneo: stagione conclusa, modello stimato con dati
+anteriori al suo inizio, **stesso calendario** che è stato giocato, stesse
+partite ed entrambe le squadre.
+
+### 14.2 Il calcolo è in forma chiusa
+
+Il ramo di ricerca ha stabilito, con fonte e verifica numerica, che la
+correzione di Dixon-Coles conserva le marginali — la congiunta è di famiglia
+Sarmanov e l'invarianza segue da `E[q(X)] = 0` sotto Poisson, per **ogni** rho:
+l'ammissibilità serve alla positività, non all'invarianza. Quindi
+`P(G >= k | lambda)` si calcola senza simulare, e la coda prevista non porta
+rumore Monte Carlo.
+
+Difetto trovato e corretto lungo la strada: `matrice_risultato` scaricava la
+massa troncata sulla cella `(12, 12)`, e così la coda tagliata di una squadra
+gonfiava la marginale dell'altra. Alle intensità operative valeva +1,2e-6 in
+termini relativi — non è la causa della coda grassa — ma arrivava a +9,6 % a
+`(6,00; 3,00)` e +23,3 % a `(8,00; 4,00)`. Ora la massa si rinormalizza in
+proporzione, e le marginali coincidono con la Poisson troncata entro 1,5e-16.
+Il test che avrebbe dovuto accorgersene confrontava `rho` contro `rho = 0`,
+cioè due matrici con lo stesso rattoppo: è stato sostituito con un confronto
+contro il bersaglio vero.
+
+### 14.3 Il risultato
+
+P(≥ 6 gol per squadra-partita), previsione contro osservato sullo stesso
+calendario:
+
+| stagione | osservata | punto stimato | hessiana (attuale) | decadimento dimezzato |
+|---|---:|---:|---:|---:|
+| 2023-24 | 0,2632 % [0,032; 0,947] | 0,3964 % | 0,7889 % | 0,4775 % |
+| 2024-25 | 0,3947 % [0,082; 1,149] | 0,5544 % | **1,4857 %** | 0,5581 % |
+| 2025-26 | 0,2632 % [0,032; 0,947] | 0,5498 % | 0,8441 % | 0,5737 % |
+
+Rapporto previsto su osservato: **1,40-2,09** al punto stimato, **3,00-3,76**
+con l'incertezza dall'hessiana, 1,41-2,18 col decadimento dimezzato.
+
+Il punto stimato cade **dentro** l'intervallo Clopper-Pearson dell'osservato su
+tutte e tre le stagioni; il trattamento attuale ne esce nel 2024-25.
+
+Lettura: l'eccesso della coda viene dal **trattamento dell'incertezza sui
+parametri**, non dalla specificazione del modello. Questo corregge §12.2, che
+attribuiva metà dell'eccesso alla specificazione sulla base di un confronto non
+omogeneo.
+
+Il decadimento dimezzato non aggiunge nulla al punto stimato: cambia `xi` da
+0,0015 a 0,0008 e la coda resta 0,5581 % contro 0,5544 %. Non è la quantità di
+campione effettivo a produrre la coda.
+
+### 14.4 Che cosa questo **non** dice
+
+- Non dice che l'incertezza sui parametri vada tolta: un modello senza
+  incertezza sottostima la propria fallibilità, e la coda non è l'unica
+  quantità che conta.
+- Non dice quale trattamento dell'incertezza sia corretto. Dice che quello
+  attuale produce una coda incompatibile con l'osservato in una stagione su
+  tre, il che è una ragione per cercarne uno migliore, non una scelta già
+  fatta.
+- Tre stagioni sono tre osservazioni. Gli intervalli dell'osservato sono larghi
+  (0,03-1,15 % nel 2023-24) proprio perché una stagione contiene poche partite
+  con sei o più gol: rispettivamente 2, 3 e 2 su 760.
+
+---
+
+## 15. Rettifiche del percorso 1-4, prima di proseguire
+
+Le sezioni 11-14 restano agli atti come **risultati del percorso precedente**,
+con validità da riesaminare dopo le correzioni di questa sezione. I loro numeri
+non vengono cancellati: vengono etichettati.
+
+### 15.1 «C1 migliore su tutte le misure» era falso
+
+Scritto in chat e implicito in §13.2. I controesempi sono nel CSV che avevo
+davanti:
+
+| | gol per rosa 2025-26 | scarto dal vero | Brier 2024-25 |
+|---|---:|---:|---:|
+| vero | 0,2237 | — | — |
+| I1 per giocatore, presenze del modello | 0,2713 | **0,0476** | **0,2204** |
+| C1 cubo, presenze del modello | 0,2779 | 0,0542 | 0,2208 |
+
+Nel 2025-26 `I1` è più vicino al vero sui gol per rosa; nel 2024-25 ha il Brier
+più basso. Erano valori puntuali senza intervallo, e li ho letti come criterio
+soddisfatto. Da qui in avanti la distinzione è obbligatoria: **valore puntuale
+migliore**, **differenza incerta**, **criterio soddisfatto** sono tre cose
+diverse.
+
+### 15.2 Che cosa è collegato e che cosa no
+
+| affermazione delle fasi 1-4 | stato dopo la verifica |
+|---|---|
+| il braccio `C1` esiste | **vero nel banco**, ma `l2_genera_cubo.py:234` chiama ancora `pa.stima(Ppre)` senza bersagli: il generatore ordinario non lo produce |
+| l'eleggibilità al fit è collegata al denominatore | **vero come colonna**, ma il consumatore non impone né verifica quale fit: `l2_panel_qualita.json` riporta `data_fit = 2026-09-08` per **tutte e cinque** le stagioni |
+| il fattoriale usa le previsioni delle presenze | **parziale**: l'aggiornamento scorre solo i giocatori con voti storici (§R2) |
+| gli intervalli del verdetto | **non** incorporano le dipendenze dichiarate in §3.3: il codice stesso dichiara di ignorarle |
+| la coda: «l'eccesso viene dall'incertezza, non dalla specificazione» | **troppo forte**. Il confronto mostra che aggiungere l'incertezza alza la coda prevista; non dimostra che il punto stimato sia calibrato. I rapporti punto su osservato restano 1,40-2,09, e gli eventi osservati sono 2, 3 e 2 nelle tre stagioni |
+
+«Dentro l'intervallo di Clopper-Pearson» non identifica una causa: le
+probabilità differiscono per partita, la dipendenza non è trattata, e con due o
+tre eventi osservati l'intervallo è largo quasi quanto lo spazio dei valori
+possibili.
+
+### 15.3 Il cutoff storico non è imposto dal consumatore
+
+`data_fit` è un parametro dello script che costruisce il panel, e il suo
+predefinito è **oggi**. Un panel costruito oggi porta `data_fit = 2026-09-08`
+per la stagione 2021-22: se qualcuno lo usasse per un fit datato 2024, starebbe
+consumando prove del 2026 senza che nulla glielo impedisca.
+
+Il consumatore deve ricevere il cutoff, chiedere la vista corrispondente,
+verificarne i metadati e **rifiutare** una vista incompatibile. Finché non lo
+fa, la colonna `eleggibile_fit` è una promessa non mantenuta.
+
+---
+
+## 16. R1-R3: che cosa è stato collegato, e che cosa la correzione ha rivelato
+
+### 16.1 Il contratto temporale, imposto dal consumatore
+
+`src/fantabot/tabellino/contratto.py`, nuovo. Il cutoff entra nel **nome del
+file** (`l2_panel_2024-25__fit20260908.parquet`) e nei metadati accanto; i
+consumatori chiedono la vista che gli serve, ne verificano i metadati e
+**rifiutano** quelle incompatibili, registrando che cosa hanno consumato.
+
+Prova che attraversa il consumatore reale: chiedendo al generatore del cubo un
+fit del 2024-08-16 su panel costruiti al 2026-09-08, alza
+`ContrattoIncompatibile` invece di usarli. È il caso del backtest 2024 su panel
+del 2026, chiuso.
+
+L'universo e le rose ora si costruiscono con una funzione condivisa: prima il
+banco usava `squadra` e il generatore `squadra_listone`, quindi i due
+lavoravano su rose diverse e il confronto fra i loro generatori non era a
+parità di universo. La scelta della colonna è un parametro dichiarato, e la
+diagnostica riporta quanti giocatori differiscono (6 nel 2026-27, 30 nel
+2024-25). **`squadra_listone` non è una certificazione temporale**: è la
+squadra che il listone dichiarava quando è stato costruito, e chi la usa per
+una decisione datata deve verificare quale fotografia rappresenta.
+
+### 16.2 Le presenze, per l'universo completo
+
+`src/fantabot/tabellino/presenze.py`, nuovo, condiviso fra banco e generatore.
+
+Tre difetti riprodotti e chiusi:
+
+| difetto | prima | dopo |
+|---|---|---|
+| universo troncato ai giocatori con storia | 264 ignorati nel 2024-25, 219 nel 2025-26 (somma delle probabilità previste 70,33 e 56,10, sostituita da un ripiego di 0,5 ciascuno: 132,0 e 109,5) | universo completo |
+| `if q.get("pres")` scarta lo zero | 38 previsioni buttate nel 2024-25, 29 nel 2025-26 | tenute e contate |
+| cold start: bersaglio saltato per chi non è in `prop_conv` | 136 su 587 nel 2026-27 | 136 **iniziati**, 0 saltati |
+
+L'adattatore dichiara per ogni giocatore da dove viene il bersaglio
+(`previsione`, `prior_ruolo`, `assente`) e tiene separati i due ripieghi che
+prima erano uno solo: manca la previsione delle presenze è una cosa, manca lo
+storico degli eventi è un'altra.
+
+Il contratto dell'orizzonte è esplicito: `pres` è la somma delle presenze già
+realizzate e di quelle previste per il resto, quindi `pres / 38` vale solo per
+una stagione interamente futura; dopo K turni servono `presenze_gia_fatte` e
+`giornate_residue`, che possono variare per giocatore quando i rinvii lo
+rendono diverso fra squadre.
+
+Il braccio `C1` è ora producibile dal **generatore ordinario**, non solo dentro
+il banco: `l2_genera_cubo.py --bersaglio-presenze`, modalità sperimentale
+esplicita che non cambia il comportamento predefinito.
+
+### 16.3 La distribuzione campionata, e la rettifica di §14.2
+
+Riprodotti tutti e sei i numeri del difetto: intensità massima **46,704**, 13
+campioni su 200 con ρ non ammissibile, 194 combinazioni partita-campione su
+76.000, coda analitica 0,0148570 contro 0,0147971 della matrice realmente
+campionata, scarto massimo per partita 0,01073.
+
+**Rettifica di §14.2.** L'identità delle marginali era misurata a intensità
+fisse con ρ ammissibile. A romperla non è il troncamento — la rinormalizzazione
+la conserva esattamente per ogni supporto ≥ 1, perché `q(y)` è diverso da zero
+solo in 0 e 1 — ma il **clipping** `np.maximum(P, 0)` sulle estrazioni non
+ammissibili: allontana le marginali dalla Poisson troncata fino a 2,9e-4.
+
+Strategia scelta dopo verifica, non per comodità: **proiezione di ρ**
+sull'intervallo ammissibile della singola partita, contata ed esposta. Rigetto
+e riestrazione **rifiutati** con la ragione misurata: le combinazioni non
+ammissibili hanno intensità mediana 11,23 contro 1,62 di tutte, quindi
+rigettarle toglierebbe proprio le estrazioni più grasse — la mossa vietata.
+
+Supporto adattivo al posto di `MAX_GOL = 12` fisso: 131 combinazioni su 76.000
+avevano intensità oltre 12, e a λ ≈ 16 la massa fuori supporto valeva 0,83, cioè
+la matrice diventava quasi una massa puntuale sul 12-12. Ora la massa fuori
+resta sotto 1,9e-12.
+
+**La correzione non abbassa la coda.** La coda realmente campionata **sale** da
+0,014797 a 0,014857 per allinearsi a quella dichiarata: la coda è marginale e
+le marginali non dipendono da ρ. L'eccesso rispetto all'osservato resta intero.
+
+### 16.4 Che cosa resta aperto
+
+- l'inferenza del fattoriale non è ancora rifatta con il ricampionamento che
+  rispetta le dipendenze (R4);
+- i risultati di §13 sono stati prodotti prima di tutte queste correzioni: vanno
+  rifatti prima di essere citati di nuovo;
+- «l'eccesso viene dall'incertezza, non dalla specificazione» (§14.3) resta
+  **troppo forte**: il confronto mostra che aggiungere l'incertezza alza la coda
+  prevista, non che il punto stimato sia calibrato.
+
+---
+
+## 17. Due errori scoperti mentre si chiudeva R4
+
+Vanno scritti prima dei risultati, perché uno dei due dice che alcune cose che
+sembravano fatte non lo erano.
+
+### 17.1 Il banco non partiva più: `NameError: lst`
+
+Durante R1 la lettura separata del listone (`lst = pd.read_parquet(...)`) è
+stata sostituita dalla costruzione condivisa dell'universo
+(`contratto.costruisci_universo`), perché banco e generatore lavoravano su rose
+diverse. In quella sostituzione una riga più avanti è rimasta scoperta:
+
+```python
+rose_prova = rose_di_prova(lst, a.rose, a.seme)   # `lst` non esisteva più
+```
+
+Il banco cadeva con `NameError` **prima di produrre qualsiasi numero**.
+
+**Che cosa invalida.** Niente di pubblicato: i verdetti in §13 sono precedenti
+a R1 e non passano da questa riga. Ma smentisce una cosa che avevo scritto come
+fatta: che le correzioni R1 e R2 fossero verificate «sui consumatori reali».
+Erano verificate dai test unitari e dal generatore del cubo, **non** da
+un'esecuzione del banco: il banco non è mai stato eseguito fra R1 e oggi, e se
+lo fosse stato l'errore sarebbe uscito subito. La copertura dei consumatori
+reali per il banco vale da adesso, non da R1.
+
+**Correzione.** Le rose di prova ora si costruiscono dall'universo condiviso,
+che è anche più coerente della lettura separata: pescano dagli stessi giocatori
+su cui lavorano tutti i bracci.
+
+**Perché non era stato visto.** Nessun test esegue `main()`: i test del banco
+importano il modulo e provano le funzioni. Un errore che vive solo dentro
+`main` non lo vedono. Non ho aggiunto un test che esegua `main` per intero —
+costa un'esecuzione completa — quindi il rischio resta, e resta dichiarato.
+
+### 17.2 Una prova di fumo ha sovrascritto un artefatto, e ho sbagliato due volte
+
+La prima esecuzione del banco corretto è stata fatta con `--sims 4 --semi 2`
+per vedere se il codice reggeva. Quattro scenari non sono un verdetto, ma lo
+script scrive comunque `data/l2/banco_verdetto_2024-25.csv`, che conteneva il
+verdetto pubblicato (1284 byte, sha256 `e5f7ad49243875b1`). È stato
+sovrascritto. Poco dopo la rigenerazione a otto semi ha sovrascritto anche
+quello del 2025-26.
+
+**Il primo errore è la sovrascrittura.** Il banco scrive sempre sugli stessi
+nomi, quindi qualunque esecuzione — anche esplorativa a quattro scenari —
+sostituisce l'ultima.
+
+**Il secondo errore è il rimedio che avevo scelto.** Ho ricostruito il
+contenuto da `data/l2/r4_ricerca/r4_soglie_risultati.json` e ho scritto che
+l'originale era perduto. Non lo era: il progetto tiene un archivio a contenuto
+indirizzato in `data/istantanee/_archivio/`, e **tutti e due gli originali
+erano lì per intero**. Li ho ripristinati in `data/l2/archivio/` verificando
+che le impronte coincidano con quelle registrate dal ramo di ricerca. Le
+ricostruzioni restano accanto agli originali solo perché il racconto
+dell'errore resti verificabile.
+
+**Che cosa invalida.** Nessun risultato. Invalida due frasi che avevo scritto:
+«non è ricostruibile» a proposito del 2024-25, e «l'originale di quella
+stagione non è stato toccato» a proposito del 2025-26 — vero quando l'ho
+scritto, falso mezz'ora dopo. Entrambe corrette in
+`data/l2/archivio/LEGGIMI.md`.
+
+**La lezione operativa**, che vale più delle due frasi: prima di dichiarare
+perduto un artefatto, cercarlo per impronta nell'archivio a contenuto
+indirizzato. È lì apposta.
+
+---
+
+## 18. R4: l'inferenza del fattoriale, rifatta
+
+Il metodo viene dal ramo di ricerca, `data/l2/r4_ricerca/RAPPORTO.md`, che ha
+letto per intero Cameron & Miller (2015) e Ferro (2013) e ha verificato ogni
+formula numericamente prima di consegnarla. Qui si scrive che cosa è entrato
+nel codice e che cosa quel codice adesso sostiene.
+
+### 18.1 L'intervallo: two-way cluster-robust su (partita, giocatore)
+
+Il verdetto precedente ricampionava le righe come indipendenti. Non lo sono, e
+le due dimensioni della dipendenza **si incrociano**: un giocatore compare in
+38 partite, e una partita raccoglie tutti i giocatori delle due rose che
+l'universo contiene — nel campione del Brier sono 67,9 righe per partita in
+media, non i ventidue scesi in campo. Non essendo annidate, non
+basta scegliere la più grossolana; serve la varianza two-way di Cameron &
+Miller, equazione (21).
+
+Il punto che cambia la lettura del vecchio metodo: l'intersezione fra i due
+grappoli è la **singola riga**, quindi la varianza sulle righe non è una stima
+sbagliata di quella giusta — è uno dei tre addendi, quello che va **sottratto**.
+
+Misurato in simulazione su un disegno con la geometria del banco, 600 repliche,
+correlazioni dichiarate prima di eseguire:
+
+| errore standard | copertura, n = 25 802 (Brier) | copertura, n = 6 000 (CRPS) |
+|---|---:|---:|
+| righe indipendenti (metodo precedente) | **50,7 %** | **76,2 %** |
+| one-way su partita | 84,2 % | 89,5 % |
+| **two-way** | **92,8 %** | **93,7 %** |
+
+Le due colonne sono i due campioni che il banco usa davvero, e vanno lette
+insieme: il 50,7 % è il caso peggiore, non il caso unico. Metà dei verdetti
+sono CRPS sul sottocampione, dove il metodo precedente copriva il 76,2 %.
+
+L'errore standard sulle righe resta in tabella come **diagnosi**: il suo
+rapporto con il two-way dice quanto la dipendenza conti in questi dati. Non è
+un'alternativa fra cui scegliere.
+
+Restano fuori dall'intervallo, dichiarati: l'incertezza dell'adattamento del
+modello (un solo cubo, una sola stima), la variazione fra stagioni (con due
+stagioni i grappoli sono due, e con G = 2 il wild cluster bootstrap dà
+`p ≥ 1/2`: i verdetti si producono **una stagione per volta**), e il riuso
+della validazione.
+
+### 18.2 Il punteggio: empirico ed equo, entrambi
+
+Il CRPS empirico con `m` scenari è distorto verso l'alto di `E|X−X'| / (2m)`:
+penalizza un ensemble per il solo fatto di essere finito, e **premia la
+sottodispersione**. Il punteggio equo di Ferro toglie la distorsione in forma
+chiusa; la correzione è la dispersione di ensemble divisa per `m − 1`, sia per
+il CRPS sia per il Brier.
+
+La correzione **non si cancella nelle differenze**, perché dipende
+dall'ensemble: si annulla se e solo se i due bracci hanno la stessa dispersione
+media. Con `m = 30` il segno si ribalta quando il divario di dispersione supera
+`|Δ| · 29`; per il confronto `C1 − I1` del 2024-25 bastavano 0,090. Per questo
+la **dispersione media per braccio** è ora una colonna del banco: senza, quel
+controllo nessuno lo può fare.
+
+I due punteggi rispondono a due domande diverse — quanto vale l'ensemble a 30
+membri, quanto vale il generatore da cui è estratto — e la scelta fra loro è
+**sostanziale**. Non la faccio io: il banco riporta entrambi, e ogni confronto
+compare due volte.
+
+Limite dichiarato: la correzione equa è dimostrata per membri incorrelati a
+coppie; i nostri scenari condividono lo stesso adattamento, quindi sono
+positivamente correlati e la correzione necessaria sarebbe **più grande**
+(Ferro, equazione 6). Quella standard è un limite inferiore.
+
+### 18.3 Il rumore Monte Carlo: misurato, non ricampionato
+
+Lo scenario non è una partizione delle righe — il punteggio di ogni riga è
+funzione di tutti gli `m` scenari — quindi non esiste un bootstrap a grappoli
+sugli scenari. L'unica via è ripetere con `R` semi e misurare la deviazione
+standard fra le repliche. `R = 8` semi a `m = 30` costano quanto una sola
+esecuzione a 240 scenari, e in più **misurano** ciò che una sola esecuzione non
+può misurare.
+
+L'adattamento dei modelli sta fuori dal ciclo sui semi e non cambia: varia solo
+l'estrazione degli scenari. È quello che serve per isolare il rumore, ed è
+anche il limite della misura.
+
+Il requisito è `es_monte_carlo ≤ |Δ| / 10`, convenzione dichiarata prima di
+eseguire. Quando non è soddisfatto l'esito è **«non misurabile con le risorse
+disponibili»**, che non è «inconcludente» e non è «equivalente».
+
+### 18.4 Le tre etichette che prima erano una sola
+
+| esito | che cosa dice |
+|---|---|
+| `varianza non ammissibile` | `V_2way ≤ 0`: la stima non è utilizzabile e non viene sostituita da un one-way |
+| `non misurabile con le risorse disponibili` | il rumore di simulazione domina la differenza |
+| `differenza non rilevabile` | l'intervallo contiene lo zero |
+
+Nessuna delle tre è «equivalenti». Diventerebbe equivalenza solo contro una
+tolleranza dichiarata prima, e quella tolleranza **non è mia da fissare**:
+resta un blocco aperto, insieme alla scelta fra i due bersagli di §18.2.
+
+---
+
+## 19. R4: i risultati, e un verdetto che cambia segno
+
+Prodotti da `scripts/l2_banco_confronto.py` con 30 scenari e **8 semi**
+(equivalente a 240 scenari, più la misura del rumore che una sola esecuzione
+non può fare), inferenza two-way su (partita, giocatore), una stagione per
+volta. Artefatti: `data/l2/banco_verdetto_{stagione}.csv`,
+`banco_osservazioni_{stagione}.parquet`, `banco_semi_{stagione}.json`.
+
+CRPS, differenza appaiata; negativo è a favore del primo termine.
+
+### 19.1 I quattro confronti e l'interazione
+
+| fattore | 2024-25 empirico | 2024-25 equo | 2025-26 empirico | 2025-26 equo |
+|---|---:|---:|---:|---:|
+| meccanismo, informazione storica (C0 − I0) | −0,0636 [−0,124; −0,003] | −0,0506 [−0,111; +0,010] | −0,0210 [−0,083; +0,041] | −0,0078 [−0,070; +0,054] |
+| **meccanismo, presenze del modello (C1 − I1)** | **+0,0973 [+0,059; +0,135]** | **+0,1050 [+0,067; +0,143]** | **+0,0505 [+0,014; +0,087]** | **+0,0584 [+0,022; +0,095]** |
+| informazione, per giocatore (I1 − I0) | −0,4002 [−0,456; −0,344] | −0,3907 [−0,446; −0,335] | −0,3874 [−0,450; −0,324] | −0,3793 [−0,442; −0,317] |
+| informazione, cubo (C1 − C0) | −0,2393 [−0,292; −0,186] | −0,2350 [−0,288; −0,182] | −0,3159 [−0,376; −0,256] | −0,3131 [−0,373; −0,253] |
+| **interazione** | **+0,1609 [+0,104; +0,218]** | **+0,1556 [+0,099; +0,212]** | **+0,0715 [+0,015; +0,128]** | **+0,0662 [+0,009; +0,123]** |
+
+### 19.2 Che cosa è cambiato, e perché
+
+**A informazione comparabile il cubo perde.** Era la riga «inconcludente» del
+verdetto precedente (−0,0031 e −0,0188, intervalli che attraversavano lo zero).
+Adesso è **+0,097 e +0,051, con l'intervallo lontano dallo zero**, sul CRPS e
+sul Brier, in entrambe le stagioni, con il punteggio empirico e con quello equo.
+Il punto stimato è dall'altra parte: non è una riverniciatura dell'incertezza.
+
+La ragione è R2, e non è un caso fortunato: prima l'adattatore delle presenze
+copriva solo i giocatori con storia, quindi il braccio `I1` riceveva la
+previsione per una parte dell'universo e `p = 0,5` per **264 giocatori nel
+2024-25 e 219 nel 2025-26**. Correggendo l'adattatore è migliorato **il braccio
+avversario**. Il confronto precedente non misurava il meccanismo: misurava un
+handicap dato al simulatore per giocatore.
+
+**L'interazione è misurabile e ha un segno.** `(C1 − I1) − (C0 − I0)` vale
++0,161 e +0,072 sul CRPS, con intervalli che escludono lo zero in entrambe le
+stagioni e su entrambi i punteggi: **il cubo trae meno dalle presenze del
+modello di quanto ne tragga il simulatore per giocatore**. È la quantità che il
+disegno a due confronti non poteva vedere, e spiega perché i due meccanismi si
+scambiano di posto passando da un'informazione all'altra.
+
+**Il vantaggio a informazione storica si è assottigliato.** Era «il cubo vince
+su entrambe le stagioni e su entrambe le misure». Adesso: nel 2024-25 il CRPS
+empirico esclude lo zero per un soffio (−0,0636, estremo superiore −0,003) e
+quello equo non lo esclude più; nel 2025-26 il rumore Monte Carlo domina la
+differenza. Sul Brier non è rilevabile in nessuna delle due.
+
+**L'informazione continua a pesare molto più del meccanismo**, e più di prima:
+da 0,32 a 0,40 di CRPS contro 0,01-0,10.
+
+### 19.3 Quanto contava la dipendenza
+
+Il rapporto fra l'errore standard two-way e quello del metodo precedente sta fra
+**1,72 e 4,05** sulle venti righe del verdetto. Gli intervalli pubblicati in §13
+erano da due a quattro volte troppo stretti. Non è una correzione cosmetica: la
+riga `C0 − I0` del 2024-25 esclude lo zero con il metodo two-way solo per
+0,003, e con il metodo vecchio sembrava larghissimamente esclusa.
+
+### 19.4 Dove il punteggio scelto cambia il verdetto
+
+Due righe cambiano esito passando dall'empirico all'equo:
+
+- `C0 − I0`, CRPS 2024-25: empirico «C0 migliore», equo «differenza non
+  rilevabile»;
+- `C0 − I0`, Brier 2025-26: empirico «differenza non rilevabile», equo «non
+  misurabile con le risorse disponibili».
+
+È il caso che la ricerca prevedeva: la correzione equa dipende dalla dispersione
+di ensemble, che fra i bracci non è uguale. La scelta fra i due bersagli —
+valutare l'ensemble a 30 membri o stimare il generatore — è **sostanziale** e
+resta aperta: entrambe le colonne sono pubblicate.
+
+### 19.5 Riproducibilità, verificata
+
+`scripts/l2_inferenza_banco.py --verifica` rifà l'inferenza dalle sole
+osservazioni conservate e ottiene il verdetto pubblicato con scarto massimo
+**0,00e+00** su differenza, estremi, errori standard e rumore Monte Carlo, in
+entrambe le stagioni. Serve anche a un'altra cosa: le correzioni ai rilievi
+della verifica (§20) sono state applicate **dopo** l'esecuzione, e questa
+riproduzione con il codice corretto mostra che non spostano nessun numero.
+
+### 19.6 Che cosa questi numeri NON dicono
+
+- **Nulla sul 2026-27**, che è la stagione dell'asta. Le due stagioni misurate
+  sono validazione già consultata molte volte (§13.3): l'intervallo corregge il
+  campionamento, non la selezione.
+- **Nulla sull'incertezza dell'adattamento.** Un solo cubo, una sola stima. §14
+  mostra che il trattamento di quell'incertezza cambia risultati di un fattore
+  2-3.
+- **Nulla di causale.** «Il cubo trae meno dalle presenze» descrive il segno di
+  un contrasto, non il meccanismo che lo produce.
+- **Nessuna equivalenza.** Dove l'intervallo contiene lo zero, la lettura è
+  «differenza non rilevabile con questo disegno». Diventerebbe equivalenza solo
+  contro una tolleranza dichiarata prima, che nessuno ha dichiarato.
+- **Nessuna promozione.** Il cubo resta non promosso, e adesso con una ragione
+  in più.
+
+---
+
+## 20. La verifica di R4, e perché il suo esito non va preso alla lettera
+
+Il codice di R4 è stato passato a una verifica avversariale a tre lenti
+indipendenti — le formule contro le fonti, il cablaggio dentro il banco, le
+affermazioni scritte contro le prove — e ogni rilievo è passato da un
+confutatore separato. Ventisei rilievi grezzi, **zero confermati**.
+
+Quello zero non è un risultato: è un difetto del disegno della verifica. Ai
+confutatori avevo dato la regola «in caso di dubbio, confuta», per non far
+passare rilievi falsi. Con quel prior hanno scartato anche i rilievi veri,
+rispondendo a fianco della questione: al rilievo «il controllo dell'interazione
+è una tautologia» il confutatore ha risposto che il protocollo non lo pubblicizza
+— che è vero e irrilevante, perché a mentire era il commento nel codice.
+
+Ho quindi riletto i ventisei grezzi e deciso io. Otto erano veri, e sono
+corretti:
+
+| rilievo | correzione |
+|---|---|
+| il controllo dell'interazione confrontava due scritture algebricamente identiche: non poteva fallire | sostituito con l'unico controllo che a valle ha senso (le quattro lunghezze), e il commento adesso dice che cosa garantisce davvero l'appaiamento |
+| con un solo seme l'esito poteva dire «C1 migliore» senza che il rumore Monte Carlo fosse mai misurato | l'etichetta porta scritto «(rumore Monte Carlo non misurato)» |
+| la logica delle etichette era scritta due volte, e i test provavano la copia che il banco non esegue | una sola stesura, `inferenza.esito_confronto`, usata dal banco |
+| l'errore standard one-way usciva NaN dove la risposta giusta è zero | zero, che è informativo: dice che dentro grappolo non resta niente |
+| `intervallo_two_way` assume che la cella (partita, giocatore) sia unica per riga, senza dirlo né sorvegliarlo | ipotesi dichiarata e sorvegliata; si può disattivare la guardia, ma va scritto |
+| `rho_intra` assume grappoli bilanciati | limite dichiarato nel docstring |
+| il controllo della prima finestra in `l2_progressivo.py` confrontava un oggetto con sé stesso | la prima origine viene rigenerata, così il controllo può fallire |
+| la copertura «50,7 %» era il caso peggiore presentato come l'unico | §18.1 riporta entrambi i campioni: 50,7 % sul Brier, 76,2 % sul CRPS |
+
+Più due correzioni ai fatti: la geometria del grappolo partita (67,9 righe in
+media, non ventidue) e l'incidente dell'artefatto (§17.2), dove i confutatori
+hanno avuto ragione loro e io torto — gli originali erano nell'archivio a
+contenuto indirizzato.
+
+**Un rilievo vero che NON ho corretto**, e la ragione. La soglia del rumore
+Monte Carlo è `es_mc ≤ |Δ| / 10`: quando `Δ` tende a zero la soglia tende a
+zero, quindi un confronto genuinamente nullo finisce etichettato «non
+misurabile con le risorse disponibili» invece di «differenza non rilevabile».
+È un effetto reale, e si vede nel 2025-26 su `C0 − I0`. Non l'ho cambiata
+perché **la soglia era dichiarata prima di eseguire**, nella regola operativa
+del ramo di ricerca, e spostarla adesso — dopo aver visto quali righe finiscono
+da che parte — è esattamente la mossa che questo protocollo vieta. Chi legge
+quella etichetta guardi anche `es_monte_carlo` e `ic_basso`/`ic_alto`: se
+l'intervallo contiene lo zero **e** il rumore è dello stesso ordine della
+differenza, le due letture coincidono nella sostanza e divergono solo nel nome.

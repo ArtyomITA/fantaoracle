@@ -125,6 +125,7 @@ STAGIONI = ["2021-22", "2022-23", "2023-24", "2024-25", "2025-26", "2026-27"]
 
 sys.path.insert(0, str(ROOT / "src"))
 from fantabot.tabellino import appartenenza as app       # noqa: E402
+from fantabot.tabellino import contratto                 # noqa: E402
 
 
 def anno(stagione: str) -> int:
@@ -387,8 +388,8 @@ def data_decisione(stagione: str, panel_data_min) -> pd.Timestamp:
     return pd.Timestamp(panel_data_min) - pd.Timedelta(days=1)
 
 
-def costruisci(stagione: str, as_of=None,
-               estendi_fino=None) -> tuple[pd.DataFrame, dict]:
+def costruisci(stagione: str, as_of=None, estendi_fino=None,
+               data_fit=None) -> tuple[pd.DataFrame, dict]:
     acquisito = time.strftime("%Y-%m-%dT%H:%M:%S")
     q = {"stagione": stagione, "costruito_il": acquisito, "impronte": {}}
     for nome, p in [("voti", RAW / "voti" / f"voti_{stagione}.csv"),
@@ -553,12 +554,21 @@ def costruisci(stagione: str, as_of=None,
     #                Non puo' entrare fra le informazioni di una decisione
     #                passata.
     #
-    #   INFORMATIVA  «di chi risultava, per chi decideva a quella data?» Le
+    #   AL FIT       «che cosa sappiamo oggi, mentre addestriamo?» Una stagione
+    #                gia' conclusa entra intera nel fit successivo, ma le sue
+    #                caratteristiche non possono poggiare su prove emerse dopo
+    #                il fit. Il caso non e' teorico: la fonte dei trasferimenti
+    #                contiene 478 movimenti con data POSTERIORE a oggi (430 nel
+    #                2026, 48 nel 2027), fra cui un ritiro datato luglio 2027.
+    #                Sono cessioni annunciate, non avvenute: la vista
+    #                osservativa le tratta come fatti, questa no.
+    #
+    #   ALLA DECISIONE  «di chi risultava, per chi decideva a quella data?» Le
     #                prove sono filtrate prima di risolvere i conflitti, e
     #                l'affermazione vale in avanti come inferenza di
     #                continuita', segnata come tale in `confidenza_dec`.
     #
-    # Con `as_of = None` la seconda vista non viene costruita e le colonne
+    # Con `as_of = None` la terza vista non viene costruita e le sue colonne
     # restano nulle: il panel storico continua a funzionare come prima.
     # ------------------------------------------------------------------
     tab = app.costruisci()
@@ -568,11 +578,28 @@ def costruisci(stagione: str, as_of=None,
     P["fonte_appartenenza"] = ris["fonte"]
     P["club_id_alla_data"] = ris["club_id_alla_data"]
 
+    # vista al fit: le prove si fermano al giorno in cui si addestra
+    fit = pd.Timestamp(data_fit) if data_fit is not None else pd.Timestamp.today().normalize()
+    tab_fit = app.costruisci(as_of=fit,
+                             estendi_fino=max(fit, P["data"].max() + pd.Timedelta(days=1)))
+    q["appartenenza_al_fit"] = tab_fit.diagnostica
+    rf = tab_fit.verifica_molti(P["tm_player_id"], P["club_id_squadra"], P["data"])
+    P["appartenenza_esito_fit"] = rf["esito"]
+    P["fonte_appartenenza_fit"] = rf["fonte"]
+    P["club_id_alla_data_fit"] = rf["club_id_alla_data"]
+    P["confidenza_fit"] = rf["confidenza"]
+    q["data_fit"] = str(fit.date())
+
     if as_of == "auto":
         as_of = data_decisione(stagione, P["data"].min())
     if as_of is not None:
-        orizzonte = (estendi_fino if estendi_fino is not None
-                     else P["data"].max())
+        # `estendi_fino` e' il primo giorno NON coperto: gli intervalli sono
+        # semiaperti `[dal, al)`. Passando la data massima delle partite, la
+        # giornata finale restava scoperta — misurato: il 100% delle righe
+        # dell'ultimo giorno rispondeva `ignoto`, mentre il giorno prima
+        # rispondeva 93 `si`, 36 `no`, 3 `ignoto` su 200 righe campionate.
+        orizzonte = (pd.Timestamp(estendi_fino) if estendi_fino is not None
+                     else P["data"].max() + pd.Timedelta(days=1))
         tab_dec = app.costruisci(as_of=as_of, estendi_fino=orizzonte)
         q["appartenenza_decisione"] = tab_dec.diagnostica
         rd = tab_dec.verifica_molti(P["tm_player_id"], P["club_id_squadra"],
@@ -619,11 +646,33 @@ def costruisci(stagione: str, as_of=None,
     # stato convocato»
     formazioni_note = P["distinta"].eq("completa")
 
-    # eleggibile: True solo con appartenenza dimostrata E formazioni note;
-    # False se e' dimostrato che era di un altro club; nullo dove manca la prova
+    # Stato del giocatore e disponibilita' del dato sono cose diverse e vanno
+    # tenute separate: `appartiene_*` dice se il giocatore era di quel club,
+    # `distinta` dice se la fonte ci ha fatto vedere la formazione. Mescolarle
+    # in un unico `eleggibile` faceva sparire dal denominatore le righe con
+    # distinta assente insieme a quelle con appartenenza ignota.
+    P["appartiene_oss"] = pd.Series(pd.NA, index=P.index, dtype="boolean")
+    P.loc[P.appartenenza_esito == app.SI, "appartiene_oss"] = True
+    P.loc[P.appartenenza_esito == app.NO, "appartiene_oss"] = False
+
+    # `eleggibile` osservativo: come prima, per la descrizione storica
     P["eleggibile"] = pd.Series(pd.NA, index=P.index, dtype="boolean")
     P.loc[(P.appartenenza_esito == app.SI) & formazioni_note, "eleggibile"] = True
     P.loc[P.appartenenza_esito == app.NO, "eleggibile"] = False
+
+    # `eleggibile_fit`: la stessa cosa vista al giorno del fit. E' questa che
+    # deve andare al denominatore delle propensioni, perche' una stagione
+    # conclusa entra intera nel fit ma non puo' portarsi dietro prove emerse
+    # dopo quel giorno — per esempio i trasferimenti annunciati e non ancora
+    # avvenuti, che nella fonte sono 478.
+    if "appartenenza_esito_fit" in P:
+        P["appartiene_fit"] = pd.Series(pd.NA, index=P.index, dtype="boolean")
+        P.loc[P.appartenenza_esito_fit == app.SI, "appartiene_fit"] = True
+        P.loc[P.appartenenza_esito_fit == app.NO, "appartiene_fit"] = False
+        P["eleggibile_fit"] = pd.Series(pd.NA, index=P.index, dtype="boolean")
+        P.loc[(P.appartenenza_esito_fit == app.SI) & formazioni_note,
+              "eleggibile_fit"] = True
+        P.loc[P.appartenenza_esito_fit == app.NO, "eleggibile_fit"] = False
 
     # ------------------------------------------------------------------
     # stato di convocazione
@@ -694,6 +743,21 @@ def verifica(P: pd.DataFrame, q: dict) -> dict:
     # completezza della distinta, misurata sulla fonte originale
     if "distinta" in P:
         q["distinta"] = P.distinta.value_counts().to_dict()
+    # vista al fit: quante righe cambiano rispetto all'osservativa. La
+    # differenza e' fatta dalle prove datate dopo il giorno del fit, cioe' dai
+    # trasferimenti annunciati e non ancora avvenuti.
+    if "appartenenza_esito_fit" in P:
+        q["appartenenza_esiti_fit"] = (
+            P.appartenenza_esito_fit.value_counts(dropna=False)
+            .rename(index=str).to_dict())
+        d_fit = P.appartenenza_esito != P.appartenenza_esito_fit
+        q["osservativa_contro_fit_divergenti"] = int(d_fit.sum())
+        q["osservativa_contro_fit_dettaglio"] = (
+            {f"{a} -> {b}": int(n) for (a, b), n in
+             P.loc[d_fit].groupby(["appartenenza_esito",
+                                   "appartenenza_esito_fit"]).size().items()}
+            if d_fit.any() else {})
+
     # vista informativa alla data di decisione: quanto risponde, e quanta parte
     # della risposta e' inferenza di continuita' invece che prova diretta
     if "appartenenza_esito_dec" in P and P.appartenenza_esito_dec.notna().any():
@@ -772,6 +836,9 @@ def main() -> int:
                          "AAAA-MM-GG, `auto` (il giorno prima della prima "
                          "partita della stagione) oppure `nessuna` per non "
                          "costruire la vista")
+    ap.add_argument("--data-fit", default=None,
+                    help="giorno in cui si addestra: le prove posteriori non "
+                         "entrano nella vista al fit. Predefinito: oggi")
     ap.add_argument("--estendi-fino", default=None,
                     help="fin dove l'appartenenza vale in avanti per inferenza "
                          "di continuita'. Predefinito: l'ultima partita della "
@@ -787,7 +854,8 @@ def main() -> int:
                   "senza listone non esiste l'universo atteso")
             continue
         as_of = None if a.as_of == "nessuna" else a.as_of
-        P, q = costruisci(st, as_of=as_of, estendi_fino=a.estendi_fino)
+        P, q = costruisci(st, as_of=as_of, estendi_fino=a.estendi_fino,
+                          data_fit=a.data_fit)
         q = verifica(P, q)
         tutte[st] = q
         print(f"\n--- {st}: {q['righe_panel']} righe di universo, di cui "
@@ -814,9 +882,35 @@ def main() -> int:
             if k.startswith("ATTENZIONE"):
                 print(f"  {k}: {q[k]}")
         if not a.verifica:
-            out = PROC / f"l2_panel_{st}.parquet"
+            # Il cutoff entra nel NOME del file e nei metadati accanto: senza,
+            # un unico `l2_panel_{st}.parquet` cambia significato a seconda
+            # dell'ultimo comando eseguito, e un consumatore non ha modo di
+            # sapere con quali prove e' stato costruito. Misurato prima della
+            # correzione: `l2_panel_qualita.json` riportava `data_fit =
+            # 2026-09-08` per tutte e cinque le stagioni, perche' il
+            # predefinito e' «oggi».
+            fit_st = q.get("data_fit")
+            out = PROC / contratto.nome_panel(st, fit_st)
             P.to_parquet(out, index=False)
-            print(f"  scritto {out.name} ({out.stat().st_size // 1024} KB)")
+            c = contratto.ContrattoPanel(
+                stagione=st,
+                data_fit=fit_st,
+                as_of_decisione=q.get("as_of_decisione"),
+                estendi_fino=q.get("estendi_fino"),
+                fonti=q.get("impronte", {}),
+                righe=int(len(P)),
+                colonne=sorted(P.columns.tolist()),
+                costruito_il=q.get("costruito_il"))
+            contratto.scrivi(out, c)
+            q["contratto"] = c.a_dizionario()
+            print(f"  scritto {out.name} ({out.stat().st_size // 1024} KB), "
+                  f"contratto {c.impronta()[:12]}")
+            # alias osservativo: lo stesso panel senza cutoff nel nome, per i
+            # consumatori che chiedono esplicitamente la vista storica. Porta
+            # il proprio contratto, quindi resta riconoscibile.
+            alias = PROC / contratto.nome_panel(st)
+            P.to_parquet(alias, index=False)
+            contratto.scrivi(alias, c)
     (PROC / "l2_panel_qualita.json").write_text(
         json.dumps(tutte, indent=1, default=str), encoding="utf-8")
     print(f"\nscritto {PROC / 'l2_panel_qualita.json'}")

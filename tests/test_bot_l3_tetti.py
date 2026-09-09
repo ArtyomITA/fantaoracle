@@ -24,7 +24,20 @@ Che cosa provano questi test, uno per riga:
 * stato identico, tetto riutilizzato;
 * il tetto economico non supera mai il massimo legalmente offribile;
 * stato `inconcludente`, completamento non ammesso, chiave assente o vista
-  assente: tetto respinto e ripiego contato con la sua ragione.
+  assente: tetto respinto e ripiego contato con la sua ragione;
+* chiave del dizionario e identita' del record discordi: tetto respinto
+  (difetto dell'8 settembre 2026, vedi sotto);
+* `tetto_economico` pari a zero, valido e distinto da un dato mancante;
+* `stima_tetto` diverso da `tetto_economico`: e' il secondo a comandare.
+
+**Il difetto dell'identita'.** Il committente ha costruito un record con
+`giocatore = "A0"` e l'ha riposto sotto la chiave `"A1"`:
+`_tetto_validato("A1", view)` rispondeva `(17.0, "valido")`. La chiave di
+validita' descrive lo **stato del mondo** ed e' la stessa per tutti i giocatori
+calcolati dallo stesso `StatoAsta`, quindi nessuna delle altre verifiche poteva
+accorgersene. Il test positivo scriveva `"giocatore": "ignoto"`, cioe' la
+fixture stessa impediva di vedere il difetto: e' stata corretta prima di
+aggiungere il caso negativo.
 
 **Come i record di prova sono costruiti, e perche' non e' circolare.** La
 chiave attesa e' ricalcolata qui da `_chiave_stato_di_prova`, che e' una
@@ -158,14 +171,22 @@ COMPLETAMENTO = {"nome": "completamento surrogato per priorita'",
 
 def _record(view: AuctionView, tetto: float, stato: str = "verificato",
             contesto: dict | None = None, completamento: dict | None = None,
-            chiave: dict | None = None, massimo_legale=None) -> dict:
-    """Un risultato di `curva()` ridotto ai campi che il consumatore legge."""
+            chiave: dict | None = None, massimo_legale=None,
+            giocatore: str = "A0") -> dict:
+    """Un risultato di `curva()` ridotto ai campi che il consumatore legge.
+
+    `giocatore` era scritto `"ignoto"` fino all'8 settembre 2026, e con quel
+    valore la fixture positiva non poteva accorgersi che il consumatore non
+    guardava mai l'identita' del record: un record di `A0` messo sotto la
+    chiave `A1` passava la verifica. Adesso il valore predefinito e' il
+    giocatore che quasi tutti i test chiedono, e chi ne chiede un altro lo
+    dichiara."""
     ctx = CONTESTO if contesto is None else contesto
     corrente = _chiave_stato_di_prova(view)
     piena = {"stato_decisionale": corrente, **{k: v for k, v in ctx.items()}}
     piena["impronta"] = _sha(json.dumps(piena, sort_keys=True, default=str), 16)
     return {
-        "giocatore": "ignoto",
+        "giocatore": giocatore,
         "tetto_economico": tetto,
         "massimo_legale": (corrente["massimo_legale"] if massimo_legale is None
                            else massimo_legale),
@@ -476,7 +497,8 @@ def test_il_reparto_pieno_toglie_senso_al_tetto():
                   budget=90, venduti=[("P1", "T0", 10)],
                   pool=_pool(esclusi=("P1",)))
     pid = "P0"
-    bot = _bot(piano=(pid,), tetti={pid: _record(view, 33.0)})
+    bot = _bot(piano=(pid,),
+               tetti={pid: _record(view, 33.0, giocatore=pid)})
     assert _chiedi(bot, view, pid) == pytest.approx(_tetto_di_b(pid))
     assert bot.ripieghi_per_ragione == {"reparto_pieno": 1}
 
@@ -500,8 +522,9 @@ def test_il_tetto_resta_riservato_ai_giocatori_del_piano():
     controllo `piano=None` non sarebbe piu' un controllo."""
     view = _vista()
     dentro, fuori = "A0", "D0"
-    bot = _bot(piano=(dentro,), tetti={dentro: _record(view, 33.0),
-                                       fuori: _record(view, 1.0)})
+    bot = _bot(piano=(dentro,),
+               tetti={dentro: _record(view, 33.0, giocatore=dentro),
+                      fuori: _record(view, 1.0, giocatore=fuori)})
     assert _chiedi(bot, view, dentro) == 33.0
     assert _chiedi(bot, view, fuori) == pytest.approx(_tetto_di_b(fuori))
     assert bot.conta["offerte_con_tetto_indifferenza"] == 1
@@ -517,7 +540,8 @@ def test_con_indifferenza_spenta_i_massimi_sono_quelli_di_b_piu():
     view = _vista()
     riferimento = BBotCoerente(random.Random(0), _predizioni())
     bot = _bot(piano=tuple(view.pool), usa_indifferenza=False,
-               tetti={pid: _record(view, 1.0) for pid in view.pool})
+               tetti={pid: _record(view, 1.0, giocatore=pid)
+                      for pid in view.pool})
     bot._vista = view
     for pid in sorted(view.pool):
         assert bot._max_bid_for(pid) == riferimento._max_bid_for(pid), pid
@@ -626,3 +650,138 @@ def test_il_rapporto_espone_i_ripieghi_con_la_loro_ragione():
     # il rapporto non deve condividere gli oggetti interni
     r["ripieghi_per_ragione"]["stato_cambiato"] = 99
     assert bot.ripieghi_per_ragione == {"stato_cambiato": 1}
+
+
+# ============================================== identita' del record (dif. A)
+def test_un_record_di_un_altro_giocatore_non_vale_sotto_questa_chiave():
+    """Il caso del committente, riprodotto: record di `A0` sotto la chiave
+    `A1`. Prima della correzione `_tetto_validato("A1", view)` restituiva
+    `(17.0, "valido")`, perche' il consumatore si fidava della chiave del
+    dizionario e la chiave di validita' non parla del bersaglio."""
+    view = _vista()
+    rec = _record(view, 17.0, giocatore="A0")
+    bot = _bot(piano=("A1",), tetti={"A1": rec})
+    assert bot._tetto_validato("A1", view) == (None, "identita_diversa")
+    assert _chiedi(bot, view, "A1") == pytest.approx(_tetto_di_b("A1"))
+    assert _chiedi(bot, view, "A1") != 17.0
+    assert bot.ripieghi_per_ragione == {"identita_diversa": 2}
+    assert bot.conta["offerte_con_tetto_indifferenza"] == 0
+
+
+def test_un_record_senza_identita_non_viene_usato():
+    """La forma vecchia del file dei tetti (`scripts/l3_tetti.py` fino all'8
+    settembre 2026) non scriveva `giocatore`: non e' verificabile."""
+    view = _vista()
+    pid = "A0"
+    rec = _record(view, 33.0)
+    del rec["giocatore"]
+    bot = _bot(piano=(pid,), tetti={pid: rec})
+    assert _chiedi(bot, view, pid) == pytest.approx(_tetto_di_b(pid))
+    assert bot.ripieghi_per_ragione == {"senza_identita": 1}
+
+
+def test_l_identita_e_canonica_fra_interi_e_stringhe():
+    """Il cubo indicizza con interi, il motore d'asta con stringhe: `6482` e
+    `"6482"` sono lo stesso giocatore e il tetto deve entrare."""
+    pool = {"6482": Player("6482", "6482", "A", "sq", ref_price=0.05)}
+    pool.update(_pool())
+    view = _vista(pool=pool)
+    bot = _bot(piano=("6482",), tetti={"6482": _record(view, 33.0,
+                                                       giocatore=6482)})
+    assert _chiedi(bot, view, "6482") == 33.0
+    assert bot.ripieghi_per_ragione == {}
+
+
+def test_un_identificativo_non_ammesso_e_respinto_non_convertito():
+    """`True` vale 1 per `int`, `6482.0` si scrive in piu' modi: nessuno dei
+    due e' un identificativo, e il consumatore non prova a indovinare."""
+    view = _vista()
+    pid = "A0"
+    for valore in (True, 6482.0, ["A0"], {"id": "A0"}, "", "   "):
+        bot = _bot(piano=(pid,),
+                   tetti={pid: _record(view, 33.0, giocatore=valore)})
+        assert _chiedi(bot, view, pid) == pytest.approx(_tetto_di_b(pid)), valore
+        assert bot.conta["tetti_respinti"] == 1, valore
+
+
+# ========================================== zero valido contro dato mancante
+def test_un_tetto_economico_zero_e_valido_e_significa_non_rilanciare():
+    """Zero e' una decisione, non un buco: `curva()` espone `tetto_economico`
+    0 quando nessun prezzo provato ha vantaggio supportato. Con uno stato
+    ammesso il numero entra e produce un massimo di offerta pari a zero, cioe'
+    un passo; non e' un ripiego sul tetto di B, che sarebbe piu' alto."""
+    view = _vista()
+    pid = "A0"
+    bot = _bot(piano=(pid,), tetti={pid: _record(view, 0.0)})
+    assert _chiedi(bot, view, pid) == 0.0
+    assert _tetto_di_b(pid) > 0.0, "il ripiego coincide con zero: prova vuota"
+    assert bot.conta["offerte_con_tetto_indifferenza"] == 1
+    assert bot.conta["tetti_respinti"] == 0
+    assert bot.ripieghi_per_ragione == {}
+
+
+def test_un_tetto_economico_assente_non_e_uno_zero():
+    """Il campo mancante non si legge come zero: non si sa, quindi si ripiega
+    e il ripiego e' contato con la sua ragione."""
+    view = _vista()
+    pid = "A0"
+    for costruisci in (lambda r: r.pop("tetto_economico"),
+                       lambda r: r.__setitem__("tetto_economico", None)):
+        rec = _record(view, 33.0)
+        costruisci(rec)
+        bot = _bot(piano=(pid,), tetti={pid: rec})
+        assert _chiedi(bot, view, pid) == pytest.approx(_tetto_di_b(pid))
+        assert bot.ripieghi_per_ragione == {"tetto_non_numerico": 1}
+
+
+# ================================= stima puntuale contro record inconcludente
+def test_la_stima_puntuale_non_diventa_il_tetto():
+    """`stima_tetto` e' il massimo dei delta positivi, scelto su k prezzi e
+    distorto verso l'alto (`indifferenza.DISTORSIONE_DA_SELEZIONE`, fattore
+    5,3 misurato su Zaccagni). Il cap e' `tetto_economico` e basta."""
+    view = _vista()
+    pid = "A0"
+    rec = _record(view, 12.0)
+    rec["stima_tetto"] = 90.0
+    bot = _bot(piano=(pid,), tetti={pid: rec})
+    assert _chiedi(bot, view, pid) == 12.0
+
+
+def test_un_record_che_contraddice_la_propria_classificazione_e_respinto():
+    """Il file gia' salvato `data/l3/asta/tetti_2026-27.json` e' cosi': Mandas
+    porta `tetto_economico = 19` con stato `inconcludente`, cioe' un numero
+    che la classificazione nuova non sostiene. Quando il record porta il
+    blocco `classificazione`, i due devono combaciare."""
+    view = _vista()
+    pid = "A0"
+    rec = _record(view, 19.0)
+    rec["classificazione"] = {"tetto_supportato": None, "stima_tetto": 19,
+                              "prezzi_vantaggio_supportato": [],
+                              "prezzi_svantaggio_supportato": [],
+                              "prezzi_inconcludenti": [7, 12, 19]}
+    bot = _bot(piano=(pid,), tetti={pid: rec})
+    assert _chiedi(bot, view, pid) == pytest.approx(_tetto_di_b(pid))
+    assert bot.ripieghi_per_ragione == {"record_incoerente": 1}
+
+
+def test_un_record_coerente_con_la_propria_classificazione_passa():
+    """Il rovescio del test precedente: senza questo, respingere ogni record
+    con classificazione passerebbe comunque."""
+    view = _vista()
+    pid = "A0"
+    rec = _record(view, 19.0)
+    rec["classificazione"] = {"tetto_supportato": 19, "stima_tetto": 24,
+                              "prezzi_vantaggio_supportato": [7, 12, 19],
+                              "prezzi_svantaggio_supportato": [30],
+                              "prezzi_inconcludenti": [24]}
+    bot = _bot(piano=(pid,), tetti={pid: rec})
+    assert _chiedi(bot, view, pid) == 19.0
+    assert bot.ripieghi_per_ragione == {}
+
+
+def test_il_completamento_ammesso_si_chiama_surrogato_nel_rapporto():
+    """`assegnazione_per_priorita` non e' una continuazione competitiva
+    dell'asta: ovunque il suo risultato viene esposto va chiamato surrogato."""
+    bot = _bot()
+    assert bot.rapporto()["completamenti_ammessi"] == [
+        "surrogato (assegnazione_per_priorita)"]

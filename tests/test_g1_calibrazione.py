@@ -266,16 +266,58 @@ def test_pit_randomizzato_e_uniforme_sotto_il_modello_vero():
 
 
 def test_punteggio_logaritmico_coincide_con_quello_del_modello():
-    """Con una sola estrazione la mistura e' il modello: stesso numero di `partita.py`."""
+    """Con una sola estrazione la mistura e' il modello — sullo stesso supporto.
+
+    Dopo la correzione della distribuzione campionata (R3), i due percorsi
+    hanno bersagli **dichiaratamente diversi**:
+
+    - `ModelloPartita.log_score_risultato` valuta la legge di Dixon-Coles
+      **intera**, cosi' un 14-2 riceve la sua probabilita' vera invece di
+      quella del 12-2;
+    - `G1.mistura` costruisce la matrice **troncata** al supporto scelto, e la
+      rinormalizza.
+
+    Confrontarli con la matrice a `MAX_GOL = 12` misura la massa buttata dal
+    troncamento, non un difetto. Qui il confronto e' a supporto largo, dove i
+    due bersagli convergono; lo scarto a supporto stretto viene misurato nel
+    test successivo invece di essere assorbito da una tolleranza piu' larga.
+    """
     squadre, h, a, x, y, w = _campionato_finto()
     casa = np.array(squadre)[h]
     via = np.array(squadre)[a]
     modello = stima(casa, via, x, y, squadre=squadre, pesi=w, lam_pen=2.0,
                     usa_dc=True)
-    P = G1.mistura([modello], casa, via)
+    P = G1.mistura([modello], casa, via, max_gol=60)
     nostro = G1.punteggio_logaritmico(P, x.astype(int), y.astype(int))
     loro = modello.log_score_risultato(casa, via, x, y)
-    assert np.allclose(nostro, loro, atol=1e-12)
+    assert np.allclose(nostro, loro, atol=1e-9), (
+        f"scarto massimo {np.max(np.abs(nostro - loro)):.2e} a supporto 60: "
+        "i due percorsi non valutano la stessa legge")
+
+
+def test_quanto_costa_il_troncamento_sul_punteggio_logaritmico():
+    """La massa buttata dal troncamento ha un prezzo, e va misurato.
+
+    Con `MAX_GOL = 12` la matrice perde la coda oltre dodici gol. Sul
+    logaritmo l'effetto e' piu' grande che sulla probabilita': va conosciuto,
+    perche' e' la differenza fra il bersaglio del campionatore e quello della
+    valutazione.
+    """
+    squadre, h, a, x, y, w = _campionato_finto()
+    casa = np.array(squadre)[h]
+    via = np.array(squadre)[a]
+    modello = stima(casa, via, x, y, squadre=squadre, pesi=w, lam_pen=2.0,
+                    usa_dc=True)
+    intero = modello.log_score_risultato(casa, via, x, y)
+    stretto = G1.punteggio_logaritmico(
+        G1.mistura([modello], casa, via, max_gol=12),
+        x.astype(int), y.astype(int))
+    scarto = float(np.max(np.abs(stretto - intero)))
+    # misurato: dell'ordine di 1e-5 sui logaritmi, cioe' il troncamento sposta
+    # il punteggio di molto meno di qualunque differenza fra modelli che ci
+    # interessi, ma non e' zero e non va scambiato per tale
+    assert scarto < 1e-3, f"il troncamento sposta il log-score di {scarto:.2e}"
+    assert scarto > 0, "il troncamento non costa nulla: sospetto"
 
 
 def test_misture_coincidono_quando_tutte_le_estrazioni_sono_ammissibili():

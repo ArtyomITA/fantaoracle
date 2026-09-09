@@ -1,3 +1,17 @@
+> **STORICO — NON È IL PUNTO DI RIPRESA CORRENTE.**
+> Questo documento descrive la pausa del 7 settembre 2026. Il puntatore
+> corrente è **`RIPRESA.md`**, aggiornato il 9 settembre.
+>
+> Conclusioni di questo documento che sono state **ritrattate**:
+> - il verdetto del banco a informazione comparabile («inconcludente») è stato
+>   rovesciato da R4: `C1` è peggiore, con intervallo che esclude lo zero. Vedi
+>   `reports/PROTOCOLLO_v2.md` §19;
+> - le conclusioni sul Livello 3 restano non promosse e il loro difetto è
+>   registrato come blocco nel manifesto: il braccio L3 del confronto d'asta
+>   misurava due cose insieme.
+>
+> Il resto è conservato com'era, perché il percorso resti leggibile.
+
 # Punto di ripresa — Livello 2 rivalutato e Livello 3
 
 Scritto il 7 settembre 2026, 22:35, su richiesta di pausa. Serve a riprendere

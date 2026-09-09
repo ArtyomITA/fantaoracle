@@ -126,16 +126,21 @@ CONTESTO_TETTI = {
 }
 
 
-def _record_tetto(view, tetto: float, stato: str = "verificato") -> dict:
-    """Un risultato di `curva()` valido per lo stato `view`.
+def _record_tetto(view, giocatore: str, tetto: float,
+                  stato: str = "verificato") -> dict:
+    """Un risultato di `curva()` valido per lo stato `view` e per `giocatore`.
 
     La chiave osservabile viene da `BotL3.chiave_stato_corrente`, cioe' dal
     consumatore stesso: qui va bene perche' l'oggetto del test e' il confine
     del piano, non la verifica della chiave. La verifica e' provata contro una
     seconda implementazione scritta a mano e contro
-    `indifferenza.chiave_di_validita` in `tests/test_bot_l3_tetti.py`."""
+    `indifferenza.chiave_di_validita` in `tests/test_bot_l3_tetti.py`.
+
+    `giocatore` e' obbligatorio dall'8 settembre 2026: un record che non
+    dichiara di chi parla non e' verificabile, e uno che dichiara un altro
+    giocatore non deve agire su questo."""
     sonda = BotL3(random.Random(0), _predizioni())
-    return {"tetto_economico": tetto, "stato": stato,
+    return {"giocatore": giocatore, "tetto_economico": tetto, "stato": stato,
             "completamento": {"tipo": "assegnazione_per_priorita"},
             "chiave_validita": {
                 "stato_decisionale": sonda.chiave_stato_corrente(view),
@@ -343,8 +348,8 @@ def test_il_tetto_di_indifferenza_vale_solo_sui_giocatori_del_piano():
     vista = _vista(pool)
     fuori, dentro = "D1", "D8"
     bot = _bot(pool, piano=(dentro,), usa_indifferenza=True)
-    bot.tetti = {fuori: _record_tetto(vista, 1.0),
-                 dentro: _record_tetto(vista, 1.0)}
+    bot.tetti = {fuori: _record_tetto(vista, fuori, 1.0),
+                 dentro: _record_tetto(vista, dentro, 1.0)}
     bot.start_auction(vista)
     riferimento = _b_piu()
     riferimento.start_auction(_vista(_pool()))
@@ -508,3 +513,29 @@ def test_i_contatori_morti_non_compaiono_nel_rapporto():
     assert not hasattr(bot, "budget_tempo_s")
     assert "offerte_con_tetto_di_b" in r
     assert "quota_offerte_con_tetto_indifferenza" in r
+
+
+def test_un_tetto_valido_ma_di_un_altro_giocatore_non_agisce():
+    """Il confine del piano non e' l'unico: anche dentro il piano, un record
+    deve parlare del giocatore su cui viene usato.
+
+    Qui il record e' valido in tutto il resto — stessa chiave, stesso stato,
+    stesso completamento — e cambia solo l'identita' dichiarata. Prima della
+    correzione dell'8 settembre 2026 il consumatore non la leggeva e il tetto
+    entrava lo stesso."""
+    pool = _pool()
+    vista = _vista(pool)
+    dentro, altro = "D8", "C8"
+    bot = _bot(pool, piano=(dentro,), usa_indifferenza=True)
+    bot.tetti = {dentro: _record_tetto(vista, altro, 1.0)}
+    bot.start_auction(vista)
+    riferimento = _b_piu()
+    riferimento.start_auction(_vista(_pool()))
+    assert bot._max_bid_for(dentro) == riferimento._max_bid_for(dentro)
+    assert bot.conta["offerte_con_tetto_indifferenza"] == 0
+    assert bot.ripieghi_per_ragione == {"identita_diversa": 1}
+    # e con l'identita' giusta lo stesso record agisce: la prova non e' vuota
+    bot2 = _bot(pool, piano=(dentro,), usa_indifferenza=True)
+    bot2.tetti = {dentro: _record_tetto(vista, dentro, 1.0)}
+    bot2.start_auction(vista)
+    assert bot2._max_bid_for(dentro) == 1.0

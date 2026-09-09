@@ -41,6 +41,17 @@ trattamenti sugli stessi scenari e sullo stesso calendario.
 Secondario: fantapunti, spesa, residuo, acquisti per reparto, target persi,
 quante volte il tetto per indifferenza e' stato davvero usato.
 
+## I tetti arrivano interi, non come numero
+
+`carica_tetti` passa al bot il **record** prodotto da `scripts/l3_tetti.py`
+(identita', chiave di validita', completamento, stato, curva) e il `contesto`
+del file. La conversione precedente a `float` rendeva ogni tetto non
+verificabile: il bot lo respingeva per `senza_chiave` e ripiegava su B, quindi
+il braccio L3+I non poteva differire da L3 per il motivo dichiarato. Le rose su
+cui i tetti sono misurati vengono da un completamento **surrogato**
+(`assegnazione_per_priorita`), non da un'asta competitiva: l'etichetta viene
+stampata insieme al conteggio.
+
 Uso:
   python scripts/l3_confronto_asta.py --repliche 6 --scenari 30
 """
@@ -63,7 +74,9 @@ OUT = ROOT / "data" / "l3" / "asta"
 from fantabot.bots.bot_a import ABot                    # noqa: E402
 from fantabot.bots.bot_b import BBot                    # noqa: E402
 from fantabot.bots.bot_c import CBot                    # noqa: E402
-from fantabot.bots.bot_l3 import BBotCoerente, BotL3    # noqa: E402
+from fantabot.bots.bot_l3 import (                      # noqa: E402
+    STATI_AMMESSI, BBotCoerente, BotL3, etichetta_completamento,
+    identita_canonica)
 from fantabot.engine.auction import AuctionEngine       # noqa: E402
 from fantabot.livello3 import ricerca as R              # noqa: E402
 from fantabot.livello3 import valutatore as V           # noqa: E402
@@ -94,7 +107,109 @@ def fai_avversario(spec: str, rng, pack):
     raise ValueError(spec)
 
 
-def fai_nostro(trattamento: str, rng, pack, piano=None, tetti=None):
+def carica_tetti(percorso, stati_ammessi=STATI_AMMESSI) -> dict:
+    """Legge il file dei tetti e prepara quello che il bot sa verificare.
+
+    ## Il difetto che questa funzione sostituisce
+
+    Fino all'8 settembre 2026 il caricamento era in linea dentro `main()` e
+    faceva `tetti[str(pid)] = float(v["tetto_economico"])`. Un numero nudo non
+    porta chiave di validita', identita' ne' completamento: `BotL3` lo respinge
+    con ragione `senza_chiave` e ripiega sul tetto di B. Il percorso reale
+    produttore -> file -> asta non funzionava, e il braccio L3+I coincideva con
+    L3 senza che il motivo fosse scritto da nessuna parte.
+
+    Qui il **record intero** arriva al bot, insieme al `contesto`: le
+    componenti della chiave che l'asta non puo' osservare (cubo, esperimento,
+    regole, listini). Senza contesto nessun tetto e' valido, quindi se il file
+    non lo porta la funzione lo dichiara invece di lasciare che il bot respinga
+    tutto per un motivo che sembra un altro.
+
+    ## Zero non e' un dato mancante
+
+    Il filtro precedente era `if v.get("stato") in usabili and
+    v.get("tetto_economico")`: un tetto economico pari a **0** e' falso in
+    Python, quindi veniva scartato esattamente come un record senza il campo.
+    Sono due cose diverse: 0 con uno stato ammesso significa «nessun prezzo
+    provato conviene, non rilanciare», ed e' una decisione; l'assenza del campo
+    significa che non si sa. Qui restano distinti e sono contati separatamente.
+
+    ## `stima_tetto` non e' il tetto
+
+    Il record puo' portare anche `stima_tetto`, che e' il massimo dei delta
+    positivi, distorto verso l'alto perche' scelto su k prezzi. Non viene mai
+    promosso a tetto: se `tetto_economico` manca, il record e' scartato.
+
+    Ritorna `{"tetti": {...}, "contesto": {...} | None, "diagnostica": {...}}`.
+    """
+    d = json.loads(Path(percorso).read_text("utf-8"))
+    grezzi = d.get("tetti", {}) or {}
+    diag = {"letti": len(grezzi), "usabili": 0, "identita_diversa": 0,
+            "senza_identita": 0,
+            "dato_mancante": 0, "tetto_non_numerico": 0, "tetto_zero": 0,
+            "senza_chiave": 0, "senza_completamento": 0, "per_stato": {},
+            "seggio_dichiarato": d.get("seggio"),
+            "completamento": None, "contesto_mancante": None}
+    contesto = d.get("contesto")
+    if not isinstance(contesto, dict) or not contesto:
+        contesto = None
+        diag["contesto_mancante"] = (
+            "il file non dichiara il blocco `contesto`: senza le componenti "
+            "non osservabili della chiave (cubo, esperimento, regole) nessun "
+            "tetto e' verificabile e il bot li respinge tutti")
+    tetti = {}
+    for pid, v in grezzi.items():
+        if not isinstance(v, dict):
+            diag["senza_chiave"] += 1
+            continue
+        # l'identita' e' la prima cosa: la chiave del dizionario non e' una
+        # prova, e la forma vecchia del file non scriveva `giocatore` affatto
+        try:
+            ident = identita_canonica(pid)
+        except ValueError:
+            diag["senza_identita"] += 1
+            continue
+        if "giocatore" not in v:
+            diag["senza_identita"] += 1
+            continue
+        try:
+            dichiarata = identita_canonica(v["giocatore"])
+        except ValueError:
+            diag["senza_identita"] += 1
+            continue
+        if dichiarata != ident:
+            diag["identita_diversa"] += 1
+            continue
+        stato = v.get("stato")
+        diag["per_stato"][stato] = diag["per_stato"].get(stato, 0) + 1
+        if "chiave_validita" not in v:
+            diag["senza_chiave"] += 1
+            continue
+        if not isinstance(v.get("completamento"), dict):
+            diag["senza_completamento"] += 1
+            continue
+        if diag["completamento"] is None:
+            diag["completamento"] = etichetta_completamento(
+                v["completamento"].get("tipo"))
+        if stato not in stati_ammessi:
+            continue
+        if "tetto_economico" not in v or v["tetto_economico"] is None:
+            diag["dato_mancante"] += 1
+            continue
+        t = v["tetto_economico"]
+        if (isinstance(t, bool) or not isinstance(t, (int, float))
+                or not np.isfinite(float(t))):
+            diag["tetto_non_numerico"] += 1
+            continue
+        if float(t) == 0.0:
+            diag["tetto_zero"] += 1
+        tetti[ident] = v
+        diag["usabili"] += 1
+    return {"tetti": tetti, "contesto": contesto, "diagnostica": diag}
+
+
+def fai_nostro(trattamento: str, rng, pack, piano=None, tetti=None,
+               contesto=None):
     obj = getattr(pack, "b_objective", None)
     if trattamento == "B":
         return BBot(rng, pack.b_predictions, objective=obj)
@@ -105,11 +220,13 @@ def fai_nostro(trattamento: str, rng, pack, piano=None, tetti=None):
                      objective=obj, usa_indifferenza=False)
     if trattamento == "L3+I":
         return BotL3(rng, pack.b_predictions, piano=piano, tetti=tetti,
-                     objective=obj, usa_indifferenza=True)
+                     objective=obj, usa_indifferenza=True,
+                     contesto_tetti=contesto)
     raise ValueError(trattamento)
 
 
-def gioca_asta(pack, trattamento, seme, seggio, piano=None, tetti=None):
+def gioca_asta(pack, trattamento, seme, seggio, piano=None, tetti=None,
+               contesto=None):
     """Un'asta completa, con il nostro bot al seggio indicato."""
     rng = random.Random(seme)
     specs = list(AVVERSARI)
@@ -118,7 +235,7 @@ def gioca_asta(pack, trattamento, seme, seggio, piano=None, tetti=None):
     for i in range(10):
         if i == seggio:
             b = fai_nostro(trattamento, random.Random(seme * 1000 + i), pack,
-                           piano, tetti)
+                           piano, tetti, contesto)
             etichette.append("NOI")
         else:
             b = fai_avversario(specs[j], random.Random(seme * 1000 + i), pack)
@@ -183,7 +300,9 @@ def main() -> int:
     piano = None
     if a.piano and Path(a.piano).exists():
         d = json.loads(Path(a.piano).read_text("utf-8"))
-        piano = {str(pid): {"titolare": False}
+        # stessa forma canonica dei tetti: il bot incrocia piano e tetti per
+        # chiave, e due normalizzazioni diverse li farebbero non combaciare
+        piano = {identita_canonica(pid): {"titolare": False}
                  for r in d.get("rosa", {}) for pid in d["rosa"][r]}
         print(f"piano L3 caricato: {len(piano)} giocatori da {a.piano}")
     elif "L3" in a.trattamenti or "L3+I" in a.trattamenti:
@@ -196,17 +315,29 @@ def main() -> int:
     # `approssimato`; con stato `inconcludente` il bot ripiega sul tetto di B e
     # conta il ripiego. Senza questo file il trattamento L3+I coincide con L3,
     # e lo si dichiara qui invece di lasciarlo capire dai numeri.
-    tetti = None
+    # Al bot arriva il record intero e il contesto (vedi `carica_tetti`): un
+    # numero nudo non e' verificabile e verrebbe respinto per `senza_chiave`.
+    tetti, contesto = None, None
+    diagnostica_tetti = {"file": a.tetti, "caricato": False}
     if a.tetti and Path(a.tetti).exists():
-        d = json.loads(Path(a.tetti).read_text("utf-8"))
-        usabili = {"verificato", "approssimato"}
-        tetti = {}
-        for pid, v in d.get("tetti", {}).items():
-            if v.get("stato") in usabili and v.get("tetto_economico"):
-                tetti[str(pid)] = float(v["tetto_economico"])
-        print(f"tetti di indifferenza: {len(tetti)} usabili su "
-              f"{len(d.get('tetti', {}))} calcolati "
-              f"(stati: {d.get('conteggio_stati')})")
+        caricati = carica_tetti(a.tetti)
+        tetti, contesto = caricati["tetti"], caricati["contesto"]
+        diag = caricati["diagnostica"]
+        diagnostica_tetti = {"file": a.tetti, "caricato": True, **diag}
+        print(f"tetti di indifferenza: {diag['usabili']} usabili su "
+              f"{diag['letti']} letti (stati: {diag['per_stato']}, "
+              f"tetto zero valido: {diag['tetto_zero']}, dato mancante: "
+              f"{diag['dato_mancante']}, identita' discordi: "
+              f"{diag['identita_diversa']}, senza identita': "
+              f"{diag['senza_identita']})")
+        print(f"completamento dichiarato dai record: {diag['completamento']}")
+        if diag["contesto_mancante"]:
+            print(f"ATTENZIONE: {diag['contesto_mancante']}")
+        if diag["seggio_dichiarato"] is not None:
+            print(f"i tetti sono calcolati per il seggio "
+                  f"{diag['seggio_dichiarato']}: nelle repliche giocate da un "
+                  "altro seggio l'impronta degli avversari non combacia e il "
+                  "bot ripiega su B, contando il ripiego")
         if not tetti:
             print("ATTENZIONE: nessun tetto utilizzabile. L3+I coincide con L3 "
                   "per costruzione; la differenza fra i due sara' zero e non "
@@ -224,7 +355,8 @@ def main() -> int:
         for tr in a.trattamenti:
             t1 = time.time()
             try:
-                res = gioca_asta(pack, tr, seme, seggio, piano, tetti)
+                res = gioca_asta(pack, tr, seme, seggio, piano, tetti,
+                                 contesto)
             except Exception as e:
                 righe.append({"replica": rep, "trattamento": tr,
                               "errore": f"{type(e).__name__}: {e}"})
@@ -308,6 +440,9 @@ def main() -> int:
             json.dumps({"confronti": confronti, "repliche": a.repliche,
                         "scenari": len(scenari), "seme": a.seme,
                         "avversari": AVVERSARI,
+                        # perche' i tetti sono entrati o no: senza questo, «L3+I
+                        # coincide con L3» resta un numero senza spiegazione
+                        "tetti": diagnostica_tetti,
                         "calendario_dichiarato": True,
                         "avvertenza": ("il calendario della lega non e' noto: e' "
                                        "generato da un seme dichiarato. Il "

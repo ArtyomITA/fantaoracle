@@ -50,6 +50,13 @@ fixture:
   martelletto. Non e' praticabile in produzione (una ventina di secondi per
   giocatore) e non e' una misura di P(1 posto): serve solo a far passare la
   verifica e a provare che, quando un tetto **e'** valido, agisce davvero.
+* **vivi con identita' scambiata**: gli stessi record vivi, con dentro il nome
+  del giocatore successivo. Prova, sulle chiamate vere del motore, il difetto
+  dell'8 settembre 2026: un tetto che parla di un altro giocatore non deve
+  agire, e l'asta deve tornare identica a quella senza tetti.
+
+Ogni record porta l'identita' del proprio giocatore (`giocatore`): senza, il
+consumatore respinge con `senza_identita`.
 """
 from __future__ import annotations
 
@@ -154,6 +161,11 @@ class ConTetti:
     pid_con_tetto: tuple = ()
     tetto_finto: float = 1.0
     tetti_vivi: bool = False
+    # identita' scritta nel record. Normalmente e' quella del giocatore sotto
+    # cui il record viene riposto; `scambia_identita` la sposta di uno per
+    # provare, sulle chiamate vere dell'asta, che un record che parla di un
+    # altro giocatore non entra.
+    scambia_identita: bool = False
 
     def __init__(self, *a, **k):
         super().__init__(*a, **k)
@@ -161,13 +173,21 @@ class ConTetti:
 
     def _rigenera_tetti(self, view):
         chiave = self.chiave_stato_corrente(view)
-        self.tetti = {
-            pid: {"tetto_economico": self.tetto_finto, "stato": "verificato",
-                  "completamento": {"tipo": "assegnazione_per_priorita"},
-                  "massimo_legale": chiave["massimo_legale"],
-                  "chiave_validita": {"stato_decisionale": chiave,
-                                      **CONTESTO_TETTI}}
-            for pid in self.pid_con_tetto}
+        elenco = list(self.pid_con_tetto)
+        self.tetti = {}
+        for i, pid in enumerate(elenco):
+            # l'identita' del record e' obbligatoria: senza, il consumatore
+            # respinge con `senza_identita` (difetto dell'8 settembre 2026,
+            # un record di A0 riposto sotto la chiave A1 veniva accettato)
+            ident = (elenco[(i + 1) % len(elenco)] if self.scambia_identita
+                     else pid)
+            self.tetti[pid] = {
+                "giocatore": ident,
+                "tetto_economico": self.tetto_finto, "stato": "verificato",
+                "completamento": {"tipo": "assegnazione_per_priorita"},
+                "massimo_legale": chiave["massimo_legale"],
+                "chiave_validita": {"stato_decisionale": chiave,
+                                    **CONTESTO_TETTI}}
 
     def start_auction(self, view):
         self._rigenera_tetti(view)
@@ -270,12 +290,14 @@ def _giocatori_di_controllo() -> tuple:
     return tuple(b["bot"].stati[0][0])
 
 
-def _con_tetti(rng, pred, obj, piano, pid_con_tetto, vivi: bool):
+def _con_tetti(rng, pred, obj, piano, pid_con_tetto, vivi: bool,
+               scambia: bool = False):
     bot = SondaL3ConTetti(rng, pred, piano=piano, tetti=None, objective=obj,
                           usa_indifferenza=True,
                           contesto_tetti=CONTESTO_TETTI)
     bot.pid_con_tetto = tuple(pid_con_tetto)
     bot.tetti_vivi = vivi
+    bot.scambia_identita = scambia
     return bot
 
 
@@ -303,6 +325,10 @@ def _run(nome: str) -> dict:
         if nome == "L3_piano_tetti_vivi":
             piano = _piano()
             return _con_tetti(rng, pred, obj, piano, tuple(piano), vivi=True)
+        if nome == "L3_piano_tetti_vivi_identita_scambiata":
+            piano = _piano()
+            return _con_tetti(rng, pred, obj, piano, tuple(piano), vivi=True,
+                              scambia=True)
         raise ValueError(nome)
 
     _CACHE[nome] = _gioca(costruisci)
@@ -520,3 +546,33 @@ def test_l_invariante_dei_contatori_regge_a_ogni_martelletto():
             f"{c}")
         assert c["piano_non_classificati"] == 0, i
         assert c["piano_scartati_dal_ricalcolo"] <= c["piano_disponibili"], i
+
+
+def test_un_tetto_di_un_altro_giocatore_non_agisce_in_asta():
+    """Difetto dell'8 settembre 2026, provato sulle chiamate vere del motore.
+
+    I record sono **vivi** — la chiave e' rigenerata a ogni offerta, quindi lo
+    stato combacia sempre — e cambia una cosa sola: l'identita' scritta dentro
+    e' quella del giocatore successivo dell'elenco. Prima della correzione il
+    consumatore leggeva solo la chiave del dizionario, e la chiave di validita'
+    descrive lo stato del mondo, che e' identico per tutti: un tetto finito
+    sotto il nome sbagliato agiva sul giocatore sbagliato.
+
+    Il confronto e' con il braccio senza tetti: l'asta deve tornare quella,
+    martelletto per martelletto."""
+    d = _run("L3_piano")
+    g = _run("L3_piano_tetti_vivi_identita_scambiata")
+    bot = g["bot"]
+    assert bot.tetti, "nessun tetto: prova vacua"
+    assert bot.esiti_di_validita, "nessun tetto e' mai stato all'asta"
+    assert bot.esiti_di_validita.count("valido") == 0
+    assert bot.conta["offerte_con_tetto_indifferenza"] == 0
+    assert bot.ripieghi_per_ragione.get("identita_diversa", 0) > 0, (
+        f"ripieghi per ragione: {bot.ripieghi_per_ragione}")
+    _uguali(d["impronta"], g["impronta"], "eventi del motore")
+    _uguali(d["bot"].cap, g["bot"].cap, "massimi di offerta")
+    # e la prova non e' vacua: con l'identita' giusta gli stessi record
+    # agiscono davvero
+    e = _run("L3_piano_tetti_vivi")
+    assert e["bot"].conta["offerte_con_tetto_indifferenza"] > 0
+    assert e["impronta"] != g["impronta"]

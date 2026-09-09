@@ -55,20 +55,48 @@ from fantabot.tabellino import generatore as gen       # noqa: E402
 from fantabot.tabellino import partecipazione as pa    # noqa: E402
 from fantabot.tabellino import voto as vt              # noqa: E402
 from fantabot.tabellino import configurazione as cfg          # noqa: E402
+from fantabot.tabellino import contratto                     # noqa: E402
+from fantabot.tabellino import presenze                      # noqa: E402
 from fantabot.tabellino.partita import pesi_decadimento, stima as stima_partita  # noqa: E402
 
 STAGIONI_PANEL = ["2021-22", "2023-24", "2024-25", "2025-26", "2026-27"]
+GIORNATE = 38
 
 
-def carica_panel(escludi: str | None = None) -> pd.DataFrame:
-    pezzi = []
-    for s in STAGIONI_PANEL:
-        f = PROC / f"l2_panel_{s}.parquet"
-        if f.exists():
-            pezzi.append(pd.read_parquet(f))
-    P = pd.concat(pezzi, ignore_index=True)
-    P["data"] = pd.to_datetime(P["data"])
-    return P
+def carica_panel(data_fit=None) -> tuple[pd.DataFrame, dict]:
+    """Il panel delle stagioni, con il contratto temporale verificato.
+
+    Prima questa funzione faceva un glob e concatenava quello che trovava: il
+    cutoff con cui i panel erano stati costruiti non entrava da nessuna parte, e
+    un panel costruito oggi poteva servire un fit datato 2024 senza che niente
+    lo impedisse. Ora il cutoff si chiede, e un panel incompatibile fa alzare
+    `ContrattoIncompatibile` invece di restituire righe plausibili.
+
+    Restituisce anche i contratti, perche' il rapporto del cubo deve dire su
+    quali dati e' stato costruito, non solo che cosa ne e' uscito.
+    """
+    return contratto.carica_panel_multi(
+        PROC, STAGIONI_PANEL, data_fit=data_fit,
+        esigi_vista_al_fit=data_fit is not None)
+
+
+def leggi_bersaglio_presenze(stagione: str, universo, ruolo: dict,
+                             storia_voti=None):
+    """I bersagli di presenza a voto per l'universo completo.
+
+    Delega a `fantabot.tabellino.presenze`, che e' lo stesso adattatore usato
+    dal banco: prima le due strade erano separate e trattavano diversamente i
+    giocatori senza storia e le previsioni di zero.
+    """
+    b = presenze.costruisci(PROC / f"b_predictions_{stagione}.json",
+                            universo, ruolo, storia_voti=storia_voti)
+    d = b.diagnostica
+    print(f"  bersaglio presenze: {d['con_bersaglio']}/{d['universo']} "
+          f"({d['per_fonte'][presenze.FONTE_PREVISIONE]} da previsione, "
+          f"{d['per_fonte'][presenze.FONTE_PRIOR_RUOLO]} da prior di ruolo, "
+          f"{d['per_fonte'][presenze.FONTE_ASSENTE]} senza), "
+          f"{d['previsioni_zero_tenute']} previsioni zero tenute")
+    return b
 
 
 def correlazioni_compagni(d: pd.DataFrame, colonna: str) -> dict:
@@ -171,6 +199,19 @@ def main() -> int:
     ap.add_argument("--shock-residuo", type=float, default=None,
                     help="scarto del residuo comune ai compagni; se assente lo "
                          "misura dopo il condizionamento")
+    ap.add_argument("--data-fit", default=None,
+                    help="cutoff del fit: il panel deve essere stato costruito "
+                         "con questo cutoff, altrimenti viene rifiutato. Senza, "
+                         "si usa la vista osservativa e il cubo lo dichiara")
+    ap.add_argument("--bersaglio-presenze", action="store_true",
+                    help="modalita' sperimentale: la partecipazione riceve le "
+                         "presenze del modello valore (il braccio C1 del banco). "
+                         "Non e' il comportamento predefinito")
+    ap.add_argument("--rose-da", choices=["listone", "squadra"],
+                    default="listone",
+                    help="fonte della squadra per costruire le rose: "
+                         "`listone` = fotografia pre-campionato (predefinito), "
+                         "`squadra` = squadra corrente all'ultimo scaricamento")
     ap.add_argument("--salva", action="store_true")
     ap.add_argument("--solo-future", action="store_true",
                     help="genera solo le giornate non ancora giocate alla data "
@@ -179,7 +220,9 @@ def main() -> int:
     a = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
-    P = carica_panel()
+    P, contratti_panel = carica_panel(data_fit=a.data_fit)
+    print(f"  panel: {len(contratti_panel)} stagioni, vista "
+          + (f"al fit del {a.data_fit}" if a.data_fit else "osservativa"))
     part = pd.read_parquet(PROC / "l2_partite.parquet")
     part["data"] = pd.to_datetime(part["data"])
     cal = part[part.stagione == a.stagione].copy()
@@ -225,8 +268,25 @@ def main() -> int:
           f"gol ospite stimati {mp.diagnostica['gol_ospite_medi_stimati']:.4f} "
           f"contro {mp.diagnostica['gol_ospite_medi_osservati']:.4f} osservati")
 
+    # l'universo serve prima della stima, perche' i bersagli delle presenze
+    # devono coprirlo tutto e non solo chi ha storia
+    rose, ruolo, squadra, diag_universo = contratto.costruisci_universo(
+        PROC, a.stagione, rose_da=a.rose_da)
     Ppre = P[P.data < pd.Timestamp(as_of)]
-    m_part = pa.stima(Ppre)
+    bersagli = None
+    if a.bersaglio_presenze:
+        bersagli = leggi_bersaglio_presenze(
+            a.stagione, sorted(ruolo), ruolo,
+            storia_voti=Ppre[["master_id", "stato_voto"]])
+    m_part = pa.stima(
+        Ppre,
+        bersaglio_presenza=bersagli.per_giocatore if bersagli else None,
+        ruolo_esterno=ruolo if bersagli else None)
+    if bersagli:
+        d = m_part.diagnostica.get("bersaglio_presenza") or {}
+        print(f"  presenze applicate: {d.get('applicati')}, di cui "
+              f"{d.get('iniziati_senza_storia')} iniziati senza storia; "
+              f"{d.get('saltati_senza_ruolo')} saltati senza ruolo")
     m_ev = ev.stima(Ppre)
     m_voto = vt.stima(Ppre, "individuale")
     m_voto_sq = vt.stima(Ppre, "con_squadra")
@@ -266,15 +326,22 @@ def main() -> int:
     print(f"  s.v.: quota complessiva {fasce_sv.get('quota_complessiva', 0):.4f} "
           f"su {fasce_sv.get('righe', 0)} righe con minuti noti")
 
-    # --- rose: i giocatori del listone per squadra ---
-    lst = pd.read_parquet(PROC / f"players_{a.stagione}.parquet",
-                          columns=["master_id", "ruolo", "squadra"])
-    sigle = json.loads((PROC / "_match" / "team_maps.json").read_text("utf-8"))
-    inv = {v: k for k, v in sigle.get(a.stagione, {}).items()}
-    lst["squadra_estesa"] = lst["squadra"].map(inv).fillna(lst["squadra"])
-    rose = {sq: list(g.master_id) for sq, g in lst.groupby("squadra_estesa")}
-    ruolo = dict(zip(lst.master_id, lst.ruolo))
-    squadra = dict(zip(lst.master_id, lst.squadra_estesa))
+    # --- rose: stessa costruzione che usa il banco ---
+    #
+    # La colonna `squadra` del listone viene aggiornata dalla fonte dopo lo
+    # scaricamento: nel 2024-25 trenta giocatori hanno `squadra` diversa da
+    # `squadra_listone`, sei nel 2026-27. Per un'asta pre-campionato quello e'
+    # un aggiornamento che chi decide non ha. La scelta e' esplicita in
+    # `--rose-da` e la funzione e' condivisa, cosi' banco e generatore non
+    # possono divergere.
+    print(f"  universo da `{diag_universo['colonna']}`: "
+          f"{diag_universo['giocatori']} giocatori, "
+          f"{diag_universo['squadre']} squadre, "
+          f"{diag_universo['squadra_diversa_dal_listone']} con squadra diversa "
+          "dal listone")
+    mancanti = [sq for sq in set(cal.casa) if sq not in rose]
+    if mancanti:
+        print(f"  ATTENZIONE: squadre del calendario senza rosa: {mancanti}")
     m_part.ruolo.update(ruolo)
     m_ev.ruolo.update(ruolo)
     mancanti = [sq for sq in set(cal.casa) if sq not in rose]
@@ -290,15 +357,17 @@ def main() -> int:
     tr["voto_puro"] = pd.to_numeric(tr["voto"], errors="coerce")
     tr["squadra"] = tr["squadra_alla_data"]
     tr["ruolo"] = tr["ruolo"].astype(str).str.upper()
-    bersagli = {}
+    # nome distinto da `bersagli` delle presenze: sono due cose diverse e la
+    # collisione faceva sparire la diagnostica dell'adattatore dal rapporto
+    bersagli_corr = {}
     for st_tr, sub in tr.groupby("stagione"):
         c = correlazioni_compagni(sub, "voto_puro")
         for k, v in c.items():
-            bersagli.setdefault(k, []).append(v)
-    bersagli = {k: float(np.nanmean(v)) for k, v in bersagli.items()}
+            bersagli_corr.setdefault(k, []).append(v)
+    bersagli_corr = {k: float(np.nanmean(v)) for k, v in bersagli_corr.items()}
     print("  bersagli di correlazione (media sulle stagioni di addestramento): "
-          + ", ".join(f"{k} {v:.4f}" for k, v in bersagli.items()))
-    struttura = gen.calibra_dipendenza(struttura, bersagli, cal, rose, mp,
+          + ", ".join(f"{k} {v:.4f}" for k, v in bersagli_corr.items()))
+    struttura = gen.calibra_dipendenza(struttura, bersagli_corr, cal, rose, mp,
                                        m_part, m_ev, m_voto, fasce_sv,
                                        a.seme, ruolo, squadra)
     print("  dopo la calibrazione: squadra "
@@ -325,8 +394,14 @@ def main() -> int:
     giornate_oss = int(oss.giornata.nunique()) if len(oss) else 0
     confrontabile = giornate_oss >= 20
     rapporto = {"stagione": a.stagione, "as_of": as_of, "sims": a.sims,
+                "data_fit": a.data_fit,
+                "contratti_panel": contratti_panel,
+                "bersaglio_presenze": bool(a.bersaglio_presenze),
+                "adattatore_presenze": (bersagli.diagnostica
+                                        if bersagli else None),
                 "configurazione_modello": impronta,
                 "iperparametri": dict(conf.iperparametri),
+                "universo": diag_universo,
                 "solo_future": bool(a.solo_future),
                 "giornate_generate": int(cal.giornata.nunique()),
                 "giornate_gia_giocate": int(giocate.giornata.nunique()),

@@ -486,5 +486,59 @@ def test_punteggio_della_fonte():
     assert fantavoto(r) == pytest.approx(6.5 + 6)
 
 
+def test_il_cubo_espone_il_campionamento_dei_gol():
+    """`Cubo.diagnostica["campionamento_gol"]` racconta come sono nati i gol.
+
+    Prima il generatore riparava con `np.maximum(P, 0)` e non lo diceva a
+    nessuno: le combinazioni partita-estrazione con celle negative sparivano
+    dentro una rinormalizzazione. Ora ogni proiezione di `rho`, la massa fuori
+    dal supporto e le estrazioni non ammissibili sono contate e finiscono nella
+    diagnostica del cubo.
+    """
+    cal, rose, mp, m_part, m_ev, m_voto, _ = _finto()
+    c = gen.genera(cal, rose, mp, m_part, m_ev, m_voto, n_sims=3, seme=4,
+                   incertezza_forze=False)
+    d = c.diagnostica["campionamento_gol"]
+    assert d["matrice"]["chiamate"] == 3 * len(cal)
+    assert d["matrice"].get("celle_negative", 0) == 0
+    assert d["matrice"]["massa_fuori_supporto_massima"] < 1e-9
+    assert d["matrice"]["supporto_massimo"] >= 12
+    assert d["gol_massimo_generato"] >= 0
+    # senza incertezza sulle forze non ci sono estrazioni da controllare
+    assert d["estrazioni_non_ammissibili"] == 0
+
+
+def test_con_incertezza_le_estrazioni_vengono_controllate_sul_calendario():
+    """Con `incertezza_forze` ogni scenario controlla la propria estrazione.
+
+    Il controllo e' sulle partite del calendario da simulare, non sul punto
+    stimato: e' la differenza che il caso riprodotto in `data/l2/r3` mostra,
+    dove il punto e' ammissibile su tutte le partite e alcune estrazioni no.
+    """
+    cal, rose, mp, m_part, m_ev, m_voto, _ = _finto()
+    rng = np.random.default_rng(0)
+    ch, ct, gc, gt = [], [], [], []
+    for _ in range(30):
+        for a in ["A", "B", "C", "D"]:
+            for b in ["A", "B", "C", "D"]:
+                if a != b:
+                    ch.append(a)
+                    ct.append(b)
+                    gc.append(rng.poisson(1.5))
+                    gt.append(rng.poisson(1.2))
+    mpi = stima(ch, ct, gc, gt, squadre=["A", "B", "C", "D"], usa_dc=True,
+                lam_pen=2.0, con_incertezza=True)
+    c = gen.genera(cal, rose, mpi, m_part, m_ev, m_voto, n_sims=4, seme=6,
+                   incertezza_forze=True)
+    d = c.diagnostica["campionamento_gol"]
+    assert d["matrice"].get("celle_negative", 0) == 0
+    assert d["intensita_massima"] > 0
+    assert d["estrazioni_non_ammissibili"] <= 4
+    assert d["partite_non_ammissibili"] >= d["estrazioni_non_ammissibili"]
+    # la diagnostica dell'hessiana c'e' e dichiara quanti autovalori sono stati
+    # alzati da `np.maximum(val, 1e-6)`
+    assert "autovalori_alzati" in mpi.diagnostica["hessiana"]
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-v"]))

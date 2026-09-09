@@ -138,8 +138,84 @@ def test_dixon_coles_preserva_marginali():
         assert P1.min() >= 0
 
 
+def test_le_marginali_sono_poisson_non_solo_uguali_fra_loro():
+    """Il confronto fra `rho` e `rho = 0` non basta a provare l'invarianza.
+
+    Difetto trovato dal ramo di ricerca: le due matrici condividono lo stesso
+    trattamento della coda troncata, quindi un errore in quel trattamento e'
+    invisibile a un confronto fra loro. La versione precedente riversava
+    `1 - somma` sulla cella `(max_gol, max_gol)`, e cosi' la coda tagliata di
+    una squadra gonfiava la marginale dell'altra: scarto relativo su
+    `P(G >= 6)` di +1,2e-6 alle intensita' operative, ma +9,6% a
+    `(6,00; 3,00)` e +23,3% a `(8,00; 4,00)`.
+
+    Qui il confronto e' contro la Poisson troncata e rinormalizzata, che e' il
+    bersaglio vero, e i casi estremi ci sono apposta.
+    """
+    from scipy.stats import poisson
+    casi = [(1.6, 1.1, -0.08), (0.9, 2.1, 0.05), (1.2, 1.2, -0.15),
+            (3.0, 1.2, -0.07), (6.0, 3.0, -0.05), (8.0, 4.0, -0.03)]
+    for lam, mu_, rho in casi:
+        P = matrice_risultato(lam, mu_, rho)
+        k = np.arange(P.shape[0])
+        att_x = poisson.pmf(k, lam)
+        att_x = att_x / att_x.sum()
+        att_y = poisson.pmf(k, mu_)
+        att_y = att_y / att_y.sum()
+        sx = float(np.max(np.abs(P.sum(1) - att_x)))
+        sy = float(np.max(np.abs(P.sum(0) - att_y)))
+        assert sx < 1e-12, (
+            f"lam {lam}, mu {mu_}: la marginale di casa si scosta dalla "
+            f"Poisson troncata di {sx:.2e}")
+        assert sy < 1e-12, (
+            f"lam {lam}, mu {mu_}: la marginale ospite si scosta di {sy:.2e}")
+
+
+def test_la_coda_analitica_coincide_con_la_matrice():
+    """`P(G >= k)` ha forma chiusa: la matrice deve darne lo stesso valore.
+
+    Serve a poter calcolare la coda senza simulare, che e' quello che fa
+    `scripts/l2_coda_storica.py`. Se questa identita' cade, quella misura
+    misura un'altra cosa.
+
+    Il bersaglio e' la Poisson **troncata al supporto della matrice e
+    rinormalizzata**. Da quando il supporto e' adattivo (`TOL_SUPPORTO`), la
+    Poisson troncata e quella intera coincidono entro la tolleranza dichiarata,
+    quindi il limite qui sotto e' molto piu' stretto di prima: con `max_gol`
+    fisso a dodici lo scarto relativo valeva 1,8e-4 a `lambda` 3,0 con soglia
+    6 e 1,3e-3 con soglia 8, e non passerebbe.
+    """
+    from scipy.stats import poisson
+    for lam, mu_, rho in [(1.4, 1.23, -0.0711), (2.2, 0.9, -0.0711),
+                          (3.0, 1.2, -0.05), (6.0, 3.0, -0.05),
+                          (16.3, 10.0, -0.02), (46.7, 38.5, -0.002)]:
+        P = matrice_risultato(lam, mu_, rho)
+        k = np.arange(P.shape[0])
+        att = poisson.pmf(k, lam)
+        att = att / att.sum()
+        for soglia in (4, 6, 8):
+            dalla_matrice = float(P.sum(1)[k >= soglia].sum())
+            troncata = float(att[k >= soglia].sum())
+            assert abs(dalla_matrice - troncata) < 1e-12, (
+                f"lam {lam}, soglia {soglia}: matrice {dalla_matrice:.12f} "
+                f"contro Poisson troncata {troncata:.12f}")
+            # Il troncamento sposta la coda, e quanto dipende dal supporto.
+            # Con il supporto adattivo lo scarto e' dell'ordine di
+            # TOL_SUPPORTO / P(G >= soglia): il limite e' assoluto sulla
+            # probabilita', non relativo, cosi' non si allenta sulle code rare.
+            intera = float(poisson.sf(soglia - 1, lam))
+            assert abs(troncata - intera) < 1e-11, (
+                f"lam {lam}, soglia {soglia}: il troncamento a {P.shape[0] - 1} "
+                f"gol sposta la coda di {abs(troncata - intera):.2e}")
+
+
 def test_matrice_probabilita_valide():
-    """Probabilita' non negative e somma a 1 anche in casi estremi."""
+    """Probabilita' non negative e somma a 1 anche in casi estremi.
+
+    La seconda meta' estrae `rho` **fuori** dall'intervallo ammissibile, che e'
+    il caso che `campiona_parametri` produce davvero: la matrice deve restare
+    una distribuzione, non diventarlo dopo un `np.maximum(P, 0)` a valle.
+    """
     rng = np.random.default_rng(5)
     for _ in range(200):
         lam = float(rng.uniform(0.2, 4.0))
@@ -148,8 +224,15 @@ def test_matrice_probabilita_valide():
         basso = -min(1.0 / lam, 1.0 / mu_)
         rho = float(rng.uniform(basso * 0.9, alto * 0.9))
         P = matrice_risultato(lam, mu_, rho)
-        assert P.min() >= -1e-12, (lam, mu_, rho, P.min())
-        assert abs(P.sum() - 1) < 1e-9
+        assert P.min() >= 0.0, (lam, mu_, rho, P.min())
+        assert abs(P.sum() - 1) < 1e-12
+    for _ in range(200):
+        lam = float(rng.uniform(0.2, 40.0))
+        mu_ = float(rng.uniform(0.2, 40.0))
+        rho = float(rng.uniform(-2.0, 2.0))       # quasi sempre non ammissibile
+        P = matrice_risultato(lam, mu_, rho)
+        assert P.min() >= 0.0, (lam, mu_, rho, P.min())
+        assert abs(P.sum() - 1) < 1e-12
 
 
 def test_gradiente_analitico():

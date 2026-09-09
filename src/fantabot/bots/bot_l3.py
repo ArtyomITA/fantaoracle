@@ -122,6 +122,46 @@ giocatori del piano**, perche' solo per loro e' stato calcolato: senza questa
 restrizione un tetto potrebbe agire su un target del MILP anche con `piano`
 vuoto, e il braccio di controllo non sarebbe piu' un controllo.
 
+## Il tetto deve parlare del giocatore per cui viene usato
+
+Difetto misurato l'8 settembre 2026, dopo la correzione precedente: un record
+con `giocatore = "A0"` messo sotto la chiave `"A1"` veniva accettato, e
+`_tetto_validato("A1", view)` restituiva `(17.0, "valido")`. Il consumatore si
+fidava della chiave del dizionario e non leggeva mai l'identita' scritta dentro
+il record; la fixture positiva dei test scriveva `"giocatore": "ignoto"`,
+quindi nemmeno i test potevano accorgersene.
+
+La chiave di validita' descrive lo **stato del mondo**, non il bersaglio: e' la
+stessa per tutti i giocatori calcolati dallo stesso `StatoAsta`. Nessuna delle
+sue componenti cambia se il record finisce sotto un altro nome. L'unica difesa
+e' l'identita' scritta nel record, e va confrontata in forma canonica
+(`identita_canonica`) perche' il cubo usa interi e il motore d'asta stringhe:
+`6482` e `"6482"` sono lo stesso giocatore, `"A0"` e `"A1"` no. Un record senza
+identita' e' respinto con ragione `senza_identita`, uno con identita' diversa
+dalla chiave con `identita_diversa`.
+
+## Il tetto economico non e' la stima puntuale
+
+`indifferenza.classifica_curva` espone due numeri diversi e li chiama con nomi
+diversi: `stima_tetto` e' il piu' alto prezzo con differenza media positiva,
+scelto come massimo su k punti e quindi distorto verso l'alto;
+`tetto_supportato` e' il piu' alto prezzo il cui intervallo sta interamente
+sopra lo zero, ed e' `None` quando nessuno lo e'. `curva()` espone come
+`tetto_economico` il secondo, o 0 se manca.
+
+Il consumatore legge **solo** `tetto_economico`. Se il record porta anche il
+blocco `classificazione`, il consumatore controlla che i due numeri siano
+coerenti (`tetto_economico == tetto_supportato or 0`) e respinge come
+`record_incoerente` un file in cui non lo sono — e' il caso del file gia'
+salvato `data/l3/asta/tetti_2026-27.json`, prodotto da una versione precedente
+di `curva()`, dove Mandas porta `tetto_economico = 19` con stato
+`inconcludente`.
+
+Uno zero non e' un dato mancante: `tetto_economico = 0` con uno stato ammesso
+e' l'affermazione «nessun prezzo provato conviene», e produce un massimo di
+offerta pari a zero, cioe' un passo. Un record senza il campo, o con il campo
+nullo, non dice niente e viene respinto (`tetto_non_numerico`).
+
 ## Un tetto si verifica prima di usarlo
 
 Difetto misurato dall'audit indipendente dell'8 settembre 2026
@@ -160,6 +200,10 @@ componenti non sono verificabili, e un tetto non verificabile non entra.
 
 Le regole del consumo, in ordine:
 
+    altro giocatore         il record non dichiara la propria identita', o ne
+                            dichiara una diversa dalla chiave sotto cui e'
+                            stato riposto -> `senza_identita`,
+                            `identita_diversa`
     obsoleto                lo stato decisionale corrente differisce da quello
                             che la chiave descrive -> ripiego `stato_cambiato`
     inconcludente           `stato` fuori da `stati_ammessi` (`verificato` e
@@ -173,6 +217,10 @@ Le regole del consumo, in ordine:
                             incompleto, vista dello stato non ancora arrivata
                             -> `senza_chiave`, `senza_contesto`,
                             `contesto_incompleto`, `senza_vista`
+    malformato              il record contraddice se stesso: massimo legale
+                            diverso da quello della propria chiave, oppure
+                            `tetto_economico` diverso dal `tetto_supportato`
+                            della propria classificazione -> `record_incoerente`
     privo di senso          giocatore gia' venduto, o nostro reparto pieno
                             (`delta_a_prezzo` solleva `ValueError` in quel
                             caso: il consumatore non puo' restituire un numero
@@ -257,15 +305,66 @@ from .bot_b import BBot
 STATI_AMMESSI = ("verificato", "approssimato")
 
 # Con quale procedura le rose su cui la curva e' stata misurata sono state
-# completate. Il surrogato per priorita' e' quello con cui i tetti del progetto
-# sono stati prodotti; il suo scarto dal motore vero e' quantificato in
+# completate. `assegnazione_per_priorita` e' un **surrogato**: non e' una
+# continuazione competitiva dell'asta, assegna le rose per priorita' pagando
+# il prezzo previsto. E' quello con cui i tetti del progetto sono stati
+# prodotti; il suo scarto dal motore vero e' quantificato in
 # `indifferenza.SCARTO_DAL_MOTORE`. Un completamento diverso e non dichiarato
 # non e' confrontabile e viene respinto.
 COMPLETAMENTI_AMMESSI = ("assegnazione_per_priorita",)
 
+# Come il completamento ammesso va nominato ovunque il suo risultato venga
+# esposto: chi legge un tetto deve sapere che dietro non c'e' un'asta.
+ETICHETTA_COMPLETAMENTI = {
+    "assegnazione_per_priorita": "surrogato (assegnazione_per_priorita)",
+}
+
+
+def etichetta_completamento(tipo: str) -> str:
+    """Nome da mostrare per un tipo di completamento."""
+    return ETICHETTA_COMPLETAMENTI.get(tipo, str(tipo))
+
+
 # Blocchi della chiave che l'asta non puo' osservare da sola: senza di loro
 # dichiarati dal chiamante non c'e' niente da confrontare.
 BLOCCHI_CONTESTO_OBBLIGATORI = ("cubo", "esperimento", "regole")
+
+
+def identita_canonica(giocatore) -> str:
+    """Forma testuale unica dell'identificativo di un giocatore.
+
+    Il cubo indicizza con interi (`6482`), il motore d'asta con stringhe
+    (`"6482"`), il JSON dei tetti con chiavi di dizionario, che sono sempre
+    stringhe. Senza una forma sola lo stesso giocatore ha piu' nomi, e il
+    confronto fra la chiave di un dizionario e l'identita' scritta nel record
+    diventa una lotteria fra `6482 == "6482"` (falso) e `"6482" == "6482"`
+    (vero).
+
+    I booleani sono rifiutati anche se `int` li accetterebbe (`True` vale 1), e
+    i float pure: `6482.0` sarebbe ambiguo appena qualcuno lo scrive con un
+    altro numero di decimali. Chi ha un identificativo di un altro tipo lo
+    converte prima, dichiarando come."""
+    if giocatore is None or isinstance(giocatore, bool):
+        raise ValueError(f"identificativo non ammesso: {giocatore!r}")
+    if isinstance(giocatore, int):
+        return str(giocatore)
+    if isinstance(giocatore, str):
+        testo = giocatore.strip()
+        if not testo:
+            raise ValueError("identificativo vuoto")
+        return testo
+    raise ValueError(f"identificativo non ammesso: {giocatore!r}")
+
+
+def _identita(giocatore):
+    """Come `identita_canonica`, ma restituisce `None` invece di sollevare.
+
+    Il consumatore di un tetto non puo' esplodere su un file malformato: deve
+    respingere il record e contare il ripiego con la sua ragione."""
+    try:
+        return identita_canonica(giocatore)
+    except ValueError:
+        return None
 
 
 def _sha(testo: str, n: int = 12) -> str:
@@ -771,9 +870,29 @@ class BotL3(BBotCoerente):
             return None, "senza_chiave"
         if not isinstance(rec, dict):
             return None, "non_interpretabile"
+        # identita': la chiave del dizionario non e' una prova. Un record e'
+        # una funzione di UN giocatore, e la chiave di validita' descrive lo
+        # stato del mondo, che e' identico per tutti: se il record finisse
+        # sotto un altro nome nessuna delle altre verifiche se ne accorgerebbe.
+        atteso_id = _identita(pid)
+        dichiarata = _identita(rec.get("giocatore"))
+        if dichiarata is None:
+            return None, "senza_identita"
+        if atteso_id is None or dichiarata != atteso_id:
+            return None, "identita_diversa"
         tetto = rec.get("tetto_economico")
         if not _numero_finito(tetto):
             return None, "tetto_non_numerico"
+        # il numero usato come cap e' `tetto_economico`, cioe' il prezzo il cui
+        # intervallo esclude lo zero. `stima_tetto` e' un'altra quantita' (il
+        # massimo dei delta positivi, distorto verso l'alto) e non entra mai.
+        # Se il record porta la classificazione, i due devono combaciare.
+        classificazione = rec.get("classificazione")
+        if isinstance(classificazione, dict) and (
+                "tetto_supportato" in classificazione):
+            supportato = classificazione.get("tetto_supportato")
+            if float(tetto) != float(supportato or 0):
+                return None, "record_incoerente"
         if rec.get("stato") not in self.stati_ammessi:
             return None, "stato_non_ammesso"
         completamento = rec.get("completamento")
@@ -902,5 +1021,9 @@ class BotL3(BBotCoerente):
                 "ripieghi_per_ragione": dict(self.ripieghi_per_ragione),
                 "ultimo_ripiego": dict(self.ultimo_ripiego),
                 "contesto_tetti_dichiarato": sorted(self.contesto_tetti),
+                # come si chiama la procedura che ha prodotto le rose su cui i
+                # tetti sono stati misurati: e' un surrogato, non un'asta
+                "completamenti_ammessi": [etichetta_completamento(t)
+                                          for t in self.completamenti_ammessi],
                 "milp": dict(self.conta_milp),
                 "ultimo_ricalcolo": dict(self.ultimo_ricalcolo)}

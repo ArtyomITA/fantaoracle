@@ -218,12 +218,20 @@ def _maschera_eleggibili(P: pd.DataFrame) -> tuple[pd.Series, dict]:
     applicabile. In quel caso la nota lo dichiara: le propensioni escono da un
     denominatore non verificato, e chi legge il modello deve saperlo.
     """
-    if "eleggibile" in P.columns:
-        col = P["eleggibile"]
+    # `eleggibile_fit` ha la precedenza: e' l'eleggibilita' vista al giorno in
+    # cui si addestra, cioe' senza le prove emerse dopo. Se manca — panel
+    # prodotto prima della separazione delle viste — si ripiega su `eleggibile`
+    # osservativo, e la nota lo dichiara.
+    colonna = ("eleggibile_fit" if "eleggibile_fit" in P.columns
+               else ("eleggibile" if "eleggibile" in P.columns else None))
+    if colonna is not None:
+        col = P[colonna]
         # colonna nullable: il nullo NON e' un'assenza, e' un'ignoranza
         m = col.fillna(False).astype(bool) if hasattr(col, "fillna") else col.astype(bool)
         nota = {
-            "criterio": "eleggibile == True",
+            "criterio": f"{colonna} == True",
+            "vista": ("al fit" if colonna == "eleggibile_fit"
+                      else "osservativa (ripiego: manca `eleggibile_fit`)"),
             "verificato": True,
             "righe_totali": int(len(P)),
             "righe_eleggibili": int(m.sum()),
@@ -395,8 +403,46 @@ def calibra_base_convocazione(prop_convocato: dict, offset_convocato: dict,
 
 
 def stima(panel: pd.DataFrame, as_of: str | None = None,
-          min_partite: int = 5) -> ModelloPartecipazione:
-    """Stima il modello sul panel, usando solo partite anteriori a `as_of`."""
+          min_partite: int = 5,
+          bersaglio_presenza: dict | None = None,
+          peso_bersaglio: float = 1.0,
+          ruolo_esterno: dict | None = None) -> ModelloPartecipazione:
+    """Stima il modello sul panel, usando solo partite anteriori a `as_of`.
+
+    Parametri
+    ---------
+    bersaglio_presenza
+        `{master_id: probabilita' di presenza a voto per giornata}`, da una
+        fonte esterna al panel — nel nostro caso il modello valore, che predice
+        le presenze a voto della stagione.
+
+        Serve a costruire il braccio del banco fattoriale in cui il cubo riceve
+        la **stessa informazione** del vecchio simulatore. Senza questo
+        parametro quel braccio non esiste, e il confronto «a parita' di
+        presenze» che il banco dichiarava non era realizzabile.
+
+        Il bersaglio e' una probabilita' di **presenza a voto**, che non e' la
+        probabilita' di convocazione: la catena passa da convocazione a
+        titolarita' a ingresso a voto, e ogni passaggio la riduce. Qui il
+        bersaglio viene tradotto in una propensione di convocazione risolvendo
+        la catena, non sostituito al suo posto.
+
+        L'allocazione resta **accoppiata fra compagni**: gli undici titolari
+        sono undici, e alzare la propensione di un giocatore riduce lo spazio
+        per i suoi compagni di reparto. Il bersaglio quindi si raggiunge solo
+        finche' e' compatibile con i vincoli fisici; lo scarto fra bersaglio
+        richiesto e propensione ottenuta finisce in
+        `diagnostica["bersaglio_presenza"]` e va letto, non ignorato.
+    peso_bersaglio
+        fra 0 e 1: quanto il bersaglio esterno sposta la propensione stimata
+        dal panel. `1.0` la sostituisce, `0.0` la lascia. Serve a costruire
+        varianti intermedie senza cambiare il codice.
+    ruolo_esterno
+        `{master_id: ruolo}` per i giocatori che il panel non conosce. Senza,
+        un bersaglio su un giocatore nuovo veniva **saltato**, e il cold start
+        restava aperto: misurato sul 2026-27, 136 giocatori su 587. Con il
+        ruolo si puo' scegliere la quota di conversione e inizializzarlo.
+    """
     P = panel.copy()
     P["data"] = pd.to_datetime(P["data"])
     if as_of is not None:
@@ -478,11 +524,107 @@ def stima(panel: pd.DataFrame, as_of: str | None = None,
     min_usc = tit_min[tit_min < 88] if len(tit_min) else np.array([65.0])
 
     offsets = _offset_da_panel(P)
+
+    # Traduzione del bersaglio esterno, se c'e'. Il bersaglio e' una
+    # probabilita' di presenza a voto; la catena produce una probabilita' di
+    # convocazione. Il fattore di conversione si stima dal panel stesso, per
+    # ruolo: quante delle righe convocate finiscono con un voto. E' un
+    # rapporto osservato, non un parametro libero.
+    diag_bersaglio = None
+    if bersaglio_presenza:
+        conv = P[P.in_lista == 1]
+        quota_voto = (conv.assign(v=(conv.stato_voto == "con_voto").astype(float))
+                      .groupby("ruolo")["v"].mean().to_dict())
+        quota_media = float((conv.stato_voto == "con_voto").mean()) or 1.0
+        richiesti, ottenuti, saltati, iniziati = [], [], 0, 0
+        agg_ruoli, dettaglio = {}, []
+        peso = float(min(max(peso_bersaglio, 0.0), 1.0))
+        # `ruolo_esterno` permette di iniziare anche un giocatore che il panel
+        # non conosce: senza, il bersaglio veniva saltato e il cold start
+        # restava aperto. Misurato sul 2026-27: 136 giocatori su 587 saltati,
+        # cioe' il braccio C1 spostava il problema invece di risolverlo.
+        ruolo_noto = dict(zip(agg.master_id, agg.ruolo))
+        if ruolo_esterno:
+            for pid, r in ruolo_esterno.items():
+                ruolo_noto.setdefault(pid, r)
+        for pid, p_voto in bersaglio_presenza.items():
+            nuovo = pid not in prop_conv
+            prima_di_ora = prop_conv.get(pid)
+            if nuovo and pid not in ruolo_noto:
+                # senza nemmeno il ruolo non si puo' scegliere una quota di
+                # conversione: e' l'unico caso in cui saltare e' l'unica cosa
+                # onesta, e viene contato
+                saltati += 1
+                continue
+            r = pd.Series([ruolo_noto.get(pid)])
+            q = quota_voto.get(r.iloc[0] if len(r) else None, quota_media)
+            q = q if q and q > 0.05 else quota_media
+            # convocazione necessaria perche' la presenza a voto attesa sia
+            # `p_voto`, troncata all'intervallo utile della sigmoide
+            voluto = float(min(max(p_voto / q, 0.02), 0.98))
+            richiesti.append(voluto)
+            if nuovo:
+                # per un giocatore senza storia il bersaglio e' l'unica
+                # informazione che abbiamo: entra per intero, e il fatto che
+                # sia stato inizializzato cosi' viene contato
+                valore = voluto
+                iniziati += 1
+                prop_tit.setdefault(pid, _logit(tit_ruolo.get(
+                    ruolo_noto.get(pid), 0.5)))
+                agg_ruoli[pid] = ruolo_noto.get(pid)
+            else:
+                valore = (1 - peso) * prop_conv[pid] + peso * voluto
+            ottenuti.append(valore)
+            # dettaglio per giocatore: senza, il passaggio dal bersaglio alla
+            # presenza simulata non e' ispezionabile, e lo scarto aggregato
+            # qui sotto confronta propensioni assegnate, non presenze
+            dettaglio.append({
+                "master_id": pid, "ruolo": ruolo_noto.get(pid),
+                "p_voto_richiesta": float(p_voto),
+                "quota_conversione": float(q),
+                "convocazione_voluta_grezza": float(p_voto / q) if q else None,
+                "convocazione_voluta": voluto,
+                "troncata_in_alto": bool(q and p_voto / q > 0.98),
+                "troncata_in_basso": bool(q and p_voto / q < 0.02),
+                "prop_convocato_prima": (None if nuovo
+                                         else float(prima_di_ora)),
+                "prop_convocato_dopo": float(valore),
+                "iniziato_senza_storia": bool(nuovo)})
+            prop_conv[pid] = valore
+        scarti = [abs(a - b) for a, b in zip(richiesti, ottenuti)]
+        diag_bersaglio = {
+            "giocatori_con_bersaglio": len(bersaglio_presenza),
+            "applicati": len(richiesti),
+            "iniziati_senza_storia": iniziati,
+            "saltati_senza_ruolo": saltati,
+            "peso": peso,
+            "quota_voto_per_ruolo": {k: round(float(v), 4)
+                                     for k, v in quota_voto.items()},
+            "scarto_medio_richiesto_ottenuto": (
+                round(float(np.mean(scarti)), 6) if scarti else None),
+            "scarto_massimo": round(float(np.max(scarti)), 6) if scarti else None,
+            "troncati_in_alto": int(sum(d["troncata_in_alto"] for d in dettaglio)),
+            "troncati_in_basso": int(sum(d["troncata_in_basso"] for d in dettaglio)),
+            "dettaglio": dettaglio,
+            "nota": ("il bersaglio e' una presenza a voto, tradotta in "
+                     "convocazione dividendo per la quota osservata di "
+                     "convocati che prendono voto, per ruolo. Lo scarto "
+                     "residuo fra richiesto e ottenuto sulla presenza a voto "
+                     "**simulata** non si misura qui: dipende dai vincoli di "
+                     "undici titolari e dalle sostituzioni, e va misurato "
+                     "sull'esito del generatore."),
+        }
+
     basi, diag_catena = calibra_base_convocazione(prop_conv, offsets)
 
+    ruoli_modello = dict(zip(agg.master_id, agg.ruolo))
+    if bersaglio_presenza:
+        # i giocatori iniziati dal bersaglio devono comparire anche qui,
+        # altrimenti il generatore non saprebbe che ruolo hanno
+        ruoli_modello.update({k: v for k, v in agg_ruoli.items() if v})
     return ModelloPartecipazione(
         prop_titolare=prop_tit, prop_convocato=prop_conv,
-        ruolo=dict(zip(agg.master_id, agg.ruolo)),
+        ruolo=ruoli_modello,
         squadra=dict(zip(P.master_id, P.squadra_alla_data)),
         moduli=moduli, moduli_lega=moduli_lega,
         offset_convocato=offsets,
@@ -509,6 +651,7 @@ def stima(panel: pd.DataFrame, as_of: str | None = None,
                                  if len(min_cambio_p) else None),
             },
             "denominatore": nota_denominatore,
+            "bersaglio_presenza": diag_bersaglio,
             "catena_convocazione": diag_catena,
             "offset_convocazione": {f"{'presente' if k[0] else 'assente'}_{k[1]}":
                                     round(v, 4)

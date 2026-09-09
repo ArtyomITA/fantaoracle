@@ -35,7 +35,7 @@ DA_COPIARE = [
     "src", "scripts", "tests", "config", "viz", "reports",
     "requirements.txt", "LICENSE",
     "README.md", "DATA.md", "PIANO.md", "BRAINSTORMING.md", "ASTA_VERA.md",
-    "RIPRESA_L2_L3.md", "FantaOracle.bat",
+    "RIPRESA.md", "RIPRESA_L2_L3.md", "FantaOracle.bat",
 ]
 
 # `HANDOFF_SESSIONE.md` resta fuori: contiene i nomi degli account usati per il
@@ -166,3 +166,9 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# NOTA sul README: il README pubblicato e' stato riscritto direttamente nel
+# mirror (settembre 2026) e per un periodo la copia nel progetto e' rimasta
+# indietro. Un sync l'avrebbe riportata indietro anche online. Le due copie
+# sono state riallineate: se in futuro divergono di nuovo, la versione buona e'
+# quella pubblicata, non quella del progetto.
