@@ -16,7 +16,7 @@ Un'asta di fantacalcio sembra un problema di ottimizzazione. Non lo è. I prezzi
 
 | | |
 |---|---|
-| **Prezzi** | ensemble TabPFN-2 + CatBoost su **225 aste reali** e storici dal 2018. Non un numero: q10/q50/q90 con *conformalized quantile regression*, calibrata fuori campione, con guardia contro l'incrocio dei quantili |
+| **Prezzi** | ensemble TabPFN-2 + CatBoost su **216 aste reali** e storici dal 2018. Non un numero: q10/q50/q90 con *conformalized quantile regression*, calibrata fuori campione, con guardia contro l'incrocio dei quantili |
 | **Valore** | CatBoost sui punti di stagione. Correlazione **0,83-0,85** coi punti veri contro **0,48-0,57** del prezzo di mercato — e il controfattuale conferma: lo stesso bot col valore di mercato crolla sotto il caso |
 | **Rosa** | programmazione lineare intera a due livelli (titolari, panchina), modulo libero, prezzo-ombra sui ruoli, PuLP. Ripianificazione completa a ogni martelletto |
 | **Mondo** | generatore di stagioni: risultato → partecipazione → eventi → voto puro → punteggio di lega |
@@ -30,6 +30,7 @@ Un'asta di fantacalcio sembra un problema di ottimizzazione. Non lo è. I prezzi
 | il parametro `ρ` | non è libero: `τ` deve restare positivo sulle quattro celle basse, e l'intervallo dipende dalle intensità di *quella* partita. Fuori intervallo si **proietta** e si conta, invece di ritagliare a zero e rinormalizzare — che sposterebbe le marginali in silenzio |
 | supporto della matrice | adattivo, non un tetto fisso: a intensità alte un massimo di dodici gol lascia fuori massa non trascurabile |
 | convocazione | catena di Markov a due stati con memoria. Una catena con memoria non conserva il tasso in ingresso, quindi il logit di base si ottiene invertendola perché la **distribuzione stazionaria** dia la propensione voluta |
+| stato iniziale della catena | a stagione iniziata non si sorteggia: stato e striscia in corso si leggono dalle sole righe anteriori all'origine, con la stessa definizione usata per stimare gli scostamenti. Chi non ha storia resta **ignoto** ed è ancora estratto — l'incertezza si conserva invece di essere sostituita da un valore inventato |
 | dipendenza fra compagni | scomposizione shock di squadra + shock di reparto + errore individuale: uno shock unico imporrebbe la stessa correlazione fra tutte le coppie di ruoli, e fra difensori è il triplo che fra portiere e difensori |
 | punteggio di lega | il fantavoto della fonte non contiene la porta inviolata: il generatore conserva i gol subiti dal portiere **mentre era in porta**, così il bonus si calcola a valle invece di perdersi |
 
@@ -41,9 +42,14 @@ Un'asta di fantacalcio sembra un problema di ottimizzazione. Non lo è. I prezzi
 | Vittorie nei tornei simulati, 150 repliche | **75-91 %** (caso puro: 10 %) |
 | Errore sulle presenze, aggregato di squadra | **0,4-0,7 %** |
 | Errore sulle presenze, giocatore per giocatore | **0,175** di probabilità |
-| Test automatici | **491** |
+| Costo della disciplina temporale sulle presenze | **+2,56** presenze di errore assoluto medio |
+| Test automatici | **562** |
 
-I tornei sono contro i nostri bot: è il banco su cui il sistema è stato costruito, e contro persone vere ci si aspetta meno. Le due righe sulle presenze misurano cose diverse, e la distanza fra loro è il punto: il generatore azzecca **quanti** giocano, sbaglia molto più spesso **quali**. Ogni numero è riproducibile, e il comando sta nel report che lo contiene.
+I tornei sono contro i nostri bot: è il banco su cui il sistema è stato costruito, e contro persone vere ci si aspetta meno. Le prime due righe sulle presenze misurano cose diverse, e la distanza fra loro è il punto: il generatore azzecca **quanti** giocano, sbaglia molto più spesso **quali**.
+
+La terza è il prezzo della disciplina temporale, e non è piccolo. Togliendo dal modello delle presenze le feature la cui disponibilità alla data dell'asta non è dimostrata, l'errore passa da 5,57 a 8,13 presenze. Due sole ne portano quasi tutto: una quotazione che nei listoni archiviati è di **fine** stagione, e un'istantanea settimanale rilevata dopo la prima giornata. Un modello che le usa sembra più bravo di quanto sarà il giorno dell'asta.
+
+Ogni numero è riproducibile, e il comando sta nel report che lo contiene.
 
 ## Come si misura
 
@@ -52,6 +58,8 @@ Un simulatore che si giudica da solo dice sempre di funzionare.
 | | |
 |---|---|
 | **tre viste del tempo** | *osservativa*, *al fit*, *alla decisione*. Il cutoff sta nel nome del file e nei metadati; chi legge dichiara quale vista gli serve e le altre vengono rifiutate |
+| **origini mobili** | ogni previsione dichiara il proprio istante e vive in un artefatto separato: stagione, universo, partite osservate e residue, periodo delle etichette, impronte. Un file per stagione che si sovrascrive non è una previsione datata, è l'ultima che è passata di lì (*time series cross-validation*, Hyndman e Athanasopoulos) |
+| **ogni feature porta la prova** | non basta che un valore esista prima dell'asta: bisogna sapere *come lo si sa*. Ogni ingresso è marcato «disponibile alla decisione» — con la prova —, «ricostruito a posteriori» o «non verificabile», e chi non ha prova non entra in una previsione operativa. Rigenerare un file oggi non retrodata quello che contiene |
 | **data, non giornata** | un recupero giocato a febbraio appartiene alla nona giornata, ma a novembre non esisteva |
 | **disegno fattoriale** | quattro bracci, due meccanismi × due livelli di informazione sulle presenze, più l'**interazione**: senza, il contributo del meccanismo e quello dell'informazione restano confusi |
 | **intervalli** | varianza *two-way cluster-robust* di Cameron e Miller, `V = V_partita + V_giocatore − V_intersezione`, con l'intersezione uguale alla singola riga — cioè proprio quello che il metodo ingenuo calcolava. Ignorare la dipendenza dava intervalli 2-4 volte troppo stretti |
@@ -65,7 +73,7 @@ Un simulatore che si giudica da solo dice sempre di funzionare.
 ```
   DATI                          MODELLI                      DECISIONE
   ────                          ───────                      ─────────
-  aste reali (225)              prezzo: TabPFN-2 +           MILP titolari + panchina
+  aste reali (216)              prezzo: TabPFN-2 +           MILP titolari + panchina
   quotazioni 2018-2026          CatBoost, quantili           con prezzo-ombra
   voti, 5 stagioni              conformali                   e ripianificazione a
   xG Understat                                               ogni martelletto
@@ -89,10 +97,13 @@ Un simulatore che si giudica da solo dice sempre di funzionare.
 | **2** | generatore di stagioni fisicamente coerente | **non promosso** |
 | **3** | rosa che massimizza P(primo posto), prezzo di indifferenza per giocatore | in costruzione |
 | **4** | prezzi dalle aste reali: identità di ogni asta, duplicati, martelletto singolo contro prezzo medio | in corso |
+| **5** | stagione in corso: stato aggiornato all'origine, scambi, svincoli, riparazione di gennaio | da costruire |
 
 Il Livello 3 risponde alla domanda «fino a che prezzo mi conviene questo giocatore, sapendo che comprarlo mi toglie i crediti per gli altri».
 
-Il Livello 2 non è promosso, e la ragione è misurata: a parità di informazione sulle presenze il generatore **perde** contro un simulatore per giocatore molto più semplice, e l'interazione del fattoriale dice che ne trae *meno*. Resta perché fa quello che l'altro non fa — scenari congiunti, dipendenze fra compagni, sostituzioni, distribuzione dei punti di una rosa intera — ma quella cosa va misurata con metriche congiunte, non con un punteggio marginale su un giocatore alla volta. Il candidato per chiudere il divario è una calibrazione congiunta verso bersagli compatibili, cercata con **SPSA** (due valutazioni per iterazione a qualunque dimensione); il primo pilota è inconcludente per una ragione misurata — la varianza dell'obiettivo è dominata dal seme, non dagli scenari, quindi il gradiente è rumore. Seguito in [`RIPRESA.md`](RIPRESA.md).
+Il Livello 2 non è promosso. A parità di informazione sulle presenze il generatore **perde** contro un simulatore per giocatore molto più semplice, e l'interazione del fattoriale dice che ne trae *meno*. Resta perché fa quello che l'altro non fa — scenari congiunti, dipendenze fra compagni, sostituzioni, distribuzione dei punti di una rosa intera — e proprio lì va misurato: con metriche multivariate sensibili alla struttura congiunta (*variogram score*, Scheuerer e Hamill), non con un punteggio marginale su un giocatore alla volta.
+
+Il candidato per chiudere il divario è una calibrazione congiunta verso bersagli compatibili, cercata con **SPSA** (Spall): due valutazioni per iterazione a qualunque dimensione, perturbazione **Bernoulli ±1**, guadagni `a_k = a/(A+k)^0,602` e `c_k = c/k^0,101`, col guadagno tarato perché il primo passo valga quello che dichiara. Il candidato esiste e migliora le sue metriche di molte decine di errori standard — ma su trenta giocatori di una squadra, e verso un bersaglio che eredita informazione posteriore al cutoff. Prima di chiedersi se il cubo serve, va rifatto il confronto con ingressi puliti. Seguito in [`RIPRESA.md`](RIPRESA.md).
 
 ## Provalo
 
@@ -131,10 +142,11 @@ src/fantabot/
   bots/        A (baseline), B (il nostro), C (otto profili umani)
   season/      formazioni, sostituzioni, punteggio di lega, campionato H2H
   tabellino/   generatore: partita, partecipazione, eventi, voto
-               contratto (viste temporali), presenze, inferenza, esecuzione
+               contratto (viste temporali), origine (previsioni datate),
+               presenze, calibrazione SPSA, inferenza, esecuzione
   livello3/    valutatore, ricerca su candidate, MILP esatto, indifferenza
 scripts/       pipeline dei dati, banchi, esperimenti
-tests/         491 test
+tests/         562 test
 reports/       ogni conclusione con la sua prova
 viz/           replay, Sedia, Copilota
 ```

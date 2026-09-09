@@ -315,7 +315,8 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
            mod_part: pa.ModelloPartecipazione, mod_eventi: ev.ModelloEventi,
            mod_voto: vt.ModelloVoto, n_sims: int = 100, seme: int = 0,
            dipendenza: dict | None = None, fasce_sv: dict | None = None,
-           verifica: bool = True, incertezza_forze: bool = True) -> Cubo:
+           verifica: bool = True, incertezza_forze: bool = True,
+           stato_iniziale: dict | None = None) -> Cubo:
     """Genera `n_sims` stagioni.
 
     `rose` e' squadra -> elenco di master_id convocabili.
@@ -325,6 +326,15 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
     `fasce_sv` viene da `voto.stima_senza_voto`: senza, tutti quelli che
     scendono in campo prendono un voto, e la stagione simulata ne ha piu' di
     quella vera.
+
+    `stato_iniziale` e' `{squadra: {pid: (presente, run)}}`, da
+    `partecipazione.stato_all_origine`: da dove sta la catena di convocazione
+    all'istante della previsione. Senza, ogni giocatore parte da un'estrazione
+    dalla marginale con `run = 1` — corretto per una stagione interamente
+    futura, sbagliato a stagione iniziata, perche' butta via quello che si sa.
+
+    I giocatori assenti da `stato_iniziale` restano estratti: lo stato ignoto
+    si tratta come ignoto, non come un valore inventato.
     """
     cal = calendario.sort_values(["giornata", "data"]).reset_index(drop=True)
     giornate = sorted(cal.giornata.dropna().unique().astype(int))
@@ -387,11 +397,25 @@ def genera(calendario: pd.DataFrame, rose: dict, mod_partita: ModelloPartita,
                     campionamento[campo] = max(campionamento[campo], float(v))
         else:
             mp = mod_partita
+        # stato iniziale della catena: osservato dove lo si conosce,
+        # estratto dalla marginale dove no. Il `run` osservato conta: un
+        # giocatore fuori da quattro giornate non e' nella stessa posizione di
+        # uno appena uscito, e la catena ha memoria proprio per questo.
+        noto = stato_iniziale or {}
         stato = {}
         for sq, rosa in rose.items():
             u = uniformi(seme, s, [f"init:{pid}" for pid in rosa])
-            stato[sq] = {pid: (bool(u[i] < mod_part.prop_convocato.get(pid, 0.6)), 1)
-                         for i, pid in enumerate(rosa)}
+            noti_sq = noto.get(sq, {})
+            stato[sq] = {}
+            for i, pid in enumerate(rosa):
+                v_noto = noti_sq.get(pid, noti_sq.get(int(pid)))
+                if v_noto is not None:
+                    pres, run = v_noto
+                    stato[sq][pid] = (bool(pres),
+                                      max(1, min(int(run), pa.MAX_RUN)))
+                else:
+                    stato[sq][pid] = (
+                        bool(u[i] < mod_part.prop_convocato.get(pid, 0.6)), 1)
         lam, mu = mp.intensita(cal.casa.values, cal.trasferta.values)
 
         for k, riga in enumerate(cal.itertuples(index=False)):

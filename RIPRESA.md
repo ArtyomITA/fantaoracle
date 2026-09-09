@@ -1,6 +1,9 @@
 # Punto di ripresa corrente — FantaOracle
 
-**Aggiornato il 9 settembre 2026, fine del ciclo di correzioni.** Questo è il
+**Aggiornato il 9 settembre 2026, dopo l'audit sull'avanzamento dei
+livelli.** Il fatto nuovo che conta e' in §3ter: due feature del modello
+delle presenze contengono l'esito, e questo vizia il confronto su cui si
+reggeva la lettura del ramo. Questo è il
 puntatore corrente. `RIPRESA_L2_L3.md` descrive la pausa del 7 settembre ed è
 conservato come storico: alcune sue conclusioni sono state ritrattate, e sono
 marcate lì.
@@ -21,6 +24,7 @@ predefinito e mirror GitHub non si toccano; niente push senza permesso.
 | R3 distribuzione campionata | conclusa | §16.3 |
 | R4 inferenza del fattoriale | conclusa e verificata | §18, §19, §20 |
 | ciclo del 9/9: correzioni ai difetti riprodotti | concluso | `reports/CICLO_20260909.md` |
+| pilota C2 (calibrazione delle presenze) | **eseguito, candidato non promosso** | §3bis, `reports/PIANO_C2_20260909.md` |
 | progressivo | **percorso verificato, esperimento non concluso** | `CICLO_20260909.md` §2, §5 |
 | L3, L4 | **sospesi** | — |
 
@@ -29,6 +33,10 @@ Suite, comando completo — servono tutti e tre i pezzi:
 ```bash
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONIOENCODING=utf-8 PYTHONPATH=src python -m pytest tests/ -q
 ```
+
+La suite: **562 passati, 1 saltato**. Servono tutti e tre i pezzi del comando —
+senza `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` un plugin di terze parti esplode
+all'autoload perche' manca `pkg_resources`.
 
 Senza `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` un plugin di terze parti (`fugue_test`)
 esplode all'autoload perché manca `pkg_resources`; senza `PYTHONPATH=src` e
@@ -112,32 +120,194 @@ Dettaglio in `reports/CICLO_20260909.md`. In breve:
 
 ---
 
+## 3bis. Il pilota C2, e che cosa autorizza a dire
+
+Il pilota risponde a una sola domanda: **spostare i parametri delle presenze
+riduce la distanza fra le presenze simulate e un bersaglio costruito solo con
+informazione anteriore al cutoff?** La risposta e' si', con margine ampio
+rispetto all'errore delle differenze appaiate.
+
+| contro | MAE C1 | MAE C2 | d medio | es(d) |
+|---|---:|---:|---:|---:|
+| bersaglio grezzo | 0,1729 | 0,1028 | **-0,07014** | 0,00203 |
+| bersaglio obiettivo | 0,1733 | 0,1058 | **-0,06756** | 0,00206 |
+| osservato (diagnostico) | 0,2693 | 0,2541 | **-0,01519** | 0,00121 |
+
+Cinque semi di verifica, gli stessi per i due bracci, zero NaN. Il guadagno
+contro l'osservato **non** e' una traslazione costante: la migliore traslazione
+di C1 ne recupera solo `-0,00364` su `-0,01519`. Questo dice che *quella*
+famiglia di spiegazioni non basta — non identifica una quota causale per
+giocatore, perche' possono contribuire ruoli, struttura e la non linearita'
+della MAE. Il «76 % per giocatore» del primo resoconto e' ritirato.
+
+Invarianti fisici: zero problemi di coerenza in sei repliche. Le correlazioni
+fra compagni restano entro un errore standard, il che **non** dimostra non
+inferiorita': nessun margine di equivalenza e' stato dichiarato, e la media su
+venti squadre diluisce un cambiamento che riguarda una sola squadra
+calibrata.
+
+**Non autorizza a promuovere.** Tre limiti, tutti misurati:
+
+1. il bersaglio nasce da `b_predictions`, l'ingresso che i report stessi
+   dichiarano **non databile**. Avvicinarsi al bersaglio non e' una prova
+   indipendente di avvicinarsi alla realta';
+2. **il confronto «il bersaglio grezzo e' piu' vicino al vero del cubo» era
+   viziato**, e va ritirato: quel bersaglio aveva visto l'esito. Vedi §3ter.
+   Con un bersaglio costruito senza le feature contaminate l'errore contro
+   l'osservato sale da 0,1453 a 0,2136. Resta vero, e per altre ragioni, che
+   il valore del cubo va cercato dove il cubo lavora — dipendenze, durata
+   delle assenze, punteggi di rosa, decisioni — e non limando la MAE delle
+   presenze;
+3. il controfattuale temporale ha potenza su tre grandezze su cinque:
+   `bersaglio` e `squadre` non si muovono nemmeno perturbando i ruoli
+   anteriori. `scripts/l2_controfattuale_c2.py` lo dichiara da se'.
+
+Il candidato e' congelato, `||theta||` 2,2777, monitoraggio 0,04664 -> 0,02738
+in 200 iterazioni (5.484 s). Non e' stato scritto in nessun pack.
+
+### Il difetto che cambia la lettura del piano
+
+`calibra_guadagno` usava `A = 1` e `spsa` `A = massimo/10 = 20`: il primo passo
+in theta non valeva lo 0,20 dichiarato nel piano congelato ma **0,0486**. Il
+log lo mostra: `a = 40.80 (primo passo voluto 0.2)`.
+
+Non e' un dettaglio. Con `A` reso coerente, `passo_voluto = 0,20` fa
+**divergere** SPSA sulla funzione con ottimo noto e il candidato migliore resta
+il punto di partenza. Le corse funzionavano *perche'* il passo effettivo era
+quattro volte piu' piccolo. La costante e' ora `PASSO_VOLUTO = 0.05`, cioe' il
+valore che il pilota applicava davvero: **la correzione allinea il codice a
+quello che faceva, non sposta il punto di lavoro**, quindi i numeri qui sopra
+restano validi. La frase del piano che diceva 0,20 no.
+
+### Revisione indipendente: 19 rilievi, tutti accolti
+
+Undici corretti nel codice, tre nei test (due dei quali passavano per il motivo
+sbagliato), il resto nel testo. Elenco e ritrattazioni in
+`reports/CICLO_20260909.md` §Revisione. Le tre che pesano di piu':
+
+- «30 iterazioni -> 0,008428, `||theta||` 1,45» **non e' riproducibile**: con
+  quella configurazione il candidato e' theta = 0 e la perdita resta 0,010000;
+- la tabella «30/60/200/600 iterazioni» confrontava **quattro ottimizzatori**,
+  non quattro budget, perche' `A` dipende da `massimo`;
+- «con p ~ 30 servono circa duecento iterazioni» era un'**estrapolazione**: a
+  `A` fisso la crescita non e' proporzionale a p (2,4x da p=10 a p=103, poi
+  7,6x da p=103 a p=300).
+
+---
+
+## 3ter. Due feature del bersaglio contengono l'esito
+
+Misurato il 9 settembre, riproducibile con
+`scripts/l1_ablazione_presenze.py` e `scripts/l1_confronto_bersagli.py`.
+
+Il bersaglio del cubo viene da un CatBoost su 36 feature ereditate in blocco
+dal modello del prezzo. Due non sono disponibili alla data dell'asta:
+
+- **`fvm`**: nei listoni archiviati e' un valore di **fine stagione**. Rho di
+  rango con la quotazione di fine campionato 0,900 sul 2024-25, contro 0,708
+  con quella iniziale; nel listone fresco 2026-27 le due coincidono (0,920 e
+  0,941). Dato `fvm`, la quotazione iniziale non porta piu' informazione sulle
+  presenze (parziale ~0,00); dato `qt_i`, `fvm` ne porta 0,65-0,67;
+- **`quot_fs_sett`**: snapshot fanta.soccer di giornata 2 o 3 della stagione da
+  predire. Per il 2024-25 e' la giornata 3, rilevata il 30/08/2024, contro la
+  prima giornata del 17-19/08 e un cutoff dichiarato al 17/08.
+
+Peso misurato, cinque semi, differenza appaiata:
+
+| stagione | MAE con tutte | senza le non databili | differenza | es |
+|---|---:|---:|---:|---:|
+| 2024-25 | 5,5688 | 8,1259 | **+2,5571** | 0,0150 |
+| 2025-26 | ~6,0 | ~8,3 | **+2,2890** | 0,0165 |
+
+`fvm` da solo vale +1,78 presenze, `quot_fs_sett` +0,62; le altre due candidate
+(`team_prev_xg`, `cambio_squadra`) sono rumore.
+
+Contro le presenze realizzate, per giocatore-giornata: bersaglio attuale
+**0,1453**, bersaglio per origine con le sole feature ammesse **0,2136**,
+somme 264,6 e 280,4 contro le 281,9 vere. Il bersaglio onesto e' meno accurato
+per giocatore e piu' corretto in aggregato.
+
+**Anche il cubo eredita la contaminazione**: `partecipazione.stima` riceve lo
+stesso bersaglio. Nessuno dei numeri pubblicati finora sul confronto
+bersaglio/cubo e' pulito, e il confronto onesto non e' ancora stato fatto.
+
+### Che cosa esiste adesso
+
+- `src/fantabot/tabellino/origine.py` — contratto delle previsioni per origine:
+  stagione, istante, universo, partite osservate e residue, periodo delle
+  etichette, ingressi con la prova della loro disponibilita', impronte. Rifiuta
+  un manifesto con ingressi posteriori all'origine, etichette oltre l'origine,
+  o zero partite residue con orizzonte finto;
+- `scripts/l1_presenze_per_origine.py` — produce le previsioni per origine,
+  eseguendo il **solo** modello delle presenze. Due origini diverse danno due
+  cartelle diverse che coesistono: nessun pack e' toccato;
+- `partecipazione.stato_all_origine` e `generatore.genera(stato_iniziale=...)`
+  — la catena di convocazione parte da dove le cose stanno, invece che da un
+  sorteggio. Chi non ha storia resta ignoto ed e' ancora estratto; nessuna
+  causa e' attribuita alle assenze.
+
+**Limite dichiarato**: `votes_*.parquet` non ha date. La granularita' per le
+presenze gia' realizzate e' la giornata, e le partite anticipate di una
+giornata a cavallo sono scartate invece che indovinate.
+
+---
+
 ## 4. Da dove ripartire, in ordine
 
-1. **Decidere sulla calibrazione congiunta delle presenze.**
-   `reports/PROPOSTA_CALIBRAZIONE_PRESENZE.md` ha forma, costo stimato, cinque
-   criteri di accettazione fissati prima e tre decisioni che non sono mie. La
-   prima è quella che conta: se il bersaglio è più accurato del cubo sulle
-   presenze, a che cosa serve il cubo.
-2. **Se si vuole concludere l'esperimento del progressivo**: il percorso è
-   verificato, mancano le risorse. Con 8 scenari e 2 semi l'esito è «non
-   misurabile». Serve dimensionare `R` e `m` **prima**, con
-   `repliche_necessarie_prospettiche`.
-3. **Se si vuole un progressivo che sia una previsione operativa**: serve
-   condizionare le catene sullo stato osservato all'origine. Oggi
-   `generatore.genera` risimula il passato con il nuovo fit. È un meccanismo
-   che non esiste.
-4. **L3 e L4** restano sospesi. Le vecchie conclusioni L3 sono ritrattate:
-   vedi il blocco registrato nel manifesto.
+1. **Rifare il confronto bersaglio/cubo con ingressi puliti.** E' il passo che
+   scioglie il nodo: dare a `partecipazione.stima` il bersaglio per origine
+   invece di `b_predictions`, e rimisurare C1 e C2. Finche' non e' fatto,
+   nessuna delle due parti del confronto e' pulita. Costo: una corsa del
+   pilota, circa 90 minuti.
+2. **Decidere se ricostruire `fvm` in versione iniziale.** La fonte distingue
+   `Qt.I` da `Qt.A`, ma per `fvm` non dichiara quale sia. Se esiste un
+   archivio del listone al momento dell'asta, il ramo si riapre con una
+   feature in piu'; se non esiste, `fvm` resta fuori. Non e' una decisione mia:
+   riguarda quali dati vale la pena cercare.
+3. **Implementare lo snapshot g01 per `quot_fs_sett`.** `PROTOCOLLO_v2.md`
+   §9.3 lo aveva gia' deciso e non e' mai stato fatto: `fs_snapshot.json` punta
+   a giornata 2 o 3. Con g01 la feature tornerebbe ammissibile, al costo di
+   perdere copertura.
+4. **Simulare solo il futuro.** Lo stato all'origine c'e'; `genera` continua a
+   ciclare su tutto il calendario. Serve un orizzonte che parta dall'origine e
+   conservi i risultati gia' acquisiti.
+5. **L4 avanza per conto suo**, e non dipende dal cubo. Il nodo la' e' diverso:
+   il target del modello prezzo si regge su 88 aste su 216, di cui **5** per il
+   2024-25, e la stagione 2025-26 ha **zero** prezzi osservati. Prima di
+   modelli nuovi serve sapere se quel campione basta.
+6. **L3 resta fermo su un difetto noto**: i tetti non hanno mai funzionato
+   end-to-end (0 usabili su 25 nell'unico file su disco) e il disegno li
+   calcola da un solo stato iniziale, cosi' che il bot li respinga dopo il
+   primo martelletto. I difetti 1-3 sono stati corretti l'8 settembre, ma
+   nessun esperimento e' stato rigiocato: i numeri L3 pubblicati vengono
+   ancora dal bot difettoso.
+
+### Comandi che riprendono da qui
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONIOENCODING=utf-8 PYTHONPATH=src python -m pytest tests/ -q
+```
+
+```bash
+PYTHONPATH=src python scripts/l1_ablazione_presenze.py 2024-25 --per-feature
+```
+
+```bash
+PYTHONPATH=src python scripts/l1_presenze_per_origine.py 2024-25 --origine 2024-10-01
+```
+
+```bash
+PYTHONPATH=src python scripts/l1_confronto_bersagli.py
+```
 
 ### Prove piccole, per ricominciare senza impegnarsi
 
 ```bash
-PYTHONPATH=src python scripts/l2_diagnosi_presenze.py 2024-25 --sims 12 --semi 3 --prova
-PYTHONPATH=src python scripts/l2_progressivo.py 2024-25 --origini 1,20 --sims 8 --semi 2 --righe 1200 --prova
+PYTHONPATH=src python scripts/l2_controfattuale_c2.py 2024-25
+PYTHONPATH=src python scripts/l2_pilota_c2.py 2024-25 --iterazioni 3 --sims 2
 ```
 
-Entrambe scrivono sotto `data/l2/prove/`, che è una radice separata da quella
+Entrambe scrivono sotto `data/l2/prove/`, che e' una radice separata da quella
 dei risultati: non possono toccare niente di pubblicato.
 
 ---
@@ -161,3 +331,21 @@ dei risultati: non possono toccare niente di pubblicato.
   determinismo del generatore**, non del contratto temporale: confronta
   `genera(X, s)` con `genera(X, s)`. La prova che può fallire usa un generatore
   alterato, ed è a un livello più debole.
+- **Il pilota C2 non dimostra che il cubo migliori le presenze rispetto alla
+  realta'**: dimostra che si avvicina a un bersaglio che e' gia' piu' vicino
+  alla realta' di lui, e che nasce da un ingresso non databile.
+- **«Il primo passo vale 0,20»**: falso, valeva 0,0486. Il piano congelato lo
+  dichiarava male, e l'errore e' stato scoperto solo dalla revisione.
+- **«La varianza e' dominata dal seme»**: ritirata gia' nel ciclo precedente,
+  non e' mai stata dimostrata. La causa misurata del pilota fallito e' il
+  **budget**, non il rumore.
+- **«Il bersaglio grezzo e' piu' accurato del cubo»**: ritirata. Lo era perche'
+  aveva visto l'esito. E il cubo eredita lo stesso ingresso, quindi neanche il
+  suo numero e' pulito.
+- **Il produttore per origine non risolve la temporalita' del progetto**:
+  copre il modello delle presenze. `players_*.parquet` non ha un contratto
+  temporale, e le 32 feature ammesse lo sono per semantica del campo, non per
+  prova di data.
+- **Lo stato all'origine non e' una previsione operativa**: il generatore
+  continua a risimulare tutto il calendario. E' un ingresso pronto, non un
+  percorso completo.

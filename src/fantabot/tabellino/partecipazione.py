@@ -309,6 +309,107 @@ def _offset_da_panel(P: pd.DataFrame) -> dict:
 
 
 # --------------------------------------------------------------------------
+# Lo stato della catena all'origine di una previsione
+# --------------------------------------------------------------------------
+
+# come si e' arrivati a conoscere lo stato iniziale di un giocatore
+STATO_OSSERVATO = "osservato"
+STATO_IGNOTO = "ignoto"
+
+
+def stato_all_origine(P: pd.DataFrame, origine, rose: dict, *,
+                      colonna_data: str = "data") -> tuple[dict, dict]:
+    """Stato e striscia della catena di convocazione all'istante `origine`.
+
+    Una previsione progressiva parte da dove le cose stanno, non da un
+    sorteggio. Oggi `generatore.genera` inizializza ogni giocatore estraendo
+    dalla marginale con `run = 1`: e' corretto per una stagione interamente
+    futura, ed e' sbagliato a stagione iniziata, perche' butta via
+    l'informazione che si ha.
+
+    Ritorna `(stato, diagnostica)` dove `stato[squadra][pid] = (presente, run)`
+    con la **stessa** definizione usata da `_offset_da_panel`: `presente` e'
+    l'essere fra i convocati (`CONVOCATI`) nell'ultima giornata **eleggibile**
+    prima dell'origine, `run` quante giornate consecutive in quello stato,
+    troncato a `MAX_RUN`. Usare una definizione diversa metterebbe lo stato
+    iniziale in una scala che il modello non conosce.
+
+    ## Quello che questa funzione NON fa
+
+    Non deduce infortuni. L'assenza di una riga, o un `senza_voto`, dice che il
+    giocatore non ha preso voto: non dice perche'. Attribuire una causa medica
+    a un'assenza sarebbe inventare uno stato latente che i dati non contengono.
+
+    Dove non ci sono righe eleggibili anteriori, lo stato resta **ignoto** e
+    non compare nel risultato: chi genera lo estrarra' dalla marginale, e la
+    diagnostica dice quanti sono. Conservare l'incertezza e' il punto.
+    """
+    o = pd.Timestamp(origine)
+    maschera, diag_el = _maschera_eleggibili(P)
+    d = P[maschera].copy()
+    if colonna_data not in d.columns:
+        raise ValueError(
+            f"il panel non ha la colonna «{colonna_data}»: senza date lo stato "
+            "all'origine si potrebbe separare solo per giornata, che con i "
+            "rinvii sposta le partite dalla parte sbagliata")
+    d[colonna_data] = pd.to_datetime(d[colonna_data], errors="coerce")
+    prima = d[d[colonna_data].notna() & (d[colonna_data] < o)].copy()
+    prima["in_lista"] = _in_lista(prima)
+    prima = prima.sort_values(["master_id", colonna_data, "giornata"])
+
+    ultimo = {}
+    for pid, g in prima.groupby("master_id"):
+        v = g.in_lista.to_numpy()
+        if not len(v):
+            continue
+        corrente = int(v[-1])
+        run = 1
+        for x in v[-2::-1]:
+            if int(x) != corrente:
+                break
+            run += 1
+        ultimo[int(pid)] = (bool(corrente), min(int(run), MAX_RUN))
+
+    stato, ignoti, osservati = {}, [], 0
+    for sq, rosa in rose.items():
+        stato[sq] = {}
+        for pid in rosa:
+            v = ultimo.get(int(pid))
+            if v is None:
+                ignoti.append(int(pid))
+                continue
+            stato[sq][int(pid)] = v
+            osservati += 1
+
+    diagnostica = {
+        "origine": str(o.date()),
+        "righe_anteriori_eleggibili": int(len(prima)),
+        "giocatori_con_stato_osservato": osservati,
+        "giocatori_con_stato_ignoto": len(ignoti),
+        "ignoti_primi": sorted(ignoti)[:10],
+        "distribuzione_run": {
+            f"{'presente' if pres else 'assente'}|{r}": int(n)
+            for (pres, r), n in sorted(
+                pd.Series([v for m in stato.values() for v in m.values()])
+                .value_counts().items(), key=lambda x: (not x[0][0], x[0][1]))
+        } if osservati else {},
+        "eleggibilita": diag_el,
+        "nota": (
+            "`presente` e' l'essere fra i convocati all'ultima giornata "
+            "eleggibile prima dell'origine, la stessa definizione con cui sono "
+            "stimati gli scostamenti della catena. I giocatori senza righe "
+            "anteriori restano IGNOTI: il generatore li estrae dalla "
+            "marginale, e l'incertezza si conserva invece di essere sostituita "
+            "da un valore inventato."),
+        "nota_infortuni": (
+            "nessuna causa e' attribuita alle assenze. Un `senza_voto` o una "
+            "riga mancante non dimostrano un infortunio, e questa funzione non "
+            "lo deduce."),
+    }
+    return stato, diagnostica
+
+
+# --------------------------------------------------------------------------
 # La catena con memoria: quanto vale davvero il tasso di convocazione
 # --------------------------------------------------------------------------
 

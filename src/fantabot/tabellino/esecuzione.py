@@ -441,4 +441,5 @@ MODULI_RILEVANTI = (
     "fantabot.tabellino.presenze",
     "fantabot.tabellino.contratto",
     "fantabot.tabellino.esecuzione",
+    "fantabot.tabellino.calibrazione",
 )
