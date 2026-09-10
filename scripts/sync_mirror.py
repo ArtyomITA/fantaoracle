@@ -34,17 +34,19 @@ MIRROR = RADICE.parent / "fantabot-github"
 DA_COPIARE = [
     "src", "scripts", "tests", "config", "viz", "reports",
     "requirements.txt", "LICENSE",
-    "README.md", "DATA.md", "PIANO.md", "BRAINSTORMING.md", "ASTA_VERA.md",
-    "RIPRESA.md", "RIPRESA_L2_L3.md", "FantaOracle.bat",
+    "README.md", "DATA.md", "PIANO.md", "BRAINSTORMING.md",
+    "RIPRESA.md", "RIPRESA_ASTA.md", "GUIDA_ASTA.md", "FantaOracle.bat",
 ]
 
 # `HANDOFF_SESSIONE.md` resta fuori: contiene i nomi degli account usati per il
 # push e istruzioni operative che riguardano solo la macchina di sviluppo.
 ESCLUSI_ESPLICITI = {"HANDOFF_SESSIONE.md"}
 
+# `_1500.md`: copie byte-identiche dei rapporti dei livelli prodotte da un
+# secondo giro di agenti; il mirror tiene una sola versione.
 ESCLUSI = re.compile(
     r"(__pycache__|\.pyc$|\.pyo$|\.pytest_cache|\.ipynb_checkpoints"
-    r"|\.parquet$|\.pkl$|\.csv\.gz$|\.xls$|\.xlsx$|~$)")
+    r"|\.parquet$|\.pkl$|\.csv\.gz$|\.xls$|\.xlsx$|~$|_1500\.md$)")
 
 # Percorsi assoluti da riscrivere. L'ordine conta: prima il più lungo. Le
 # prime due forme hanno il backslash raddoppiato: compaiono dentro le stringhe

@@ -30,6 +30,20 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 ROOT = Path(__file__).resolve().parents[1]
+
+def sessioni_copilota():
+    """I ledger riprendibili, senza le copie di sicurezza.
+
+    `glob("ledger_*.json")` prendeva anche `ledger_123.buono.json`, la copia
+    che il Copilota tiene per poter riprendere da un salvataggio interrotto:
+    comparivano come sessioni distinte, ed erano la stessa asta due volte.
+    """
+    cartella = ROOT / "data" / "copilot"
+    if not cartella.exists():
+        return []
+    return [p for p in cartella.glob("ledger_*.json")
+            if ".buono" not in p.name and ".tmp" not in p.name]
+
 F6 = ROOT / "scripts" / "f6_live_auction.py"
 
 CHILDREN: dict[int, subprocess.Popen] = {}
@@ -95,7 +109,7 @@ class Handler(SimpleHTTPRequestHandler):
                     out["sedia"].append({"file": lg.name,
                                          "quando": datetime.fromtimestamp(lg.stat().st_mtime).strftime("%d/%m %H:%M"),
                                          "eventi": sum(1 for _ in open(lg, encoding="utf-8"))})
-            for lg in sorted((ROOT / "data" / "copilot").glob("ledger_*.json"),
+            for lg in sorted(sessioni_copilota(),
                              key=lambda p: p.stat().st_mtime, reverse=True)[:10]:
                 try:
                     d = json.loads(lg.read_text(encoding="utf-8"))
@@ -147,14 +161,18 @@ class Handler(SimpleHTTPRequestHandler):
                     old.kill()
             # se la porta e' occupata da un processo NON nostro, non uccidiamo
             # alla cieca: segnaliamo e basta
-            if old is None and probe_auction(porta, 0.5) is not None:
+            # un Copilota risponde su /copilot/state, non su /state: prima la
+            # guardia non lo vedeva e avviava un secondo processo sulla stessa
+            # porta, che moriva, mentre il menu dichiarava «avviato»
+            if old is None and (probe_auction(porta, 0.5) is not None
+                                or probe_auction(porta, 0.5, path="/copilot/state") is not None):
                 return self._json({"ok": False,
                                    "err": f"porta {porta} gia' occupata da un "
                                           f"altro processo: fermalo o cambia porta"})
             if mode == "copilot":
                 script = ROOT / "scripts" / "f10_copilot.py"
                 if resume == "latest":
-                    ledgers = sorted((ROOT / "data" / "copilot").glob("ledger_*.json"),
+                    ledgers = sorted(sessioni_copilota(),
                                      key=lambda p: p.stat().st_mtime, reverse=True)
                     if not ledgers:
                         return self._json({"ok": False, "err": "nessuna asta vera da riprendere"})

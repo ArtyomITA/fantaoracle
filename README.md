@@ -93,11 +93,11 @@ Un simulatore che si giudica da solo dice sempre di funzionare.
 
 | livello | che cosa aggiunge | stato |
 |---|---|---|
-| **0-1** | dati, modelli di prezzo e valore, motore d'asta, bot, torneo | in uso |
-| **2** | generatore di stagioni fisicamente coerente | **non promosso** |
-| **3** | rosa che massimizza P(primo posto), prezzo di indifferenza per giocatore | in costruzione |
-| **4** | prezzi dalle aste reali: identità di ogni asta, duplicati, martelletto singolo contro prezzo medio | in corso |
-| **5** | stagione in corso: stato aggiornato all'origine, scambi, svincoli, riparazione di gennaio | da costruire |
+| **0-1** | dati, modelli di prezzo e valore, motore d'asta, bot, torneo; contratto temporale per ogni colonna dei parquet | in uso |
+| **2** | generatore di stagioni fisicamente coerente (cubo TABELLINO) | **non promosso**: anche con il bersaglio onesto delle presenze, sulle marginali fa peggio del bersaglio da solo (MAE +0,035, \|t\| 16,8) |
+| **3** | rosa che massimizza P(primo posto), prezzo di indifferenza per giocatore | **non attivato**: banco appaiato B contro L3 su 264 aste **inconcludente** (Δ P(1°) −0,023, IC95 [−0,050, +0,004]) |
+| **4** | prezzi dalle aste reali: identità di ogni asta, duplicati, martelletto singolo contro prezzo medio | in uso il modello attuale (mediana = 60 % prezzo live + 40 % modello); calibrazione per segmento provata e **non adottata** |
+| **5** | stagione in corso: aggiornamento settimanale, formazione di giornata (`f17_formazione.py`), scambi, svincoli, riparazione di gennaio | aggiornamento e formazione ci sono; scambi e riparazione da costruire |
 
 Il Livello 3 risponde alla domanda «fino a che prezzo mi conviene questo giocatore, sapendo che comprarlo mi toglie i crediti per gli altri».
 
@@ -116,7 +116,8 @@ python scripts/fantaoracle_app.py
 
 - **Replay** — un'asta come un teatro, coi pensieri di ogni bot a ogni rilancio: perché ha rilanciato, quanto era disposto a pagare, cosa ha ricalcolato dopo aver perso.
 - **Sedia** — ti siedi tu al tavolo, contro i bot.
-- **Copilota** — l'assistente per l'asta vera: consiglio a ogni chiamata, piano aggiornato, budget residuo, tetto per giocatore.
+- **Copilota** — l'assistente per l'asta vera: consiglio a ogni chiamata (tetto = quanto pagherebbe il bot, trovato per bisezione, mai sopra il massimo legale), rosa ideale con le alternative per bomber (stesso MILP, stessi vincoli), spesa per reparto, «possono superarti» (avversari con slot libero e cassa sopra il tuo tetto), rigoristi per ruolo con i gol delle ultime due stagioni, indisponibili con giornate perse, note di un esperto per nome, esclusioni manuali dal piano, ripresa da riavvio, export offline e listino di carta.
+- **Ponte FantaAsta Live** — se l'asta si gioca su FantaAsta Live, uno script (`viz/ponte_fantaasta.js`, bookmarklet in `viz/ponte.html`) legge le assegnazioni dallo stato dell'app e le registra nel Copilota ogni 1,5 s, annullamenti compresi. Guida: [`GUIDA_ASTA.md`](GUIDA_ASTA.md).
 
 ## Come è tenuto insieme
 

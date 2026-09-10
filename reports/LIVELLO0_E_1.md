@@ -1,7 +1,7 @@
 # Livello 0 chiuso e Livello 1 avviato — 6-7 settembre 2026
 
 Lavoro autorizzato dopo il controllo indipendente. Sostituisce le parti
-superate di `LIVELLO0.md`, `CHECK_20260906.md` e `CHECK_O3_O4.md`, che restano
+superate di `_archivio/LIVELLO0.md`, `_archivio/CHECK_20260906.md` e `_archivio/CHECK_O3_O4.md`, che restano
 come storia. Ogni numero qui e' riproducibile con lo script citato.
 
 ---

@@ -215,6 +215,55 @@ def test_il_bersaglio_grezzo_segue_il_file_delle_predizioni(tmp_path):
     assert d["bersaglio_grezzo"]["voci_diverse"] > 0
 
 
+# ------------------------------------- l'opzione --bersaglio (par.3ter, L2)
+def _csv_per_origine(cartella: Path, n=12) -> Path:
+    """Un CSV nel formato di `scripts/l1_presenze_per_origine.py`.
+
+    I valori sono diversi da `_predizioni_finte` apposta: se coincidessero, la
+    prova non distinguerebbe le due strade.
+    """
+    cartella.mkdir(parents=True, exist_ok=True)
+    p = cartella / "presenze_per_origine.csv"
+    pd.DataFrame({
+        "master_id": list(range(1, n + 1)),
+        "presenze_residue_attese": [float(i) for i in range(1, n + 1)],
+        "scarto_fra_semi": [0.5] * n,
+        "presenze_gia_fatte": [0.0] * n,
+        "orizzonte_giornate": [38] * n}).to_csv(p, index=False)
+    return p
+
+
+def test_senza_l_opzione_gli_ingressi_sono_identici_a_prima(tmp_path):
+    """Il comportamento predefinito non cambia: elemento per elemento."""
+    P = _panel_finto()
+    proc = _predizioni_finte(tmp_path / "processed")
+    comune = dict(stagione="2024-25", cutoff="2024-08-17", proc=proc,
+                  universo=_universo_finto(), n_squadre=1)
+    base = pilota.costruisci_ingressi(P, **comune).vettori()
+    con_none = pilota.costruisci_ingressi(P, **comune, bersaglio=None).vettori()
+    assert contro.differenze(base, con_none) == {}
+    assert base == con_none
+
+
+def test_con_l_opzione_cambia_il_bersaglio_e_non_l_universo(tmp_path):
+    P = _panel_finto()
+    proc = _predizioni_finte(tmp_path / "processed")
+    comune = dict(stagione="2024-25", cutoff="2024-08-17", proc=proc,
+                  universo=_universo_finto(), n_squadre=1)
+    base = pilota.costruisci_ingressi(P, **comune).vettori()
+    csv = _csv_per_origine(tmp_path / "l1")
+    altro = pilota.costruisci_ingressi(
+        P, **comune, bersaglio=csv,
+        cartella_bersaglio=tmp_path / "lavoro").vettori()
+    d = contro.differenze(base, altro)
+    assert d["bersaglio_grezzo"]["voci_diverse"] > 0, (
+        "il bersaglio non ha seguito il CSV per origine")
+    assert "universo" not in d, f"l'universo si e' mosso: {d.get('universo')}"
+    assert set(altro["bersaglio_grezzo"]) == set(base["bersaglio_grezzo"])
+    # e i valori sono quelli del CSV, non un riscalamento a caso
+    assert altro["bersaglio_grezzo"][1] == pytest.approx(1.0 / 38)
+
+
 def test_i_vettori_sono_per_identificativo_non_per_somma(tmp_path):
     P = _panel_finto()
     proc = _predizioni_finte(tmp_path / "processed")

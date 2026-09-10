@@ -1,0 +1,55 @@
+
+-- struttura
+  [ok ] stessa stagione: 2026-27 / 2026-27
+  [ok ] quote e budget uguali: {'P': 3, 'D': 8, 'C': 8, 'A': 6} 500
+  [ok ] almeno 500 giocatori: 594 -> 594
+  [ok ] K coerente con le giornate nei voti: K {3} -> {3}; giornate con voti 3 -> 3
+  [ok ] nessun NaN in q10/q50/q90/value: 0 righe con NaN
+  [ok ] identificativi persi sotto il 5 %: persi 0, nuovi 0
+  [ok ] nessun cambio di ruolo: []
+  [ok ] stessa squadra (cambi ammessi solo se pochi): []
+
+-- persi: []
+-- nuovi: []
+
+-- spostamenti per ruolo (giocatori in entrambi)
+  P: n=74 dq50 mediana +0.0 (max |0.0|) dvalue mediana +0.0 (max |5.3|)
+  D: n=213 dq50 mediana +0.0 (max |0.0|) dvalue mediana +0.0 (max |64.8|)
+  C: n=203 dq50 mediana +0.0 (max |0.0|) dvalue mediana +0.0 (max |42.0|)
+  A: n=104 dq50 mediana +0.0 (max |0.0|) dvalue mediana +0.0 (max |14.7|)
+
+-- 25 spostamenti di valore piu' grandi
+  Cambiaso           D JUV  value   70.2 ->  135.0 q50   14.3 ->   14.3 pres 11.6 -> 22.2
+  Sarr P.            C JUV  value   55.2 ->   97.2 q50   10.9 ->   10.9 pres 7.6 -> 13.4
+  Rabiot             C MIL  value  239.3 ->  213.3 q50   43.1 ->   43.1 pres 31.9 -> 28.4
+  Dodò               D FIO  value  106.2 ->  132.2 q50   13.0 ->   13.0 pres 16.1 -> 20.0
+  Viery              D FIO  value  128.7 ->  104.7 q50    2.8 ->    2.8 pres 20.4 -> 16.6
+  Cissè A.           C MIL  value  195.1 ->  218.3 q50    9.0 ->    9.0 pres 28.2 -> 31.6
+  Gabbia             D MIL  value  113.3 ->   90.8 q50   10.9 ->   10.9 pres 17.9 -> 14.4
+  Ranieri L.         D FIO  value   85.4 ->  106.1 q50    5.0 ->    5.0 pres 14.8 -> 18.3
+  Fagioli            C FIO  value  166.5 ->  187.0 q50   12.8 ->   12.8 pres 23.1 -> 25.8
+  Dragusin           D FIO  value  164.3 ->  146.3 q50   10.9 ->   10.9 pres 25.1 -> 22.4
+  Diego Carlos       D PAR  value  153.5 ->  135.7 q50   11.1 ->   11.1 pres 20.5 -> 18.2
+  Unai Gomez         C UDI  value  153.9 ->  136.8 q50   10.7 ->   10.7 pres 22.7 -> 20.2
+  Sohm               C VEN  value  130.4 ->  146.7 q50    2.2 ->    2.2 pres 21.4 -> 24.0
+  El Shaarawy        C GEN  value   61.9 ->   77.8 q50    9.2 ->    9.2 pres 6.8 -> 8.5
+  Boga               A JUV  value  169.4 ->  184.1 q50   12.6 ->   12.6 pres 23.0 -> 25.0
+  Havel              A GEN  value   10.6 ->   20.0 q50    2.5 ->    2.5 pres 1.1 -> 2.1
+  Robinho Junior     A GEN  value    9.2 ->   18.3 q50    1.7 ->    1.7 pres 1.1 -> 2.2
+  Dagasso            C VEN  value   24.0 ->   32.4 q50    1.8 ->    1.8 pres 6.5 -> 8.9
+  Pozzi              P VEN  value    5.3 ->   10.6 q50    1.1 ->    1.1 pres 0.7 -> 1.4
+  Laerke             C LEC  value    7.3 ->    3.6 q50    1.3 ->    1.3 pres 0.1 -> 0.1
+  Basic              C VEN  value  154.8 ->  155.7 q50    9.1 ->    9.1 pres 22.3 -> 22.5
+  Malen              A ROM  value  300.2 ->  300.2 q50  145.0 ->  145.0 pres 29.5 -> 29.5
+  Martinez L.        A INT  value  267.2 ->  267.2 q50  142.6 ->  142.6 pres 31.2 -> 31.2
+  Dimarco            D INT  value  182.7 ->  182.7 q50   68.6 ->   68.6 pres 24.0 -> 24.0
+  Paz N.             C COM  value  262.5 ->  262.5 q50   80.4 ->   80.4 pres 33.9 -> 33.9
+
+-- top 12 per ruolo nel candidato (valore), con rango vecchio
+  P: Mandas (1->1), Svilar (2->2), Vicario (3->3), Maignan (4->4), Carnesecchi (5->5), Falcone (6->6), Butez (7->7), Caprile (8->8), Martinez Jo. (9->9), Okoye (10->10), Skorupski (11->11), De Gea (12->12)
+  D: Kalulu (1->1), Pavlovic (2->2), Bremer (3->3), Solet (4->4), Mancini (5->5), Wesley (6->6), Di Lorenzo (7->7), Rrahmani (8->8), Valeri (9->9), Vasquez (10->10), Ostigard (11->11), Gila (12->12)
+  C: Paz N. (1->1), Zaccagni (2->2), Calhanoglu (3->3), Frattesi (4->4), Vlasic (5->5), Ekkelenkamp (7->6), Barella (8->7), Ederson D.S. (9->8), Atta (10->9), Conceicao (11->10), De Bruyne (12->11), Modric (13->12)
+  A: Malen (1->1), Ramos G. (2->2), Martinez L. (3->3), Raimondo (4->4), De Ketelaere (5->5), Colombo (6->6), Laurientè (7->7), Hojlund (8->8), Soulè (9->9), Berardi (10->10), Kvernadze (11->11), Kolo Muani (12->12)
+
+==============================================================
+8/8 controlli superati

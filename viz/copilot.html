@@ -5,6 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>FantaOracle — Copilota dell'asta vera</title>
 <style>
+/* piani alternativi: riusa i colori e la spaziatura dei pannelli esistenti */
+.pi-tabs{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+.pi-tab{padding:6px 10px; border-radius:8px; border:1px solid var(--surface1);
+  background:var(--surface0); color:var(--text); cursor:pointer; font-size:12px;
+  font-weight:700;}
+.pi-tab.on{background:var(--yellow); color:#11111b; border-color:var(--yellow);}
+.pi-tab .gap{opacity:.75; font-weight:600; margin-left:6px;}
+.pi-body{font-size:12px; line-height:1.5;}
+.pi-row{display:flex; justify-content:space-between; gap:10px; padding:2px 0;
+  border-bottom:1px dashed var(--surface1);}
+.pi-row:last-child{border-bottom:0;}
+.pi-neg{color:var(--red);} .pi-pos{color:var(--green);}
+.pi-note{color:var(--overlay0); font-size:11px; margin-top:8px; line-height:1.45;}
+.pi-what{display:flex; gap:6px; align-items:center; margin-top:10px;}
+.pi-what input{width:70px; padding:4px 6px; border-radius:6px;
+  border:1px solid var(--surface1); background:var(--surface0); color:var(--text);}
+.prov{color:var(--overlay0); font-size:11px; line-height:1.5; margin-top:6px;}
+.prov b{color:var(--subtext0);}
+.warn-ind{color:var(--peach); font-weight:700;}
 /* ============================================================
    FantaOracle — Copilota · asta VERA con gli amici
    "notturno da stadio": Catppuccin Mocha + verde campo + oro
@@ -124,8 +143,8 @@ main{
   transition:all .15s;
 }
 .rp:hover{color:var(--text);}
-.rp.on{color:var(--crust);}
-.results{margin-top:8px; max-height:236px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; padding-right:2px;}
+.rp.on{color:var(--crust); background:var(--subtext0);}
+.results{margin-top:8px; max-height:184px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; padding-right:2px;}
 .res-row{
   display:grid; grid-template-columns:22px 22px minmax(0,1fr) 62px 62px; gap:8px; align-items:center;
   padding:6px 10px; border-radius:8px; background:var(--mantle); cursor:pointer;
@@ -166,23 +185,98 @@ main{
   cursor:pointer; padding:2px 8px; border-radius:6px; align-self:flex-start;
 }
 .lot-x:hover{color:var(--red); background:var(--surface0);}
-.qrow{display:flex; gap:14px; margin-top:12px; position:relative;}
-.q{flex:1; background:var(--mantle); border-radius:10px; padding:8px 10px; text-align:center;}
-.q .n{font-size:22px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1;}
-.q .l{font-size:9.5px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--overlay1); margin-top:4px;}
-.q.mid .n{color:var(--yellow); font-size:30px;}
+/* forchetta COMPATTA: su 1366x768 ogni pixel speso qui e' un pixel tolto
+   al martelletto, che deve stare sopra la piega */
+.qrow{display:flex; gap:8px; margin-top:8px; position:relative;}
+.q{flex:1; background:var(--mantle); border-radius:9px; padding:4px 6px; text-align:center;}
+.q .n{font-size:17px; font-weight:900; font-variant-numeric:tabular-nums; line-height:1.05;}
+.q .l{font-size:8.5px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--overlay1); margin-top:2px;}
+.q.mid .n{color:var(--yellow); font-size:21px;}
 .q.val .n{color:var(--mauve);}
-.fork{margin-top:10px; position:relative;}
-.fork .bar{height:8px; background:var(--surface0); border-radius:4px; position:relative; overflow:hidden;}
+.q.val .n s{font-size:12px; color:var(--overlay0); font-weight:700; margin-left:3px;}
+.fork{margin-top:6px; position:relative;}
+.fork .bar{height:7px; background:var(--surface0); border-radius:4px; position:relative; overflow:hidden;}
 .fork .bar i{position:absolute; top:0; bottom:0; border-radius:4px; background:linear-gradient(90deg, var(--green), var(--yellow), var(--red));}
-.fork .bar .cur{position:absolute; top:-3px; width:3px; height:14px; background:#fff; border-radius:2px; box-shadow:0 0 6px var(--yellow);}
-.fork .lbl{display:flex; justify-content:space-between; font-size:10.5px; color:var(--overlay1); margin-top:4px; font-variant-numeric:tabular-nums;}
-.motivi{margin-top:8px; font-size:12px; font-style:italic; color:var(--subtext0); background:var(--surface0); border-radius:8px; padding:6px 10px; line-height:1.45;}
-.meta{display:flex; gap:14px; margin-top:8px; font-size:11.5px; color:var(--overlay1); flex-wrap:wrap;}
+.fork .bar .cur{position:absolute; top:-3px; width:3px; height:13px; background:#fff; border-radius:2px; box-shadow:0 0 6px var(--yellow);}
+.fork .lbl{display:flex; justify-content:space-between; font-size:10px; color:var(--overlay1); margin-top:3px; font-variant-numeric:tabular-nums;}
+.motivi{margin-top:6px; font-size:11.5px; font-style:italic; color:var(--subtext0); background:var(--surface0); border-radius:8px; padding:4px 9px; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+.meta{display:flex; gap:10px; margin-top:6px; font-size:11px; color:var(--overlay1); flex-wrap:wrap;}
 .meta b{color:var(--subtext1); font-variant-numeric:tabular-nums;}
 
+/* ---- indisponibilita', rettifica, mercato, nota dell'esperto ---- */
+.ind-box{
+  margin-top:7px; border-radius:9px; padding:5px 9px; font-size:11.5px; line-height:1.35;
+  background:color-mix(in srgb, var(--peach) 13%, var(--mantle));
+  border:1px solid color-mix(in srgb, var(--peach) 55%, transparent); color:var(--subtext1);
+}
+.ind-box .tt{color:var(--peach); font-weight:900;}
+.ind-box .src{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+.rett{margin-top:5px; font-size:11px; color:var(--peach); font-weight:700;}
+.mkt{margin-top:6px; font-size:11.5px; color:var(--subtext0); display:flex; gap:8px; align-items:baseline; flex-wrap:wrap;}
+.mkt b{color:var(--text); font-variant-numeric:tabular-nums; font-size:13px;}
+.mkt .rif{font-size:10px; color:var(--overlay0); letter-spacing:.5px;}
+/* nota dell'esperto: testo INTERO, niente taglio: e' la voce che al tavolo
+   fa cambiare idea. Compatta di righe, non di contenuto. */
+.esperto{
+  margin-top:6px; font-size:11.5px; line-height:1.3; border-radius:9px; padding:4px 9px;
+  background:var(--surface0); color:var(--subtext1);
+  border-left:3px solid var(--sapphire);
+}
+.esperto b{color:var(--sapphire); font-weight:900;}
+.chip.ind{background:var(--peach);}
+.chip.fuori{background:var(--red);}
+.chip.nopred{background:var(--surface1); color:var(--subtext0);}
+.chip.escl{background:var(--surface2); color:var(--text);}
+.lot-act{display:flex; gap:8px; margin-top:7px;}
+.lot-act button{
+  flex:1; padding:6px 8px; border-radius:9px; font-size:11.5px; font-weight:800; cursor:pointer;
+  background:var(--surface0); border:1px solid var(--surface1); color:var(--subtext1);
+}
+.lot-act button:hover{border-color:var(--red); color:var(--text);}
+.lot-act button.riammetti{border-color:var(--green); color:var(--green);}
+
+/* ---- rilanci osservati: ripiegati, non rubano la piega al martelletto ---- */
+.sez-rilanci{margin-top:8px;}
+.riltog{
+  width:100%; text-align:left; padding:6px 10px; border-radius:9px; cursor:pointer;
+  background:var(--surface0); border:1px solid var(--surface1); color:var(--subtext0);
+  font-size:11.5px; font-weight:800; letter-spacing:1px;
+}
+.riltog:hover{color:var(--text);}
+.rilbody{margin-top:6px;}
+.rilbody[hidden]{display:none;}
+
+/* ---- marcatori nei risultati della ricerca ---- */
+.res-row .mk{font-size:9.5px; font-weight:900; letter-spacing:.5px; border-radius:4px; padding:0 4px; margin-left:5px; white-space:nowrap;}
+.mk.ind{background:color-mix(in srgb, var(--peach) 22%, transparent); color:var(--peach);}
+.mk.fuori{background:color-mix(in srgb, var(--red) 20%, transparent); color:var(--red);}
+.mk.escl{background:var(--surface1); color:var(--subtext0);}
+.mk.nopred{background:var(--surface0); color:var(--overlay1);}
+.res-row.armato{border-color:var(--yellow); box-shadow:0 0 0 1px var(--yellow) inset;}
+.tutti-row{display:flex; align-items:center; gap:6px; margin-top:6px; font-size:11px; color:var(--overlay1);}
+.tutti-row input{accent-color:var(--yellow);}
+
+/* ---- riquadro dati di sessione: esclusi manuali ---- */
+.escl-list{margin-top:6px; display:flex; flex-direction:column; gap:4px;}
+.escl-row{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--subtext0);}
+.escl-row .nm{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.escl-row button{
+  background:var(--surface0); border:1px solid var(--green); color:var(--green); border-radius:7px;
+  padding:2px 8px; font-size:10.5px; font-weight:800; cursor:pointer;
+}
+/* ---- banner giallo: sessione ripresa dalla copia di sicurezza ---- */
+#copiaBanner{
+  margin:0 22px 10px; padding:8px 14px; border-radius:10px; font-size:12.5px; font-weight:700;
+  background:color-mix(in srgb, var(--yellow) 14%, var(--crust));
+  border:1px solid var(--yellow); color:var(--yellow); line-height:1.4;
+}
+#copiaBanner[hidden]{display:none;}
+/* icone nel piano */
+.ico{font-size:11px; cursor:help;}
+
 /* prezzo corrente */
-.price-row{display:flex; align-items:center; gap:8px; margin-top:12px; position:relative;}
+.price-row{display:flex; align-items:center; gap:8px; margin-top:8px; position:relative;}
 .price-row .lbl{font-size:10.5px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; color:var(--overlay1); width:64px; line-height:1.3;}
 .price-box{
   display:flex; align-items:center; background:var(--surface0); border:1px solid var(--surface1);
@@ -190,14 +284,14 @@ main{
 }
 .price-box input{
   width:96px; background:transparent; border:none; outline:none;
-  color:var(--yellow); font-size:38px; font-weight:900; text-align:center;
+  color:var(--yellow); font-size:31px; font-weight:900; text-align:center;
   font-variant-numeric:tabular-nums; line-height:1;
   text-shadow:0 0 22px color-mix(in srgb, var(--yellow) 40%, transparent);
 }
 .price-box input::-webkit-outer-spin-button,.price-box input::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
 .price-box input[type=number]{-moz-appearance:textfield;}
 .pbtn{
-  font-size:15px; font-weight:900; padding:10px 0; width:50px; border-radius:10px;
+  font-size:14px; font-weight:900; padding:8px 0; width:46px; border-radius:10px;
   border:1px solid var(--surface1); background:var(--surface0); color:var(--text);
   cursor:pointer; transition:filter .12s, transform .08s;
 }
@@ -209,14 +303,15 @@ main{
 
 /* CONSIGLIO grande */
 #advice{
-  margin-top:12px; border-radius:14px; padding:14px 16px; position:relative;
+  margin-top:8px; border-radius:14px; padding:9px 13px; position:relative;
   border:2px solid var(--surface1); background:var(--mantle);
   transition:background .2s, border-color .2s;
 }
-#advice .head{font-size:24px; font-weight:900; letter-spacing:.3px; line-height:1.15;}
-#advice .head .big{font-size:36px; font-variant-numeric:tabular-nums;}
-#advice .sub{font-size:13px; margin-top:6px; color:var(--subtext1); line-height:1.45;}
-#advice .tag{font-size:10.5px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:var(--overlay1); margin-bottom:5px;}
+#advice .head{font-size:21px; font-weight:900; letter-spacing:.3px; line-height:1.15;}
+#advice .head .big{font-size:30px; font-variant-numeric:tabular-nums;}
+#advice .sub{font-size:12px; margin-top:4px; color:var(--subtext1); line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+#advice .tag{font-size:10px; font-weight:900; letter-spacing:2px; text-transform:uppercase; color:var(--overlay1); margin-bottom:3px;}
 #advice.green{border-color:var(--green); background:color-mix(in srgb, var(--green) 13%, var(--mantle)); box-shadow:0 0 30px -12px var(--green);}
 #advice.green .head{color:var(--green);}
 #advice.yellow{border-color:var(--yellow); background:color-mix(in srgb, var(--yellow) 12%, var(--mantle)); box-shadow:0 0 30px -12px var(--yellow);}
@@ -230,16 +325,17 @@ main{
 @keyframes advPop{0%{transform:scale(.97);} 60%{transform:scale(1.015);} 100%{transform:scale(1);}}
 
 /* AGGIUDICATO A */
-.hammer-title{display:flex; align-items:baseline; gap:8px; margin-top:14px; font-size:12px; letter-spacing:2px; color:var(--overlay1); font-weight:800;}
-.hammer-title b{color:var(--yellow); font-size:15px; letter-spacing:0; font-variant-numeric:tabular-nums;}
-.hammer-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px;}
+.hammer-title{display:flex; align-items:baseline; gap:8px; margin-top:9px; font-size:11.5px; letter-spacing:2px; color:var(--overlay1); font-weight:800;}
+.hammer-title b{color:var(--yellow); font-size:14px; letter-spacing:0; font-variant-numeric:tabular-nums;}
+.hammer-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-top:6px;}
 .hbt{
-  padding:11px 6px; border-radius:10px; font-weight:900; font-size:13.5px;
+  padding:7px 5px; border-radius:10px; font-weight:900; font-size:12.5px;
   background:var(--surface0); border:1px solid var(--surface1); color:var(--text); cursor:pointer;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-  display:flex; flex-direction:column; align-items:center; gap:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
   transition:filter .12s, transform .08s, border-color .15s;
 }
+.hbt > span{max-width:100%; overflow:hidden; text-overflow:ellipsis;}
 .hbt:hover{filter:brightness(1.2); border-color:var(--subtext0);}
 .hbt:active{transform:scale(.95);}
 .hbt:disabled{opacity:.3; cursor:default; filter:none;}
@@ -325,7 +421,7 @@ main{
 }
 .trow:hover{background:var(--surface0);}
 .trow .star{color:var(--yellow); font-size:12px; text-align:center;}
-.trow .star.no{color:var(--surface1);}
+.trow .star.no{color:var(--overlay0);}
 .trow .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700;}
 .trow.starter .nm{color:var(--text);}
 .trow:not(.starter) .nm{color:var(--subtext0); font-weight:600;}
@@ -337,7 +433,9 @@ main{
 .tlegend b{color:var(--subtext0);}
 
 /* ---------- IL TAVOLO ---------- */
-#tavolo{position:sticky; top:12px;}
+/* sticky con tetto d'altezza: senza il tetto il pannello, piu' alto dello
+   schermo, resta incollato in fondo alla colonna e copre ULTIMI ACQUISTI */
+#tavolo{position:sticky; top:12px; max-height:calc(100vh - 24px); overflow-y:auto;}
 .team-row{
   display:grid; grid-template-columns:10px 1fr auto;
   grid-template-areas:"dot head credits" "dot bar bar" "dot slots slots";
@@ -355,8 +453,11 @@ main{
 .team-row .credits{grid-area:credits; font-size:16px; font-weight:900; font-variant-numeric:tabular-nums;}
 .team-row .bar{grid-area:bar; height:6px; border-radius:3px; background:var(--surface0); overflow:hidden;}
 .team-row .bar i{display:block; height:100%; border-radius:3px; transition:width .3s;}
-.team-row .slots{grid-area:slots; display:flex; gap:8px;}
-.slot-group{display:flex; gap:2.5px; align-items:center;}
+/* gli indicatori di slot vanno a capo: con quote 3/8/8/6 la fila unica
+   sforava la colonna da 330 px e metteva una barra orizzontale su tutta
+   la pagina (a 1366 px si perdevano gli ultimi quadratini del reparto A) */
+.team-row .slots{grid-area:slots; display:flex; gap:6px; flex-wrap:wrap; row-gap:4px; min-width:0;}
+.slot-group{display:flex; gap:2.5px; align-items:center; min-width:0; flex-wrap:nowrap;}
 .slot-group .rl{font-size:9px; font-weight:800; color:var(--overlay0); margin-right:1px;}
 .sq{width:9px; height:9px; border-radius:2.5px; background:var(--surface0);}
 .team-row.human{border-color:var(--yellow); box-shadow:0 0 12px -4px var(--yellow);}
@@ -473,7 +574,8 @@ main{
 
 /* ---------- banner server giù / toast ---------- */
 #downBanner{
-  position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:120;
+  /* sotto l'intestazione: a top:12px copriva LIVE e i numeri di testata */
+  position:fixed; top:72px; left:50%; transform:translateX(-50%); z-index:120;
   background:color-mix(in srgb, var(--red) 16%, var(--crust)); border:1px solid var(--red); color:var(--red);
   padding:9px 20px; border-radius:12px; font-weight:800; font-size:13.5px; white-space:nowrap;
   box-shadow:0 8px 30px -8px var(--crust);
@@ -489,6 +591,131 @@ main{
 #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 #toast.err{border-color:var(--red); color:var(--red);}
 #toast.ok{border-color:var(--green); color:var(--green);}
+/* ---- rigoristi: una riga per squadra, i tre nomi nell'ordine di battuta ---- */
+#rigOut{display:grid; gap:3px;}
+.rig-row{
+  display:grid; grid-template-columns:38px 1fr; gap:8px; align-items:center;
+  background:var(--mantle); border-radius:8px; padding:4px 8px;
+}
+.rig-row .cod{font-weight:900; font-size:11.5px; color:var(--overlay1); letter-spacing:.5px;}
+.rig-names{display:flex; gap:10px; flex-wrap:wrap; min-width:0;}
+.rig-n{font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;}
+.rig-n:hover{text-decoration:underline;}
+.rig-n.libero{color:var(--green); font-weight:900;}
+.rig-n.venduto{color:var(--overlay0); text-decoration:line-through;}
+.rig-n.mio{color:var(--yellow); font-weight:900;}
+.rig-n.grigio{color:var(--overlay0);}
+.rig-n .mk{font-size:10px; color:var(--overlay1); margin-left:2px;}
+.rig-legend{margin-top:6px; display:flex; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--overlay1);}
+/* ---- interruttore vista + vista per ruolo (10/9, gol veri dalle pagelle) ---- */
+.rig-sw{display:inline-flex; gap:0; margin-left:10px; vertical-align:middle;}
+.rig-sw button{
+  background:var(--surface0); border:1px solid var(--surface1); color:var(--subtext0);
+  font-size:10.5px; font-weight:800; letter-spacing:.6px; padding:2px 8px; cursor:pointer;
+}
+.rig-sw button:first-child{border-radius:7px 0 0 7px;}
+.rig-sw button:last-child{border-radius:0 7px 7px 0; border-left:0;}
+.rig-sw button.on{background:var(--surface1); color:var(--text);}
+.rg-h{
+  margin:8px 0 3px; font-size:9.5px; letter-spacing:1.6px; font-weight:900;
+  color:var(--subtext0); border-bottom:1px solid var(--surface1); padding-bottom:2px;
+}
+.rg-r{
+  display:flex; gap:7px; align-items:baseline; flex-wrap:wrap;
+  padding:2px 6px; border-radius:6px; font-size:12px;
+}
+.rg-r:hover{background:var(--mantle);}
+.rg-sq{font-size:11px; color:var(--overlay1); font-weight:700;}
+.rg-o{font-size:10.5px; color:var(--subtext0); font-weight:800;}
+.rg-g{font-size:11px; color:var(--subtext1); font-variant-numeric:tabular-nums;}
+.rg-g b{color:var(--text); font-weight:900;}
+.rg-sep{color:var(--surface1);}
+/* ============================================================
+   RIORDINO PER CHI E' AL TAVOLO (10/9)
+   ============================================================ */
+/* ---- pannelli ripiegabili: lo stato sta in localStorage ---- */
+.tog{
+  margin-left:auto; background:var(--surface0); border:1px solid var(--surface1);
+  color:var(--subtext0); border-radius:7px; padding:2px 9px; font-size:11px;
+  font-weight:800; letter-spacing:1px; cursor:pointer; white-space:nowrap;
+}
+.tog:hover{color:var(--text); border-color:var(--subtext0);}
+.pbody[hidden]{display:none;}
+
+/* ---- IL MIO PIANO: speso / previsto / slot per reparto ---- */
+.pt{width:100%; border-collapse:collapse; margin-top:11px; font-size:13px;}
+.pt th,.pt td{padding:4px 7px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+.pt th{font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--subtext0);
+  font-weight:800; border-bottom:1px solid var(--surface1);}
+.pt th:first-child,.pt td:first-child{text-align:left;}
+.pt td{border-bottom:1px dashed var(--surface0);}
+.pt tbody tr:hover td{background:var(--mantle);}
+.pt .rl{font-weight:900; letter-spacing:1px;}
+.pt .sp{color:var(--subtext1); font-weight:800;}
+.pt .pv{color:var(--yellow); font-weight:800;}
+.pt .sl{color:var(--subtext0);}
+.pt .sl b{color:var(--text); font-weight:900;}
+.pt tr.tot td{border-bottom:0; border-top:1px solid var(--surface1); font-weight:900; color:var(--text);}
+.plan-line{margin-top:11px; font-size:13.5px; color:var(--subtext1); line-height:1.5;}
+.plan-line b{font-variant-numeric:tabular-nums; font-weight:900; color:var(--yellow);}
+.plan-line b.res{color:var(--green);}
+.plan-line b.over{color:var(--red);}
+
+/* ---- ROSA IDEALE: un pannello, una scheda per piano ---- */
+.ri-top{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:9px;}
+.ri-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;}
+.ri-sec{background:var(--mantle); border-radius:12px; padding:8px 10px; min-width:0;}
+.ri-th{
+  display:flex; justify-content:space-between; align-items:baseline; gap:6px;
+  font-size:11px; font-weight:900; letter-spacing:1.5px; padding-bottom:4px; margin-bottom:4px;
+  border-bottom:1px dashed var(--surface0);
+}
+.ri-th span:last-child{color:var(--subtext0); font-weight:700; letter-spacing:0;
+  font-variant-numeric:tabular-nums; white-space:nowrap;}
+.ri-row{
+  display:grid; grid-template-columns:16px 20px minmax(0,1fr) 40px 46px; gap:6px;
+  align-items:center; padding:3px 4px; border-radius:7px; font-size:12.5px; cursor:pointer;
+}
+.ri-row:hover{background:var(--surface0);}
+.ri-row .star{color:var(--yellow); font-size:12px; text-align:center;}
+.ri-row .star.no{color:var(--overlay1);}
+.ri-row .nm{min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  font-weight:600; color:var(--subtext0);}
+.ri-row.starter .nm{color:var(--text); font-weight:900;}
+.ri-row .pa,.ri-row .mx{text-align:right; font-variant-numeric:tabular-nums; font-size:12px;}
+.ri-row .pa{color:var(--subtext1);}
+.ri-row .mx{color:var(--yellow); font-weight:900;}
+.ri-row.mio{background:color-mix(in srgb, var(--green) 13%, transparent); box-shadow:inset 2px 0 0 var(--green);}
+.ri-row.mio .nm{color:var(--green); font-weight:900;}
+.ri-row .mio-tag{font-size:10px; font-weight:900; color:var(--green); margin-right:3px;}
+.ri-nota{
+  grid-column:3 / -1; font-size:10.5px; line-height:1.3; color:var(--sky);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-2px; padding-bottom:2px;
+}
+.ri-empty{color:var(--subtext0); font-size:12px; padding:3px 4px;}
+.ri-legend{font-size:11px; color:var(--subtext0); margin-top:9px; display:flex; gap:14px; flex-wrap:wrap;}
+.ri-legend b{color:var(--subtext1);}
+.ri-hint{color:var(--subtext0); font-size:12.5px; padding:6px 2px; line-height:1.5;}
+
+/* ---- «sono io»: cambia squadra a tavolo apparecchiato ---- */
+.io-btn{
+  background:var(--surface0); border:1px solid var(--surface2); color:var(--subtext1);
+  border-radius:6px; padding:1px 7px; font-size:10px; font-weight:800; letter-spacing:.5px;
+  cursor:pointer; white-space:nowrap; flex:0 0 auto;
+}
+.io-btn:hover{background:var(--yellow); color:var(--crust); border-color:var(--yellow);}
+
+/* ---- ULTIMI ACQUISTI in cima a destra: striscia da 5 righe ---- */
+#ticker{max-height:172px;}
+
+/* ---- nota dell'esperto: blocco titolato, testo intero ---- */
+.esperto .et{
+  font-size:10px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--sapphire); margin-bottom:2px;
+}
+.esperto .ex{color:var(--subtext1);}
+.mk.esp{background:color-mix(in srgb, var(--sapphire) 22%, transparent); color:var(--sky);}
+
 .helpbar{
   display:flex; gap:16px; padding:0 22px 14px; font-size:11.5px; color:var(--overlay1); flex-wrap:wrap;
 }
@@ -517,6 +744,8 @@ main{
   </div>
 </header>
 
+<div id="copiaBanner" hidden></div>
+
 <main>
   <!-- ================= SINISTRA: AL BANCO ================= -->
   <div class="col">
@@ -533,6 +762,7 @@ main{
         <button class="rp" data-role="C">C</button>
         <button class="rp" data-role="A">A</button>
       </div>
+      <label class="tutti-row" title="include chi il listone dà fuori dalla Serie A e chi hai escluso a mano: si può comunque registrare l'acquisto"><input type="checkbox" id="tuttiChk">anche fuori lista ed esclusi</label>
       <div class="results" id="results"><div class="res-empty">scrivi un nome, o scegli ruolo/squadra</div></div>
     </section>
 
@@ -545,12 +775,32 @@ main{
   </div>
 
   <!-- ================= CENTRO: IL MIO PIANO ================= -->
+  <!-- ordine per chi e' al tavolo: prima quanto ho e quanto mi manca, poi la
+       rosa che l'oracolo vuole, poi il resto; in fondo cio' che si legge una
+       volta sola (rigoristi, dati di sessione), ripiegato. -->
   <div class="col">
     <section class="panel">
       <h3>IL MIO PIANO</h3>
       <div class="plan-stats" id="planStats"></div>
+      <div id="planTab"></div>
       <div class="costbar" id="costbar"></div>
     </section>
+
+    <section class="panel" id="piani">
+      <h3>ROSA IDEALE
+        <span style="color:var(--subtext0); letter-spacing:0; font-weight:700">— 25 nomi per scheda</span>
+        <button class="kbd" id="piBtn" style="cursor:pointer">calcola alternative</button></h3>
+      <div id="piOut"></div>
+      <div class="ri-legend">
+        <span><b style="color:var(--yellow)">★</b> titolare di piano</span>
+        <span><b style="color:var(--green)">mio</b> già comprato</span>
+        <span><b>atteso</b> = mediana × calore</span>
+        <span><b style="color:var(--yellow)">≤ N</b> = max consigliato</span>
+        <span>⚠ indisponibile · 💬 nota dell'esperto</span>
+        <span>click → al banco</span>
+      </div>
+    </section>
+
     <section class="panel">
       <h3>CHI CHIAMO?</h3>
       <div class="nom-row">
@@ -562,29 +812,46 @@ main{
       </div>
       <div id="nomOut"></div>
     </section>
+
+    <section class="panel" id="rigoristi">
+      <h3>RIGORISTI <span id="rigFonte" style="color:var(--subtext0); letter-spacing:0; font-weight:700"></span>
+        <span class="rig-sw" id="rigSw"><button data-vista="squadra">per squadra</button><button data-vista="ruolo">per ruolo</button></span>
+        <button class="tog" data-pieg="rigoristi" id="togRig">▸ apri</button></h3>
+      <div class="pbody" id="rigBody" hidden>
+        <div id="rigOut"><div class="tick-empty">…</div></div>
+        <div class="rig-legend"><span><b style="color:var(--green)">primo libero</b></span><span style="text-decoration:line-through">venduto</span><span style="color:var(--yellow)"><b>mio</b></span><span style="color:var(--subtext0)">fuori lista / indisponibile</span><span>click → al banco</span></div>
+      </div>
+    </section>
+
     <section class="panel">
-      <h3>ROSA TARGET <span style="color:var(--overlay0); letter-spacing:0; font-weight:700">— si ricalcola a ogni acquisto</span></h3>
-      <div class="targets" id="targets"></div>
-      <div class="tlegend"><span><b style="color:var(--yellow)">★</b> titolare di piano</span><span><b>atteso</b> = mediana × calore</span><span><b style="color:var(--yellow)">≤ N</b> = max consigliato</span><span>click → al banco</span></div>
+      <h3>DATI DI QUESTA SESSIONE
+        <button class="kbd" id="expBtn" style="cursor:pointer">esporta</button>
+        <button class="tog" data-pieg="sessione" id="togSess">▸ apri</button></h3>
+      <div class="pbody" id="sessBody" hidden>
+        <div id="provOut"><div class="prov">…</div></div>
+        <div id="sessOut"></div>
+      </div>
     </section>
   </div>
 
-  <!-- ================= DESTRA: IL TAVOLO ================= -->
+  <!-- ================= DESTRA: ULTIMI ACQUISTI + IL TAVOLO ================= -->
+  <!-- il ticker sta SOPRA il tavolo: il tavolo e' sticky e alto, sotto di lui
+       gli ultimi martelletti finivano fuori dalla piega. -->
   <div class="col">
-    <section class="panel" id="tavolo">
-      <h3>IL TAVOLO <span style="color:var(--overlay0); letter-spacing:0; font-weight:700">click → rosa</span></h3>
-      <div id="teamRows"></div>
-    </section>
     <section class="panel">
       <h3>ULTIMI ACQUISTI</h3>
       <div id="ticker"><div class="tick-empty">ancora nessun martelletto</div></div>
+    </section>
+    <section class="panel" id="tavolo">
+      <h3>IL TAVOLO <span style="color:var(--subtext0); letter-spacing:0; font-weight:700">click → rosa · «sono io» cambia squadra</span></h3>
+      <div id="teamRows"></div>
     </section>
   </div>
 </main>
 
 <div class="helpbar">
   <span><span class="kbd">/</span> cerca</span>
-  <span><span class="kbd">Invio</span> primo risultato</span>
+  <span><span class="kbd">↑↓</span> scegli · <span class="kbd">Invio</span> conferma</span>
   <span><span class="kbd">+</span> <span class="kbd">−</span> prezzo ±1</span>
   <span><span class="kbd">U</span> annulla ultimo</span>
   <span><span class="kbd">Esc</span> chiudi</span>
@@ -666,6 +933,11 @@ const C = {
   role:"", squadra:"", searchTimer:null, results:[],
   popTeam:null, arm:null, armTimer:null,
   busy:false,
+  tutti:false,        // ricerca anche fuori lista / esclusi a mano
+  cur:0,              // riga evidenziata nei risultati (frecce ↑↓)
+  enterArm:null,      // id del giocatore che il prossimo Invio conferma
+  rilAperti:false,    // sezione «rilanci osservati» ripiegata di default
+  sigTeams:"", sigGrid:"",   // firme: si ricostruisce solo quando cambiano
 };
 
 async function api(path, opts){
@@ -712,11 +984,16 @@ function onState(st){
   const first = !C.state;
   C.state = st;
   renderHeader(st);
+  renderCopiaBanner(st);
+  renderSessione(st);
   if(!st.names || !st.names.length){ openSetup(); renderTeams(st); renderTicker(st, false); return; }
   $("setup").classList.add("hidden");
   $("btnSetup").hidden = st.n_events > 0;
   const changed = st.n_events !== C.lastN;
   renderTeams(st);
+  // rigoristi: lo stato dipende solo dagli acquisti e dalle esclusioni a mano
+  const rigSig = st.n_events + "/" + (st.esclusi_manuali || []).length;
+  if(RIG.sig !== rigSig) caricaRigoristi(rigSig);
   // i rilanci cambiano senza che cambino le aggiudicazioni: si aggiornano sempre
   if(st.n_bids !== C.lastBids){
     C.lastBids = st.n_bids;
@@ -740,6 +1017,36 @@ function onState(st){
   }
 }
 
+/* provenienza: quale bundle, di che data, con quali limiti. Si legge una
+   volta sola: durante l'asta il bundle è congelato. */
+let PROV = null;
+async function caricaProvenienza(){
+  try{
+    PROV = await api('/copilot/bundle');
+  }catch(e){ PROV = null; }
+  renderProvenienza();
+}
+function renderProvenienza(){
+  const box = document.getElementById("provOut");
+  if(!box) return;
+  if(!PROV){ box.innerHTML = `<span class="prov">provenienza non disponibile</span>`; return; }
+  const ses = PROV.sessione || {};
+  const cor = PROV.corrente || null;
+  const el = PROV.eleggibilita || {};
+  let righe = [`<b>pack</b> ${esc(ses.pack || "?")} · impronta ${esc(String(ses.impronta || "?").slice(0,12))}`];
+  if(el.attivo){
+    righe.push(`<b>fonti</b> ${esc(String(el.acquisito || "").slice(0,16))} · pool ${el.pool} · ${el.esclusi} fuori Serie A esclusi`);
+    if(el.indisponibili) righe.push(`<b>indisponibili oggi</b> ${el.indisponibili} (restano comprabili)`);
+  }else{
+    righe.push(`<b class="warn-ind">nessun filtro di eleggibilità</b>: i consigli possono includere chi non gioca più in Serie A`);
+  }
+  if(cor && cor.impronta && ses.impronta && cor.impronta !== ses.impronta)
+    righe.push(`<b class="warn-ind">esiste un bundle più recente</b>: questa sessione resta sul suo, come deve`);
+  if(PROV.cambiato)
+    righe.push(`<b class="warn-ind">il pack è cambiato dopo l'inizio</b>`);
+  box.innerHTML = `<div class="prov">${righe.join("<br>")}</div>`;
+}
+
 function renderHeader(st){
   $("hSeason").textContent = st.season || "—";
   $("hEvents").textContent = st.n_events ?? 0;
@@ -751,6 +1058,39 @@ function renderHeader(st){
 }
 function flashSaved(){
   const s = $("saved"); s.classList.remove("flash"); void s.offsetWidth; s.classList.add("flash");
+}
+
+/* Ripresa dalla copia di sicurezza: il ledger principale era illeggibile e il
+   server è ripartito dalla copia. L'ultimo acquisto può mancare: si dice, e
+   resta detto per tutta la sessione. */
+function renderCopiaBanner(st){
+  const b = $("copiaBanner"); if(!b) return;
+  const f = st && st.ripreso_da_copia;
+  if(!f){ b.hidden = true; return; }
+  const nome = String(f).split(/[\\/]/).pop();
+  b.innerHTML = `⚠ ripreso dalla copia di sicurezza <b>${esc(nome)}</b>: l'ultimo acquisto potrebbe mancare, controlla il tavolo.`;
+  b.hidden = false;
+}
+
+/* DATI DI QUESTA SESSIONE: quanti valori sono stati ridotti per
+   indisponibilità e chi hai tolto dal piano a mano (con il modo di rimetterlo). */
+function renderSessione(st){
+  const box = $("sessOut"); if(!box || !st) return;
+  const escl = st.esclusi_manuali || [];
+  const sig = `${st.rettifiche_indisponibili || 0}#${escl.map(x => x.id).join(",")}`;
+  if(box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  let h = "";
+  if(st.rettifiche_indisponibili)
+    h += `<div class="prov"><b class="warn-ind">valore ridotto</b> per ${st.rettifiche_indisponibili} indisponibili (restano comprabili)</div>`;
+  if(escl.length){
+    h += `<div class="prov"><b>esclusi da te</b> ${escl.length}</div><div class="escl-list">` +
+      escl.map(x => `<div class="escl-row">${roleChip(x.ruolo)}<span class="nm">${esc(x.nome)} · ${esc(x.squadra)}</span>
+        <button data-riammetti="${esc(x.id)}">riammetti</button></div>`).join("") + `</div>`;
+  }
+  box.innerHTML = h;
+  box.querySelectorAll("[data-riammetti]").forEach(b =>
+    b.onclick = () => escludiGiocatore(b.dataset.riammetti, false));
 }
 
 /* ============================================================
@@ -849,6 +1189,7 @@ async function loadSquadre(){
 }
 function scheduleSearch(){
   clearTimeout(C.searchTimer);
+  C.cur = 0; C.enterArm = null;
   C.searchTimer = setTimeout(doSearch, 200);
 }
 async function doSearch(){
@@ -858,33 +1199,73 @@ async function doSearch(){
   if(q) qs.set("q", q);
   if(C.role) qs.set("role", C.role);
   if(C.squadra) qs.set("squadra", C.squadra);
+  // `tutti=1`: anche fuori lista ed esclusi a mano. Servono per registrare
+  // l'acquisto di un avversario che il listone non prevedeva: se non si
+  // registra, il budget di quella squadra resta sbagliato per tutta l'asta.
+  if(C.tutti) qs.set("tutti", "1");
   try{
     const rows = await api("/copilot/players?" + qs.toString());
     C.results = Array.isArray(rows) ? rows : [];
+    ricordaNote(C.results);
   }catch(e){ C.results = []; }
+  if(C.cur >= C.results.length) C.cur = 0;
   renderResults();
+}
+function marcatori(p){
+  let m = "";
+  if(p.indisponibile) m += `<span class="mk ind" title="${esc(p.indisponibile_testo || "")}">IND</span>`;
+  if(p.fuori_lista) m += `<span class="mk fuori" title="il listone non lo dà più in Serie A: registrabile lo stesso">FUORI</span>`;
+  if(p.escluso_manuale) m += `<span class="mk escl" title="l'hai escluso tu dal piano">ESCL</span>`;
+  if(p.senza_previsione) m += `<span class="mk nopred" title="nessuna previsione nel pack">NO PREV</span>`;
+  // 💬: l'esperto ha detto qualcosa su di lui (il testo intero e' al banco)
+  if(p.nota_esperto) m += `<span class="mk esp" title="l'esperto (video 3-4/9): ${esc(p.nota_esperto)}">💬</span>`;
+  return m;
 }
 function renderResults(){
   const box = $("results");
   if(!C.results.length){
     const q = $("q").value.trim();
-    box.innerHTML = `<div class="res-empty">${q || C.role || C.squadra ? "nessuno nel listino residuo con questi filtri" : "scrivi un nome, o scegli ruolo/squadra"}</div>`;
+    box.innerHTML = `<div class="res-empty">${q || C.role || C.squadra
+      ? "nessuno nel listino residuo con questi filtri" + (C.tutti ? "" : " — prova «anche fuori lista ed esclusi»")
+      : "scrivi un nome, o scegli ruolo/squadra"}</div>`;
     return;
   }
   box.innerHTML = C.results.slice(0, 40).map((p, i) => `
-    <div class="res-row ${i === 0 ? "first" : ""} ${C.sel && C.sel.id === p.id ? "sel" : ""}" data-id="${esc(p.id)}">
+    <div class="res-row ${i === C.cur ? "first" : ""} ${C.enterArm === p.id && i === C.cur ? "armato" : ""} ${C.sel && C.sel.id === p.id ? "sel" : ""}" data-id="${esc(p.id)}">
       ${roleChip(p.ruolo)}${clubBadge(p.squadra, "md")}
-      <span class="pn">${esc(p.nome)}</span>
+      <span class="pn">${esc(p.nome)}${marcatori(p)}</span>
       <span class="num">q50 <b>${r0(p.q50)}</b></span>
       <span class="num">val <b>${r0(p.value)}</b></span>
     </div>`).join("") + (C.results.length > 40 ? `<div class="res-empty">…e altri ${C.results.length - 40}: affina la ricerca</div>` : "");
+  const riga = box.children[C.cur];
+  if(riga && riga.scrollIntoView) riga.scrollIntoView({block:"nearest"});
 }
 $("q").addEventListener("input", scheduleSearch);
+$("tuttiChk").addEventListener("change", () => { C.tutti = $("tuttiChk").checked; doSearch(); });
 $("q").addEventListener("keydown", e => {
+  if(e.key === "ArrowDown" || e.key === "ArrowUp"){
+    if(!C.results.length) return;
+    e.preventDefault();
+    C.cur = Math.max(0, Math.min(C.results.length - 1, C.cur + (e.key === "ArrowDown" ? 1 : -1)));
+    C.enterArm = null;
+    renderResults();
+    return;
+  }
   if(e.key === "Enter"){
     e.preventDefault();
-    if(C.results.length) selectPlayer(C.results[0]);
-  } else if(e.key === "Escape"){ $("q").value = ""; C.results = []; renderResults(); $("q").blur(); }
+    if(!C.results.length) return;
+    const p = C.results[C.cur] || C.results[0];
+    /* Un solo candidato: si va dritti, come prima. Piu' candidati: il primo
+       Invio evidenzia e il secondo conferma. Cercando «martinez» il primo
+       risultato era Lautaro (attaccante) anche con il portiere Martinez Jo.
+       al banco, e il martelletto non chiede conferma. */
+    if(C.results.length === 1 || C.enterArm === p.id){ C.enterArm = null; selectPlayer(p); return; }
+    C.enterArm = p.id;
+    renderResults();
+    toast(`${C.results.length} risultati: Invio conferma ${p.nome} (${p.ruolo}) · ↓ per un altro`);
+    return;
+  }
+  if(e.key === "Escape"){ $("q").value = ""; C.results = []; C.cur = 0; C.enterArm = null; renderResults(); $("q").blur(); }
 });
 $("sqSel").onchange = () => { C.squadra = $("sqSel").value; doSearch(); };
 $("rolePills").addEventListener("click", e => {
@@ -907,6 +1288,7 @@ $("results").addEventListener("click", e => {
  * ============================================================ */
 function selectPlayer(p, price){
   C.sel = p; C.advice = null;
+  ricordaNote([p]);
   C.price = Math.max(1, price | 0 || 1);
   renderLot();
   renderResults();
@@ -943,28 +1325,255 @@ function requestAdvice(delay){
   }, delay);
 }
 
-/* classificazione del consiglio (il testo del server è l'autorità) */
+/* Classificazione del consiglio.
+   Prima si leggeva il TESTO con `startsWith`: bastava riscrivere una frase
+   nel server perché quattro consigli su sei finissero nel ripiego grigio e il
+   cartello rosso «LASCIALO» sparisse. Adesso l'autorità è il campo `azione`,
+   che il server calcola una volta sola insieme al tetto. */
 function adviceView(a){
-  const c = String(a.consiglio || "");
+  const az = String(a.azione || "");
+  const lim = a.max_consigliato;
   const legal = a.offerta_massima_legale;
-  if(a.slot_liberi_ruolo <= 0) return {cls:"grey", head:"REPARTO PIENO", sub:"non hai più slot in questo ruolo: passa."};
-  if(legal != null && C.price + 1 > legal)
-    return {cls:"red", head:"NON PUOI RILANCIARE", sub:`la tua offerta massima legale è <b>${legal}</b> (budget meno 1 credito per ogni slot da riempire).`};
-  if(c.startsWith("NEL PIANO")){
-    const lim = a.max_consigliato;
-    return {cls:"green", head:`RILANCIA <span class="big">fino a ${r0(lim)}</span>`,
-      sub:`${a.titolare_di_piano ? "titolare" : "panchina"} del tuo piano · costo-ombra se lo perdi ${fmt1(a.prezzo_ombra)} · mediana lega ${r0(a.q50)}`};
+  const motivo = esc(String(a.motivo || a.consiglio || ""));
+
+  if(a.escluso_manuale)
+    return {cls:"grey", head:"ESCLUSO DA TE", sub:motivo || "escluso dal piano da te: riammettilo se cambi idea"};
+  if(a.fuori_lista)
+    return {cls:"red", head:"FUORI SERIE A (listone)",
+      sub:`${motivo} — l'acquisto altrui si registra lo stesso, il budget deve restare giusto.`};
+  if(a.obbligo)
+    return {cls:"green", head:`DEVI PRENDERLO <span class="big">fino a ${r0(lim)}</span>`, sub:motivo};
+  if(az === "nessuna offerta")
+    return {cls:"grey", head:"NON OFFRIRE", sub:motivo};
+  if(legal != null && legal < 1)
+    return {cls:"red", head:"NON PUOI RILANCIARE",
+      sub:"la cassa serve tutta per gli slot che restano: un credito per ognuno."};
+  if(az === "non offrire")
+    return {cls:"red", head:"LASCIALO", sub:motivo};
+  if(az === "lascia")
+    return {cls:"red", head:`LASCIALO <span class="big">oltre ${r0(lim)}</span>`, sub:motivo};
+  if(az === "rilancia"){
+    if(a.in_piano)
+      return {cls:"green", head:`RILANCIA <span class="big">fino a ${r0(lim)}</span>`,
+        sub:`${a.titolare_di_piano ? "titolare" : "panchina"} del tuo piano · costo-ombra se lo perdi ${fmt1(a.prezzo_ombra)} · mediana lega ${r0(a.q50)}`};
+    return {cls:"yellow", head:`AL MASSIMO <span class="big">${r0(lim)}</span>`,
+      sub:`fuori piano: ${motivo}`};
   }
-  if(c.startsWith("oltre il massimo"))
-    return {cls:"red", head:`LASCIALO <span class="big">oltre ${r0(a.max_consigliato)}</span>`, sub:"era nel piano, ma a questo prezzo ho alternative migliori."};
-  if(c.startsWith("BARGAIN"))
-    return {cls:"yellow", head:`BARGAIN <span class="big">sotto ${r0(a.bargain_sotto)}</span>`, sub:"fuori piano, ma a questo prezzo vale prenderlo: rilancia finché resti sotto."};
-  if(c.startsWith("valore basso"))
-    return {cls:"grey", head:"MAX 1–5 CREDITI", sub:"valore basso per la tua rosa: solo come riempitivo a spiccioli."};
-  if(c.startsWith("non in piano"))
-    return {cls:"red", head:"LASCIALO", sub:`non in piano: lascia che paghino gli altri${a.bargain_sotto > 1 ? ` (sarebbe un affare solo sotto ${r0(a.bargain_sotto)})` : ""}.`};
-  return {cls:"grey", head:esc(c || "…"), sub:""};
+  return {cls:"grey", head:esc(String(a.consiglio || "…")), sub:""};
 }
+
+/* ---------------- piani con bomber diversi ---------------- */
+window.addEventListener("DOMContentLoaded", () => {
+  const b = document.getElementById("piBtn");
+  if(b) b.onclick = () => caricaPiani();
+  const e = document.getElementById("expBtn");
+  if(e) e.onclick = () => esportaRegistro();
+  caricaProvenienza();
+});
+
+/* Export del registro: JSON scaricato dal browser, senza rete verso terzi.
+   Serve ad avere l'asta anche se il server si spegne. */
+async function esportaRegistro(){
+  try{
+    const j = await api('/copilot/export');
+    const blob = new Blob([JSON.stringify(j, null, 1)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `asta_${(j.stagione||"")}_${new Date().toISOString().slice(0,19).replace(/[:T]/g,"")}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+    toast("registro esportato", "ok");
+  }catch(e){ toast("export non riuscito", "err"); }
+}
+let PI = {dati:null, scelto:0, caricando:false};
+/* ROSA IDEALE: una sola sezione con le schede in alto. Scheda 0 =
+   «riferimento» (chi ho gia' comprato + i target di /copilot/plan), schede
+   1..n = le alternative con un altro bomber (/copilot/piani). */
+let RI = {scelto:0};
+
+async function caricaPiani(){
+  if(PI.caricando) return;
+  PI.caricando = true;
+  $("piOut").innerHTML = `<div class="ri-hint">calcolo le alternative…</div>`;
+  try{
+    PI.dati = await api('/copilot/piani?quanti=6');
+  }catch(e){
+    PI.dati = {stato:"errore", motivo:"Copilota non raggiungibile"};
+  }
+  PI.caricando = false;
+  RI.scelto = 0;
+  renderRosaIdeale();
+}
+
+/* Le righe dei piani alternativi arrivano con l'informazione «breve» del
+   server: niente nota dell'esperto, niente prezzo pagato. Si tengono da
+   parte quelle gia' viste (ricerca, piano, banco) e si riusano qui: nessuna
+   chiamata in piu' durante l'asta e nessuna modifica al server. */
+const NOTE_ESP = {};
+let PREZZI_MIEI = {};
+function ricordaNote(rows){
+  (rows || []).forEach(p => { if(p && p.id && p.nota_esperto) NOTE_ESP[p.id] = p.nota_esperto; });
+}
+function aggiornaPrezziMiei(){
+  const rost = miaRosa(), m = {};
+  ROLE_ORDER.forEach(r => (rost[r] || []).forEach(p => { if(p && p.id != null) m[p.id] = p.prezzo; }));
+  PREZZI_MIEI = m;
+}
+
+/* nota dell'esperto sotto il nome: breve, ma con i puntini — mai tagliata secca */
+function notaBreve(s, n){
+  const t = String(s || "").replace(/\s+/g, " ").trim();
+  const max = n || 90;
+  return t.length > max ? t.slice(0, max - 1).replace(/[\s,;.]+$/, "") + "…" : t;
+}
+function pianiAlternativi(){
+  const d = PI.dati;
+  if(!d || d.err || d.stato === "errore" || d.stato === "non fattibile") return [];
+  return (d.piani || []).filter(p => p.tipo !== "riferimento");
+}
+/* la scheda «riferimento»: chi ho gia' comprato (evidenziato) piu' i target
+   che il piano vuole ancora prendere. Insieme fanno i 25 posti. */
+function rosaRiferimento(){
+  const pl = C.plan;
+  if(!pl || !pl.target) return null;
+  const rost = miaRosa();
+  const out = {};
+  ROLE_ORDER.forEach(r => {
+    const miei = (rost[r] || []).map(p => Object.assign({}, p, {gia_mio:true, titolare:false}));
+    out[r] = miei.concat(pl.target[r] || []);
+  });
+  return out;
+}
+function rigaRosa(p){
+  const mio = !!p.gia_mio;
+  const intera = p.nota_esperto || NOTE_ESP[p.id] || "";
+  const nota = intera ? notaBreve(intera) : "";
+  const pagato = PREZZI_MIEI[p.id];
+  const prezzo = mio ? (pagato != null ? r0(pagato) : (p.prezzo != null ? r0(p.prezzo) : "—"))
+                     : r0(p.prezzo_atteso);
+  const tetto = p.max_consigliato != null ? "≤ " + r0(p.max_consigliato) : "";
+  const sup = (p.concorrenti_sopra_tetto ?? 0) > 0
+    ? `<sup style="color:var(--peach);font-size:9px;margin-left:1px" title="possono superarti: ${esc((p.concorrenti_nomi || []).join(", "))}">${p.concorrenti_sopra_tetto}</sup>`
+    : "";
+  const indTxt = p.indisponibile_testo || p.indisponibile_nota || "indisponibile";
+  return `<div class="ri-row ${p.titolare ? "starter" : ""} ${mio ? "mio" : ""}" data-id="${esc(p.id)}" title="${esc(p.nome)}${mio ? " — già tuo" : " — clicca per portarlo al banco"}">
+    <span class="star ${p.titolare ? "" : "no"}">${p.titolare ? "★" : "·"}</span>
+    ${clubBadge(p.squadra, "sm")}
+    <span class="nm">${mio ? `<span class="mio-tag" title="già comprato da te">✓</span>` : ""}${esc(p.nome)}${
+      p.indisponibile ? `<span class="ico" title="${esc(indTxt)}"> ⚠</span>` : ""}</span>
+    <span class="pa">${prezzo}</span>
+    <span class="mx">${tetto}${sup}</span>
+    ${nota ? `<span class="ri-nota" title="l'esperto (video 3-4/9): ${esc(intera)}">💬 ${esc(nota)}</span>` : ""}
+  </div>`;
+}
+function sezioniRosa(perRuolo, spesaRuolo){
+  const quotas = (C.state || {}).quotas || {};
+  return `<div class="ri-grid">` + ROLE_ORDER.map(r => {
+    const rows = perRuolo[r] || [];
+    const quo = quotas[r] ?? rows.length;
+    const spesa = spesaRuolo && spesaRuolo[r] != null
+      ? spesaRuolo[r]
+      : rows.reduce((a, p) => a + (+p.prezzo_atteso || 0), 0);
+    const items = rows.map(rigaRosa).join("") || `<div class="ri-empty">nessun nome</div>`;
+    return `<div class="ri-sec">
+      <div class="ri-th" style="color:${ROLE_COLOR[r]}"><span>${ROLE_NAME[r].toUpperCase()}</span>
+        <span>${rows.length}/${quo} · spesa ${r0(spesa)}</span></div>
+      ${items}</div>`;
+  }).join("") + `</div>`;
+}
+
+function renderRosaIdeale(){
+  const box = $("piOut");
+  if(!box || PI.caricando) return;
+  const d = PI.dati || {};
+  const alt = pianiAlternativi();
+  if(RI.scelto > alt.length) RI.scelto = 0;
+  const tabs = [`<button class="pi-tab ${RI.scelto === 0 ? "on" : ""}" data-pi="0">riferimento<span class="gap">il piano</span></button>`]
+    .concat(alt.map((p, i) => {
+      const nome = p.bomber ? p.bomber.nome : "alternativa " + (i + 1);
+      const gap = p.scarto_percentuale == null ? "—" : `−${fmt1(p.scarto_percentuale)} %`;
+      return `<button class="pi-tab ${RI.scelto === i + 1 ? "on" : ""}" data-pi="${i + 1}">${esc(nome)}<span class="gap">${gap}</span></button>`;
+    })).join("");
+
+  let corpo = "", coda = "", scelto = null;
+  if(RI.scelto === 0){
+    const per = rosaRiferimento();
+    corpo = per ? sezioniRosa(per, null)
+                : `<div class="ri-hint">il piano arriva appena il tavolo è apparecchiato…</div>`;
+    coda = alt.length ? "" : `<div class="ri-hint">${
+      (d.err || d.motivo) ? esc(d.err || d.motivo)
+      : "premi «calcola alternative» per vedere come cambia la rosa con un altro attaccante"}</div>`;
+  }else{
+    const p = scelto = alt[RI.scelto - 1];
+    if(p.stato === "non fattibile"){
+      corpo = `<div class="ri-hint">con questo vincolo non esiste una rosa legale: ${esc(p.motivo || "")}</div>`;
+    }else{
+      const dif = p.differenze || {};
+      const mov = dif.spostamento_spesa || {};
+      const bomberPrezzo = p.bomber
+        ? Math.round((((p.rosa || {}).A || []).find(x => x.id === p.bomber.id) || {}).prezzo_atteso || 1)
+        : 1;
+      corpo = sezioniRosa(p.rosa || {}, p.spesa_per_reparto || null) + `
+        <div class="pi-body" style="margin-top:10px">
+          <div class="pi-row"><span>modulo</span><b>${esc(p.modulo || "—")}</b></div>
+          <div class="pi-row"><span>costo previsto</span><b>${fmt1(p.costo_previsto)} su ${d.budget_residuo} residui</b></div>
+          <div class="pi-row"><span>punteggio del modello</span><b>${fmt1(p.punteggio_modello)}</b></div>
+          <div class="pi-row"><span>scarto dal riferimento</span><b>−${fmt1(p.scarto_dal_riferimento)} (${fmt1(p.scarto_percentuale)} %)</b></div>
+          <div class="pi-row"><span>si sposta</span><b>${
+            ROLE_ORDER.filter(r => Math.abs(mov[r] || 0) >= 1)
+              .map(r => `${r} <span class="${(mov[r] > 0) ? "pi-pos" : "pi-neg"}">${mov[r] > 0 ? "+" : ""}${fmt1(mov[r])}</span>`)
+              .join(" · ") || "niente"}</b></div>
+          <div class="pi-row"><span>entrano</span><b>${(dif.entrano || []).slice(0,3).map(x => esc(x.nome)).join(", ") || "—"}</b></div>
+          <div class="pi-row"><span>escono</span><b>${(dif.escono || []).slice(0,3).map(x => esc(x.nome)).join(", ") || "—"}</b></div>
+        </div>
+        <div class="pi-what">
+          <span style="font-size:11px; color:var(--subtext0)">se lo compro a</span>
+          <input id="piPrezzo" type="number" min="1" step="1" value="${bomberPrezzo}">
+          <button class="kbd" id="piSim" style="cursor:pointer">ricalcola</button>
+          <span id="piSimOut" style="font-size:11px; color:var(--subtext0)"></span>
+        </div>`;
+      if(p.vincolo_attacco_rilassato)
+        coda += `<div class="pi-note" style="color:var(--peach)">vincolo di spesa in attacco rilassato per rendere il piano fattibile</div>`;
+    }
+    coda += `<div class="pi-note">${esc(d.nota_punteggio || "")}<br>${esc(d.nota_vincolo || "")}
+      ${d.tempo_scaduto ? "<br><b>tempo scaduto: alcuni piani non sono stati calcolati.</b>" : ""}
+      <br>scegliere una scheda non registra nulla e non autorizza rialzi.</div>`;
+  }
+  box.innerHTML = `${d.superato ? `<div class="pi-note" style="color:var(--peach); font-weight:800; margin:0 0 8px">⚠ superato: ricalcola — lo stato è cambiato mentre calcolavo</div>` : ""}
+    <div class="pi-tabs">${tabs}</div>${corpo}${coda}`;
+
+  box.querySelectorAll("[data-pi]").forEach(b => b.onclick = () => {
+    RI.scelto = +b.dataset.pi; renderRosaIdeale();
+  });
+  const sim = $("piSim");
+  if(sim) sim.onclick = async () => {
+    const pid = scelto && scelto.bomber && scelto.bomber.id;
+    const prezzo = +($("piPrezzo").value || 0);
+    if(!pid || !(prezzo >= 1)) return;
+    $("piSimOut").textContent = "calcolo…";
+    try{
+      const j = await api(`/copilot/piano_prezzo?player_id=${encodeURIComponent(pid)}&prezzo=${prezzo}`);
+      $("piSimOut").innerHTML = j.stato === "ok"
+        ? `costo ${fmt1(j.costo_previsto)}, punteggio ${fmt1(j.punteggio_modello)}${
+            j.scarto_percentuale != null ? ` (−${fmt1(j.scarto_percentuale)} %)` : ""}`
+        : `<span class="pi-neg">${esc(j.motivo || j.err || "non fattibile")}</span>`;
+    }catch(e){ $("piSimOut").textContent = "non raggiungibile"; }
+  };
+}
+
+/* click su un nome della ROSA IDEALE: si chiede il consiglio al server, cosi'
+   funziona anche per le righe dei piani alternativi (che non portano tutti i
+   campi del banco). */
+$("piOut").addEventListener("click", async e => {
+  if(e.target.closest("[data-pi]") || e.target.closest(".pi-what")) return;
+  const row = e.target.closest(".ri-row"); if(!row) return;
+  const pid = row.dataset.id; if(!pid) return;
+  try{
+    const a = await api(`/copilot/advice?player_id=${encodeURIComponent(pid)}&price=1`);
+    if(a && a.id) selectPlayer(a, 1);
+    else toast("non è nel listino residuo", "err");
+  }catch(err){ toast("giocatore non al banco", "err"); }
+});
 
 function renderLot(){
   const box = $("lotInner");
@@ -976,6 +1585,10 @@ function renderLot(){
   }
   const lo = p.q10 ?? 0, mid = p.q50 ?? 0, hi = p.q90 ?? 0;
   const span = Math.max(hi * 1.15, 5);
+  /* ORDINE (portatile 1366x768): intestazione, forchetta compatta, prezzo,
+     consiglio, AGGIUDICATO A… La griglia del martelletto deve stare sopra la
+     piega: quello che si legge e non si clicca (motivi, meta, rilanci
+     osservati) sta sotto, e i rilanci sono ripiegati. */
   box.innerHTML = `
     <div class="lot-head">
       ${clubBadge(p.squadra, "lg")}
@@ -985,18 +1598,20 @@ function renderLot(){
       </div>
       <button class="lot-x" id="lotClose" title="togli dal banco (Esc)">✕</button>
     </div>
+    <div id="lotInd"></div>
     <div class="qrow">
-      <div class="q"><div class="n">${r0(lo)}</div><div class="l">q10 · pavimento</div></div>
-      <div class="q mid"><div class="n">${r0(mid)}</div><div class="l">q50 · mediana lega</div></div>
-      <div class="q"><div class="n">${r0(hi)}</div><div class="l">q90 · tetto</div></div>
-      <div class="q val"><div class="n">${r0(p.value)}</div><div class="l">valore</div></div>
+      <div class="q"><div class="n">${r0(lo)}</div><div class="l">q10</div></div>
+      <div class="q mid"><div class="n">${r0(mid)}</div><div class="l">q50 · mediana</div></div>
+      <div class="q"><div class="n">${r0(hi)}</div><div class="l">q90</div></div>
+      <div class="q val"><div class="n" id="lotValore">${r0(p.value)}</div><div class="l">valore</div></div>
     </div>
     <div class="fork">
       <div class="bar"><i style="left:${(100*lo/span).toFixed(1)}%; width:${(100*(hi-lo)/span).toFixed(1)}%"></i><span class="cur" id="forkCur" style="left:${(100*Math.min(C.price, span)/span).toFixed(1)}%"></span></div>
-      <div class="lbl"><span>0</span><span>forchetta q10–q90 · la tacca bianca è il prezzo attuale</span><span>${r0(span)}</span></div>
+      <div class="lbl"><span>0</span><span>forchetta q10–q90 · tacca bianca = prezzo attuale</span><span>${r0(span)}</span></div>
     </div>
-    ${p.motivi ? `<div class="motivi">${esc(p.motivi)}</div>` : ""}
-    <div class="meta" id="lotMeta"></div>
+    <div id="lotRett"></div>
+    <div id="lotMkt"></div>
+    <div id="lotEsperto"></div>
     <div class="price-row">
       <span class="lbl">prezzo<br>attuale</span>
       <button class="pbtn minus" data-d="-1" title="−1 (tasto −)">−1</button>
@@ -1006,11 +1621,19 @@ function renderLot(){
       <button class="pbtn plus p5" data-d="10">+10</button>
     </div>
     <div id="advice" class="wait"><div class="tag">consiglio dell'oracolo</div><div class="head">…</div><div class="sub">chiedo al modello</div></div>
-    <div class="hammer-title" id="bidTitle"></div>
-    <div class="hammer-grid" id="bidGrid"></div>
-    <div class="undo-row" style="margin-top:6px"><button class="undo" id="btnUndoBid" disabled><span>↶ nessun rilancio registrato</span></button></div>
     <div class="hammer-title" id="hammerTitle"></div>
-    <div class="hammer-grid" id="hammerGrid"></div>`;
+    <div class="hammer-grid" id="hammerGrid"></div>
+    <div class="lot-act" id="lotAct"></div>
+    ${p.motivi ? `<div class="motivi">${esc(p.motivi)}</div>` : ""}
+    <div class="meta" id="lotMeta"></div>
+    <div class="sez-rilanci">
+      <button class="riltog" id="rilTog"></button>
+      <div class="rilbody" id="rilBody"${C.rilAperti ? "" : " hidden"}>
+        <div class="hammer-title" id="bidTitle"></div>
+        <div class="hammer-grid" id="bidGrid"></div>
+        <div class="undo-row" style="margin-top:6px"><button class="undo" id="btnUndoBid" disabled><span>↶ nessun rilancio registrato</span></button></div>
+      </div>
+    </div>`;
   $("lotClose").onclick = clearLot;
   box.querySelectorAll(".pbtn").forEach(b => b.onclick = () => setPrice(C.price + (+b.dataset.d)));
   const inp = $("priceIn");
@@ -1021,30 +1644,161 @@ function renderLot(){
     else if(e.key === "Escape"){ clearLot(); }
     else if(e.key === "Enter"){ e.preventDefault(); inp.blur(); }
   });
+  $("rilTog").onclick = () => {
+    C.rilAperti = !C.rilAperti;
+    const b = $("rilBody"); if(b) b.hidden = !C.rilAperti;
+    renderRilTog();
+    if(C.rilAperti){ renderBidGrid(); renderBidTitle(); renderUndoBid(); }
+  };
+  renderRilTog();
   renderHammerGrid();
   renderHammerTitle();
   renderBidGrid();
   renderBidTitle();
   renderUndoBid();
+  renderInfoBanco();
+  assicuraMartelletto(true);      // appena scelto: si porta in vista comunque
+}
+
+/* La sezione dei rilanci resta nel DOM anche ripiegata (i bottoni esistono e
+   restano cliccabili da tastiera/script): si nasconde, non si smonta. */
+function renderRilTog(){
+  const t = $("rilTog"); if(!t) return;
+  const n = bidsDelLotto().length;
+  t.textContent = (C.rilAperti ? "▾" : "▸") + " RILANCI OSSERVATI" + (n ? ` · ${n} su questo lotto` : "");
+}
+
+/* Le informazioni «di contorno» al banco: indisponibilita', rettifica del
+   valore, prezzo di mercato, nota dell'esperto, chip e bottone di esclusione.
+   Si disegnano sia con il solo player_info (dalla ricerca) sia con l'advice,
+   che e' piu' ricco: in /copilot/advice `indisponibile` e' un OGGETTO. */
+function infoBanco(){
+  if(!C.sel) return null;
+  const a = (C.advice && C.advice.id === C.sel.id) ? C.advice : null;
+  return a ? Object.assign({}, C.sel, a) : C.sel;
+}
+function indispDi(p){
+  if(!p || !p.indisponibile) return null;
+  const i = p.indisponibile;
+  if(typeof i === "string") return {tipo:i, testo:p.indisponibile_testo || "", rientro:null, sospetta:null};
+  return {tipo: i.tipo || "indisponibile", testo: i.testo || p.indisponibile_testo || "",
+          rientro: i.rientro_stima || null, sospetta: i.stima_sospetta || null};
+}
+function renderInfoBanco(){
+  const p = infoBanco(); if(!p) return;
+  const ind = indispDi(p);
+  const box = $("lotInd");
+  if(box) box.innerHTML = ind
+    ? `<div class="ind-box"><span class="tt">⚠ INDISPONIBILE · ${esc(ind.tipo)}</span>${
+        ind.rientro ? ` <span style="color:var(--overlay1)">rientro stimato ${esc(ind.rientro)}${ind.sospetta ? " (stima sospetta)" : ""}</span>` : ""}
+        ${ind.testo ? `<div class="src" title="${esc(ind.testo)}">${esc(ind.testo)}</div>` : ""}</div>`
+    : "";
+  const rett = $("lotRett");
+  const r = p.rettifica;
+  if(rett) rett.innerHTML = r
+    ? `<div class="rett">valore ridotto: ${esc(String(r.giornate_perse))} giornate perse su ${esc(String(r.su))} (× ${esc(String(r.fattore))})${r.stima ? " · " + esc(String(r.stima)) : ""}</div>`
+    : "";
+  const val = $("lotValore");
+  if(val) val.innerHTML = r && p.value_originale != null
+    ? `${r0(p.value)} <s title="valore prima della rettifica">${r0(p.value_originale)}</s>`
+    : r0(p.value);
+  const mkt = $("lotMkt");
+  if(mkt) mkt.innerHTML = p.prezzo_mercato != null
+    ? `<div class="mkt">mercato 10 sq./500: <b>${fmt1(p.prezzo_mercato)}</b><span class="rif">riferimento, non tetto</span></div>`
+    : "";
+  const esp = $("lotEsperto");
+  if(esp) esp.innerHTML = p.nota_esperto
+    ? `<div class="esperto"><div class="et">💬 cosa dice l'esperto (video 3-4/9)</div><div class="ex">${esc(p.nota_esperto)}</div></div>`
+    : "";
+  const chips = $("lotChips");
+  if(chips){
+    let h = "";
+    if(C.advice && C.advice.id === p.id){
+      h += C.advice.in_piano
+        ? (C.advice.titolare_di_piano ? `<span class="chip star">★ titolare di piano</span>` : `<span class="chip plan">nel piano · panchina</span>`)
+        : `<span class="chip off">fuori piano</span>`;
+    }
+    if(ind) h += ` <span class="chip ind" title="${esc(ind.testo)}">indisponibile · ${esc(ind.tipo)}</span>`;
+    if(p.senza_previsione) h += ` <span class="chip nopred" title="il pack non ha previsione per lui: nessun valore stimato">senza previsione</span>`;
+    if(p.fuori_lista) h += ` <span class="chip fuori" title="il listone non lo dà più in Serie A: registrabile lo stesso">fuori serie A (listone)</span>`;
+    if(p.escluso_manuale) h += ` <span class="chip escl">escluso da te</span>`;
+    chips.innerHTML = h;
+  }
+  const act = $("lotAct");
+  if(act){
+    act.innerHTML = p.escluso_manuale
+      ? `<button id="btnEscludi" class="riammetti" data-e="0">↩ riammetti nel piano</button>`
+      : `<button id="btnEscludi" data-e="1">✕ non lo voglio nel piano</button>`;
+    $("btnEscludi").onclick = () => escludiGiocatore(p.id, $("btnEscludi").dataset.e === "1");
+  }
+}
+
+/* «non lo voglio nel piano»: cambia il pool dei consigli e del MILP, quindi
+   dopo bisogna rileggere consiglio, stato e piano e invalidare i piani. */
+async function escludiGiocatore(pid, escluso){
+  if(C.busy) return;
+  C.busy = true;
+  try{
+    const d = await post("/copilot/escludi", {player_id: pid, escluso: !!escluso});
+    if(!d.ok){ toast("⚠ " + (d.err || "rifiutato"), "err"); return; }
+    if(C.sel && C.sel.id === pid){
+      C.sel.escluso_manuale = !!escluso;
+      if(C.advice && C.advice.id === pid) C.advice.escluso_manuale = !!escluso;
+    }
+    toast(escluso ? "escluso dal piano" : "riammesso nel piano", "ok");
+    invalidaPiani();
+    renderInfoBanco();
+    requestAdvice(0);
+    await poll();
+    refreshPlan();
+  }catch(e){ toast("server non raggiungibile", "err"); }
+  finally{ C.busy = false; }
+}
+
+/* I piani calcolati valgono per lo stato che li ha prodotti: martelletto,
+   annullamento ed esclusione manuale li rendono vecchi, e lo si scrive. */
+function invalidaPiani(msg){
+  PI.dati = null;
+  RI.scelto = 0;
+  renderRosaIdeale();   // resta la scheda «riferimento», che e' sempre attuale
+}
+
+/* Il martelletto deve stare sopra la piega: se non ci sta, si porta in vista
+   la scheda AL BANCO (mai il contrario: nessuno scorrimento inutile). */
+function assicuraMartelletto(forza){
+  const g = $("hammerGrid"); if(!g) return;
+  /* mentre si cerca il prossimo nome la pagina non deve saltare da sola:
+     si scorre solo alla selezione, o quando il fuoco e' gia' sulla scheda */
+  if(!forza){
+    const a = document.activeElement;
+    if(a && (a.id === "q" || a.id === "sqSel" || a.id === "tuttiChk")) return;
+  }
+  const r = g.getBoundingClientRect();
+  if(r.height === 0) return;
+  if(r.bottom <= innerHeight - 4 && r.top >= 0) return;
+  const panel = $("lot");
+  if(panel) panel.scrollIntoView({block:"start", behavior:"auto"});
 }
 function renderAdvice(pop){
   const box = $("advice"); if(!box || !C.advice) return;
   const a = C.advice, v = adviceView(a);
   box.className = v.cls + (pop ? " pop" : "");
   box.innerHTML = `<div class="tag">consiglio dell'oracolo · al prezzo ${C.price}</div><div class="head">${v.head}</div>${v.sub ? `<div class="sub">${v.sub}</div>` : ""}`;
-  const chips = $("lotChips");
-  if(chips) chips.innerHTML = a.in_piano
-    ? (a.titolare_di_piano ? `<span class="chip star">★ titolare di piano</span>` : `<span class="chip plan">nel piano · panchina</span>`)
-    : `<span class="chip off">fuori piano</span>`;
+  renderInfoBanco();
   const meta = $("lotMeta");
   if(meta) meta.innerHTML = `
     <span>slot liberi ${a.ruolo}: <b>${a.slot_liberi_ruolo}</b></span>
     <span>tua offerta max legale: <b>${a.offerta_massima_legale}</b></span>
     <span>calore mercato: <b>×${(a.heat ?? 1).toFixed(2)}</b></span>
     ${a.max_consigliato != null ? `<span>max consigliato: <b style="color:var(--yellow)">${r0(a.max_consigliato)}</b></span>` : ""}
-    <span>affare sotto: <b>${r0(a.bargain_sotto)}</b></span>`;
+    <span>affare sotto: <b>${r0(a.bargain_sotto)}</b></span>
+    ${(a.concorrenti_sopra_tetto ?? 0) > 0
+      ? `<span style="color:var(--peach)">possono superarti: <b>${a.concorrenti_sopra_tetto}</b> (${esc((a.concorrenti_nomi || []).join(", "))})</span>`
+      : ((a.max_consigliato ?? 0) > 0
+         ? `<span style="color:var(--green)">nessuno puo' superarti</span>` : "")}`;
   const cur = $("forkCur");
   if(cur && C.sel){ const span = Math.max((C.sel.q90 ?? 0) * 1.15, 5); cur.style.left = (100*Math.min(C.price, span)/span).toFixed(1) + "%"; }
+  assicuraMartelletto();
 }
 // ---- rilanci: chi ha offerto quanto, prima del martelletto ----
 function bidsDelLotto(){
@@ -1052,22 +1806,40 @@ function bidsDelLotto(){
   if(!st || !C.sel) return [];
   return (st.last_bids || []).filter(b => b.id === C.sel.id);
 }
+/* Firma della griglia: SOLO cio' che cambia i nodi (quante squadre e con che
+   nome). Budget, tetto legale, prezzo e «reparto pieno» si aggiornano in
+   loco. Prima si riscriveva innerHTML a ogni poll (2 s): un click iniziato
+   prima del refresh moriva perche' il nodo del mousedown non era piu' nel
+   documento. */
+function firmaSquadre(st){
+  return (st.teams || []).map(t => t.index + ":" + t.name).join("|");
+}
 function renderBidGrid(){
   const g = $("bidGrid"); if(!g || !C.state || !C.sel) return;
   const st = C.state;
-  g.innerHTML = (st.teams || []).map(t => {
-    const me = t.index === st.my_index;
-    return `<button class="hbt ${me ? "me" : ""}" data-ti="${t.index}">
-      <span><span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>${esc(t.name)}</span>
-      <span class="b">rilancia a ${C.price}</span></button>`;
-  }).join("");
-  g.querySelectorAll(".hbt").forEach(b => b.onclick = () => registraRilancio(+b.dataset.ti));
+  const sig = firmaSquadre(st);
+  if(g.dataset.sig !== sig){
+    g.dataset.sig = sig;
+    g.innerHTML = (st.teams || []).map(t => {
+      const me = t.index === st.my_index;
+      return `<button class="hbt ${me ? "me" : ""}" data-ti="${t.index}">
+        <span><span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>${esc(t.name)}</span>
+        <span class="b">rilancia a ${C.price}</span></button>`;
+    }).join("");
+    g.querySelectorAll(".hbt").forEach(b => b.onclick = () => registraRilancio(+b.dataset.ti));
+  }
+  (st.teams || []).forEach(t => {
+    const sub = g.querySelector(`.hbt[data-ti="${t.index}"] .b`);
+    const txt = `rilancia a ${C.price}`;
+    if(sub && sub.textContent !== txt) sub.textContent = txt;
+  });
 }
 function renderBidTitle(){
   const t = $("bidTitle"); if(!t || !C.sel) return;
   const n = bidsDelLotto().length;
   t.innerHTML = `CHI HA RILANCIATO? <b>${C.price} cr</b>` +
     (n ? ` <span style="color:var(--overlay1); letter-spacing:0; font-weight:600">· ${n} su questo lotto</span>` : "");
+  renderRilTog();
 }
 function renderUndoBid(){
   const b = $("btnUndoBid"); if(!b) return;
@@ -1080,7 +1852,11 @@ function renderUndoBid(){
   b.onclick = async () => {
     if(C.busy) return;
     C.busy = true;
-    try{ await post("/copilot/undo_bid", {}); await poll(); }
+    try{
+      const d = await post("/copilot/undo_bid", {});
+      if(d && d.ok === false){ toast("⚠ " + (d.err || "rifiutato"), "err"); return; }
+      await poll();
+    }catch(e){ toast("server non raggiungibile", "err"); }
     finally{ C.busy = false; }
   };
 }
@@ -1094,7 +1870,8 @@ async function registraRilancio(ti){
     const st = C.state, team = (st.teams || []).find(t => t.index === ti);
     toast(`rilancio segnato: ${team ? team.name : "#" + ti} a ${C.price}`, "ok");
     await poll();
-  } finally { C.busy = false; }
+  }catch(e){ toast("server non raggiungibile", "err"); }
+  finally{ C.busy = false; }
 }
 function renderHammerTitle(){
   const t = $("hammerTitle"); if(!t || !C.sel) return;
@@ -1105,14 +1882,25 @@ function renderHammerTitle(){
 function renderHammerGrid(){
   const g = $("hammerGrid"); if(!g || !C.state) return;
   const st = C.state;
-  g.innerHTML = (st.teams || []).map(t => {
-    const me = t.index === st.my_index;
-    const full = C.sel && (t.roster[C.sel.ruolo] || []).length >= (st.quotas[C.sel.ruolo] || 0);
-    return `<button class="hbt ${me ? "me" : ""}" data-ti="${t.index}" ${full ? "disabled title='reparto pieno'" : ""}>
-      <span><span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>${esc(t.name)}</span>
-      <span class="b">${t.budget} cr · max ${t.max_bid}</span></button>`;
-  }).join("");
-  g.querySelectorAll(".hbt").forEach(b => b.onclick = () => hammer(+b.dataset.ti));
+  const sig = firmaSquadre(st);
+  if(g.dataset.sig !== sig){
+    g.dataset.sig = sig;
+    g.innerHTML = (st.teams || []).map(t => {
+      const me = t.index === st.my_index;
+      return `<button class="hbt ${me ? "me" : ""}" data-ti="${t.index}">
+        <span><span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>${esc(t.name)}</span>
+        <span class="b">${t.budget} cr · max ${t.max_bid}</span></button>`;
+    }).join("");
+    g.querySelectorAll(".hbt").forEach(b => b.onclick = () => hammer(+b.dataset.ti));
+  }
+  (st.teams || []).forEach(t => {
+    const b = g.querySelector(`.hbt[data-ti="${t.index}"]`); if(!b) return;
+    const full = !!(C.sel && (t.roster[C.sel.ruolo] || []).length >= (st.quotas[C.sel.ruolo] || 0));
+    if(b.disabled !== full){ b.disabled = full; b.title = full ? "reparto pieno" : ""; }
+    const sub = b.querySelector(".b");
+    const txt = `${t.budget} cr · max ${t.max_bid}`;
+    if(sub && sub.textContent !== txt) sub.textContent = txt;
+  });
 }
 
 async function hammer(ti){
@@ -1123,9 +1911,17 @@ async function hammer(ti){
   if(team && C.price > team.max_bid){ toast(`${team.name} non può: offerta massima legale ${team.max_bid}`, "err"); return; }
   C.busy = true;
   const p = C.sel, price = C.price;
+  /* identificativo della richiesta: se il click parte due volte, o la rete
+     ritrasmette, il server riconosce il duplicato e non registra due acquisti */
+  const rid = `${p.id}-${ti}-${price}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   try{
-    const d = await post("/copilot/hammer", {player_id: p.id, team_index: ti, price});
+    const d = await post("/copilot/hammer", {player_id: p.id, team_index: ti,
+                                             price, richiesta_id: rid});
     if(!d.ok){ toast("⚠ " + (d.err || "rifiutato"), "err"); return; }
+    if(d.duplicato){ toast("già registrato", "warn"); return; }
+    if(d.nota) toast(d.nota, "warn");
+    /* lo stato è cambiato: i piani calcolati prima non sono più attuali */
+    invalidaPiani();
     flashSaved();
     const f = $("soldFlash");
     f.innerHTML = `🔨 VENDUTO<small>${esc(p.nome)} → <b>${esc(team ? team.name : "#" + ti)}</b> per ${price}</small>`;
@@ -1161,8 +1957,13 @@ function undo(){
     return;
   }
   C.arm = null; clearTimeout(C.armTimer);
+  if(C.busyUndo) return;                       // un annullamento per volta
+  C.busyUndo = true;
   const ev = C.state.last_events.slice(-1)[0];
-  post("/copilot/undo", {}).then(async d => {
+  /* identificativo: un doppio invio non toglie due acquisti */
+  const rid = `undo-${ev.id}-${ev.ts}-${Math.random().toString(36).slice(2,8)}`;
+  invalidaPiani();      // come dopo il martelletto: i piani non sono piu' attuali
+  post("/copilot/undo", {richiesta_id: rid}).finally(() => { C.busyUndo = false; }).then(async d => {
     if(d.ok){ toast(`annullato: ${ev.nome} torna nel listino`, "ok"); flashSaved(); await poll(); }
     else toast("⚠ " + (d.err || "undo rifiutato"), "err");
   }).catch(() => toast("server non raggiungibile", "err"));
@@ -1178,44 +1979,177 @@ async function refreshPlan(){
     C.plan = pl; renderPlan(pl);
   }catch(e){ /* banner */ }
 }
+/* IL MIO PIANO, rifatto per chi e' al tavolo: crediti, slot, e per ogni
+   reparto tre numeri — SPESO davvero (dalla mia rosa), PREVISTO dal piano
+   (somma dei prezzi attesi dei target), SLOT occupati su quota. */
+function miaRosa(){
+  const st = C.state || {};
+  const t = (st.teams || []).find(x => x.index === st.my_index);
+  return (t && t.roster) || {};
+}
 function renderPlan(pl){
   const st = C.state || {};
   const quotas = st.quotas || {};
+  aggiornaPrezziMiei();
+  ROLE_ORDER.forEach(r => ricordaNote(pl.target[r]));
   const totFree = ROLE_ORDER.reduce((a, r) => a + (pl.slot_liberi[r] || 0), 0);
   $("planStats").innerHTML = `
     <div class="ps budget"><div class="n">${pl.budget}</div><div class="l">crediti residui</div></div>
     <div class="ps"><div class="n">${totFree}</div><div class="l">slot da riempire</div>
-      <div class="slots">${ROLE_ORDER.map(r => `<span style="color:${ROLE_COLOR[r]}">${r}${pl.slot_liberi[r]}<span style="color:var(--overlay0);font-weight:700">/${quotas[r] ?? "?"}</span></span>`).join("")}</div></div>
-    <div class="ps"><div class="n" style="color:${pl.costo_atteso_piano > pl.budget ? "var(--red)" : "var(--text)"}">${r0(pl.costo_atteso_piano)}</div><div class="l">costo atteso piano</div></div>
+      <div class="slots">${ROLE_ORDER.map(r => `<span style="color:${ROLE_COLOR[r]}">${r}${pl.slot_liberi[r]}<span style="color:var(--subtext0);font-weight:700">/${quotas[r] ?? "?"}</span></span>`).join("")}</div></div>
+    <div class="ps"><div class="n" style="color:${pl.costo_atteso_piano > pl.budget ? "var(--red)" : "var(--text)"}">${r0(pl.costo_atteso_piano)}</div><div class="l">spesa prevista</div></div>
     <div class="ps heat"><div class="n">×${(pl.heat ?? 1).toFixed(2)}</div><div class="l">calore mercato</div></div>`;
+
+  const rost = miaRosa();
+  let sT = 0, pT = 0, oT = 0, qT = 0;
+  const righe = ROLE_ORDER.map(r => {
+    const lst = rost[r] || [];
+    const speso = lst.reduce((a, p) => a + (+p.prezzo || 0), 0);
+    const prev = (pl.target[r] || []).reduce((a, p) => a + (+p.prezzo_atteso || 0), 0);
+    const occ = lst.length, quo = quotas[r] ?? 0;
+    sT += speso; pT += prev; oT += occ; qT += quo;
+    return `<tr>
+      <td class="rl" style="color:${ROLE_COLOR[r]}">${ROLE_NAME[r].toUpperCase()}</td>
+      <td class="sp">${r0(speso)}</td>
+      <td class="pv">${r0(prev)}</td>
+      <td class="sl"><b>${occ}</b>/${quo}</td></tr>`;
+  }).join("");
+  $("planTab").innerHTML = `<table class="pt">
+    <thead><tr><th>reparto</th><th>speso finora</th><th>previsto dal piano</th><th>slot</th></tr></thead>
+    <tbody>${righe}<tr class="tot"><td>TUTTI</td><td>${r0(sT)}</td><td>${r0(pT)}</td><td><b>${oT}</b>/${qT}</td></tr></tbody>
+  </table>`;
+
   const frac = pl.budget > 0 ? pl.costo_atteso_piano / pl.budget : 1;
   const over = frac > 1;
   $("costbar").innerHTML = `
-    <div class="lbl"><span>piano: <b>${r0(pl.costo_atteso_piano)}</b> attesi su <b>${pl.budget}</b> residui</span><span>${over ? `<b style="color:var(--red)">+${r0(pl.costo_atteso_piano - pl.budget)} oltre budget</b>` : `margine <b style="color:var(--green)">${r0(pl.budget - pl.costo_atteso_piano)}</b>`}</span></div>
-    <div class="bar"><i class="${over ? "over" : ""}" style="width:${Math.min(100, 100*frac).toFixed(1)}%"></i></div>
+    <div class="plan-line">spesa prevista del piano <b>${r0(pl.costo_atteso_piano)}</b> · crediti residui <b class="res">${pl.budget}</b>
+      ${over ? `· <b class="over">oltre di ${r0(pl.costo_atteso_piano - pl.budget)}</b>`
+             : `· avanzano <b class="res">${r0(pl.budget - pl.costo_atteso_piano)}</b>`}</div>
+    <div class="bar" style="margin-top:6px"><i class="${over ? "over" : ""}" style="width:${Math.min(100, 100*frac).toFixed(1)}%"></i></div>
     <div class="note">${pl.heat > 1.05 ? "mercato caldo: i prezzi attesi sono gonfiati dal calore" : pl.heat < 0.95 ? "mercato freddo: si compra sotto la mediana" : "mercato in linea con la mediana della lega"}</div>`;
-  $("targets").innerHTML = ROLE_ORDER.map(r => {
-    const rows = pl.target[r] || [];
-    const items = rows.map(p => `
-      <div class="trow ${p.titolare ? "starter" : ""}" data-id="${esc(p.id)}" title="${esc(p.nome)} — clicca per portarlo al banco">
-        <span class="star ${p.titolare ? "" : "no"}">${p.titolare ? "★" : "·"}</span>
-        ${clubBadge(p.squadra, "sm")}
-        <span class="nm">${esc(p.nome)}</span>
-        <span class="pa">${r0(p.prezzo_atteso)}</span>
-        <span class="mx">${r0(p.max_consigliato)}</span>
-      </div>`).join("") || `<div class="empty">nessun target: reparto coperto</div>`;
-    return `<div class="tsec">
-      <div class="th" style="color:${ROLE_COLOR[r]}"><span>${ROLE_NAME[r].toUpperCase()}</span><span>${rows.length} target · ${pl.slot_liberi[r]} slot</span></div>
-      ${items}
-    </div>`;
+  renderRosaIdeale();
+}
+
+/* ---------------- rigoristi ----------------
+   La lista (chi batte, in che ordine) viene dal CSV di mercato; lo STATO —
+   chi e' ancora libero — lo calcola il server dagli eventi, quindi si
+   ricarica solo quando la firma degli eventi cambia, non a ogni poll. */
+let RIG = {dati:null, sig:null, caricando:false};
+
+async function caricaRigoristi(sig){
+  if(RIG.caricando) return;
+  RIG.caricando = true;
+  try{
+    RIG.dati = await api('/copilot/rigoristi');
+    RIG.sig = sig;
+  }catch(e){ RIG.dati = null; RIG.sig = null; }
+  RIG.caricando = false;
+  renderRigoristi();
+}
+
+function classeRigorista(v, primo){
+  const s = String(v.stato || "");
+  if(primo) return "libero";
+  if(s === "mio") return "mio";
+  if(s.indexOf("venduto") === 0) return "venduto";
+  if(s === "disponibile") return "";
+  return "grigio";
+}
+
+function marcatoreRigorista(v){
+  const s = String(v.stato || "");
+  if(s.indexOf("venduto a ") === 0) return s.slice(10);
+  if(s === "mio") return "mio";
+  if(s === "indisponibile") return "⚠";
+  if(s === "fuori lista") return v.agganciato ? "fuori lista" : "non in lista";
+  return "";
+}
+
+/* vista: "ruolo" (predefinita) o "squadra"; la scelta resta in localStorage */
+let RIG_VISTA = (localStorage.getItem("rigVista") === "squadra") ? "squadra" : "ruolo";
+const RG_TIT = {P:"PORTIERI", D:"DIFENSORI", C:"CENTROCAMPISTI", A:"ATTACCANTI"};
+const RG_ORD = {1:"1°", 2:"2°", 3:"3°"};
+
+/* «gol 2025: 11 (rigori 3, pres 18)»; se il server non manda i campi → «—» */
+function golTxt(et, g, r, p){
+  if(g === undefined || g === null) return `${et}: —`;
+  const ex = [];
+  if(r !== undefined && r !== null) ex.push(`rigori ${r}`);
+  if(p !== undefined && p !== null) ex.push(`pres ${p}`);
+  return `${et}: <b>${g}</b>${ex.length ? ` (${ex.join(", ")})` : ""}`;
+}
+
+function renderRigRuoli(box, d){
+  const pr = d.per_ruolo;
+  if(!pr){                                    // server vecchio: ripiego sulle squadre
+    renderRigSquadre(box, d);
+    box.insertAdjacentHTML("afterbegin",
+      `<div class="tick-empty">vista per ruolo non disponibile su questo server</div>`);
+    return;
+  }
+  const sez = ["P","D","C","A"].map(rl => {
+    const lista = pr[rl] || [];
+    if(!lista.length) return "";
+    const righe = lista.map(v => {
+      const primo = !!v.primo_disponibile_della_squadra;
+      const mk = marcatoreRigorista(v);
+      return `<div class="rg-r">`
+        + `<span class="rig-n ${classeRigorista(v, primo)}" data-pid="${esc(v.player_id || "")}" title="${esc(v.stato || "")}">${esc(v.nome)}${
+            mk ? `<span class="mk">${esc(mk)}</span>` : ""}</span>`
+        + `<span class="rg-sq">(${esc(v.squadra || "")})</span>`
+        + `<span class="rg-sep">·</span><span class="rg-o">${RG_ORD[v.ordine] || (v.ordine + "°")} rigorista</span>`
+        + `<span class="rg-sep">·</span><span class="rg-g">${golTxt("gol 2026", v.gol_2026, v.rig_2026, null)}</span>`
+        + `<span class="rg-sep">·</span><span class="rg-g">${golTxt("gol 2025", v.gol_2025, v.rig_2025, v.pres_2025)}</span>`
+        + `</div>`;
+    }).join("");
+    return `<div class="rg-sec"><div class="rg-h">${RG_TIT[rl]}</div>${righe}</div>`;
+  }).join("");
+  box.innerHTML = sez || `<div class="tick-empty">nessun rigorista agganciato</div>`;
+}
+
+function renderRigoristi(){
+  const box = $("rigOut"); if(!box) return;
+  const d = RIG.dati;
+  const f = $("rigFonte");
+  if(f) f.textContent = (d && d.data) ? `— fonte del ${d.data}` : "";
+  document.querySelectorAll("#rigSw button").forEach(b =>
+    b.classList.toggle("on", b.dataset.vista === RIG_VISTA));
+  if(!d || !(d.squadre || []).length){
+    box.innerHTML = `<div class="tick-empty">nessuna lista rigoristi</div>`;
+    return;
+  }
+  if(RIG_VISTA === "ruolo") renderRigRuoli(box, d);
+  else renderRigSquadre(box, d);
+}
+
+function renderRigSquadre(box, d){
+  box.innerHTML = d.squadre.map(sq => {
+    const nomi = (sq.rigoristi || []).map(v => {
+      const primo = !!v.player_id && v.player_id === sq.primo_disponibile;
+      const mk = marcatoreRigorista(v);
+      return `<span class="rig-n ${classeRigorista(v, primo)}" data-pid="${esc(v.player_id || "")}" title="${esc(v.stato || "")}">${esc(v.nome)}${
+        mk ? `<span class="mk">${esc(mk)}</span>` : ""}</span>`;
+    }).join("");
+    return `<div class="rig-row"><span class="cod">${esc(sq.squadra_codice)}</span><span class="rig-names">${nomi}</span></div>`;
   }).join("");
 }
-$("targets").addEventListener("click", e => {
-  const row = e.target.closest(".trow"); if(!row || !C.plan) return;
-  for(const r of ROLE_ORDER){
-    const p = (C.plan.target[r] || []).find(x => x.id === row.dataset.id);
-    if(p){ selectPlayer(p, 1); break; }
-  }
+
+$("rigOut").addEventListener("click", async e => {
+  const n = e.target.closest(".rig-n"); if(!n) return;
+  const pid = n.dataset.pid; if(!pid) return;
+  try{
+    const a = await api(`/copilot/advice?player_id=${encodeURIComponent(pid)}&price=1`);
+    if(a && a.id) selectPlayer(a, 1);
+    else toast("giocatore non al banco", "err");
+  }catch(err){ toast("giocatore non al banco", "err"); }
+});
+
+/* interruttore «per squadra | per ruolo»: nessuna richiesta, solo ridisegno */
+document.querySelectorAll("#rigSw button").forEach(b => b.onclick = ev => {
+  ev.stopPropagation();
+  RIG_VISTA = b.dataset.vista === "squadra" ? "squadra" : "ruolo";
+  try{ localStorage.setItem("rigVista", RIG_VISTA); }catch(e){}
+  renderRigoristi();
 });
 
 /* ---------- chi chiamo? ---------- */
@@ -1242,9 +2176,24 @@ document.querySelectorAll(".nb").forEach(b => b.onclick = async () => {
 /* ============================================================
  * IL TAVOLO + popover rosa
  * ============================================================ */
+/* Firma del tavolo: nomi, cassa, tetto legale e dimensione di ogni reparto.
+   Senza, ogni poll (2 s) riscriveva le righe — e con esse le griglie dei
+   bottoni — anche quando non era cambiato niente. */
+function firmaTavolo(st){
+  return [st.budget, st.my_index, st.n_events,
+          ROLE_ORDER.map(r => (st.quotas || {})[r]).join(","),
+          (st.teams || []).map(t => `${t.index}:${t.name}:${t.budget}:${t.max_bid}:` +
+             ROLE_ORDER.map(r => (t.roster[r] || []).length).join("-")).join("|")].join("#");
+}
 function renderTeams(st){
   const box = $("teamRows");
-  if(!st.teams || !st.teams.length){ box.innerHTML = `<div class="res-empty">nessuna squadra al tavolo</div>`; return; }
+  if(!st.teams || !st.teams.length){
+    if(box.dataset.sig !== "vuoto"){ box.dataset.sig = "vuoto"; box.innerHTML = `<div class="res-empty">nessuna squadra al tavolo</div>`; }
+    return;
+  }
+  const sig = firmaTavolo(st);
+  if(box.dataset.sig === sig){ if(C.sel) renderHammerGrid(); updateTeamPopover(st); return; }
+  box.dataset.sig = sig;
   box.innerHTML = st.teams.map(t => {
     const frac = t.budget / st.budget;
     const slots = ROLE_ORDER.map(r => {
@@ -1261,7 +2210,8 @@ function renderTeams(st){
     const me = t.index === st.my_index;
     return `<div class="team-row ${me ? "human" : ""} ${C.popTeam === t.index ? "open" : ""}" data-ti="${t.index}">
       <span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>
-      <div class="head"><b>${esc(t.name)}</b><span class="mx">max <b>${t.max_bid}</b></span></div>
+      <div class="head"><b>${esc(t.name)}</b><span class="mx">max <b>${t.max_bid}</b></span>${
+        me ? "" : `<button class="io-btn" data-io="${t.index}" title="il piano e i consigli passano a ${esc(t.name)}">sono io</button>`}</div>
       <span class="credits" style="color:${budgetColor(frac)}">${t.budget}</span>
       <div class="bar"><i style="${barStyle}"></i></div>
       <div class="slots">${slots}</div>
@@ -1271,6 +2221,8 @@ function renderTeams(st){
   updateTeamPopover(st);
 }
 $("teamRows").addEventListener("click", e => {
+  const io = e.target.closest("[data-io]");
+  if(io){ e.stopPropagation(); diventaIo(+io.dataset.io); return; }
   const row = e.target.closest(".team-row"); if(!row) return;
   const ti = +row.dataset.ti;
   C.popTeam = (C.popTeam === ti) ? null : ti;
@@ -1282,6 +2234,33 @@ document.addEventListener("click", e => {
   if(e.target.closest("#teamPopover") || e.target.closest(".team-row")) return;
   closeTeamPopover();
 });
+
+/* «sono io»: cambio di squadra a tavolo apparecchiato. Stessi nomi, stesso
+   budget, cambia solo my_index; il server rifiuta se la cassa di quella
+   squadra non copre gli acquisti gia' fatti, e lo si scrive. */
+async function diventaIo(ti){
+  const st = C.state;
+  if(!st || !st.names || C.busy) return;
+  if(ti === st.my_index) return;
+  const nome = st.names[ti] || ("#" + ti);
+  const aveviPiani = !!PI.dati;
+  C.busy = true;
+  try{
+    const d = await post("/copilot/setup",
+                         {names: st.names, my_index: ti, budget: st.budget});
+    if(!d.ok){ toast("⚠ " + (d.err || "cambio rifiutato"), "err"); return; }
+    try{ localStorage.setItem("fantaoracle_copilot_names",
+           JSON.stringify({names: st.names, my_index: ti, budget: st.budget})); }catch(e){}
+    PI.dati = null; RI.scelto = 0;
+    closeTeamPopover();
+    C.lastN = -1;                 // forza il ridisegno di ticker e piano
+    await poll();
+    await refreshPlan();
+    toast("ora sei " + nome, "ok");
+    if(aveviPiani) caricaPiani();  // i piani erano di un'altra squadra
+  }catch(e){ toast("server non raggiungibile", "err"); }
+  finally{ C.busy = false; }
+}
 function closeTeamPopover(){
   C.popTeam = null;
   $("teamPopover").classList.add("hidden");
@@ -1292,6 +2271,12 @@ function updateTeamPopover(st){
   if(C.popTeam == null || !st || !st.teams){ box.classList.add("hidden"); return; }
   const t = st.teams.find(x => x.index === C.popTeam);
   if(!t){ closeTeamPopover(); return; }
+  /* stessa regola del tavolo: si riscrive (e si riposiziona) solo se la rosa
+     mostrata e' cambiata, altrimenti il popover ballava sotto gli occhi */
+  const sig = `${t.index}:${t.budget}:${t.max_bid}:` +
+    ROLE_ORDER.map(r => (t.roster[r] || []).map(p => p.id + "@" + p.prezzo).join(",")).join("|");
+  if(box.dataset.sig === sig && !box.classList.contains("hidden")) return;
+  box.dataset.sig = sig;
   box.classList.toggle("human", t.index === st.my_index);
   const secs = ROLE_ORDER.map(r => {
     const rows = t.roster[r] || [];
@@ -1356,7 +2341,34 @@ document.addEventListener("keydown", e => {
   if(e.key === "u" || e.key === "U"){ e.preventDefault(); undo(); return; }
 });
 
+/* ---------- pannelli ripiegabili (rigoristi, dati di sessione) ----------
+   Ripiegati la prima volta: al tavolo servono raramente. La scelta resta in
+   localStorage, cosi' un reload non la perde. */
+function pieghevole(id, bodyId, apertoDiDefault){
+  const btn = document.querySelector(`[data-pieg="${id}"]`);
+  const body = $(bodyId);
+  if(!btn || !body) return;
+  const key = "fantaoracle_pieg_" + id;
+  let salvato = null;
+  try{ salvato = localStorage.getItem(key); }catch(e){}
+  let aperto = salvato == null ? !!apertoDiDefault : salvato === "1";
+  const applica = () => {
+    body.hidden = !aperto;
+    btn.textContent = aperto ? "▾ chiudi" : "▸ apri";
+    btn.setAttribute("aria-expanded", aperto ? "true" : "false");
+  };
+  btn.onclick = () => {
+    aperto = !aperto;
+    try{ localStorage.setItem(key, aperto ? "1" : "0"); }catch(e){}
+    applica();
+  };
+  applica();
+}
+
 /* ---------- avvio ---------- */
+pieghevole("rigoristi", "rigBody", false);
+pieghevole("sessione", "sessBody", false);
+renderRosaIdeale();
 loadSquadre();
 poll();
 </script>

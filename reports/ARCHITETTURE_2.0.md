@@ -1,6 +1,6 @@
 # FantaOracle 2.0 — architetture di secondo livello (spiegate)
 
-Data: 6 settembre 2026. Risultato del workflow a 22 agenti: 7 architetti con angoli obbligati (niente LLM al centro, niente TimesFM sul fantavoto), 14 giudici che hanno verificato ogni affermazione sul repo (lenti: accuratezza/novita' e fattibilita'/dati), 1 sintesi. Proposte grezze complete in `reports/ARCHITETTURE2_raw_architetti.md`, giudizi in `reports/ARCHITETTURE2_workflow_result.json`.
+Data: 6 settembre 2026. Risultato del workflow a 22 agenti: 7 architetti con angoli obbligati (niente LLM al centro, niente TimesFM sul fantavoto), 14 giudici che hanno verificato ogni affermazione sul repo (lenti: accuratezza/novita' e fattibilita'/dati), 1 sintesi. Proposte grezze complete in `reports/_archivio/ARCHITETTURE2_raw_architetti.md`, giudizi in `reports/ARCHITETTURE2_workflow_result.json`.
 
 ## Punteggi dei giudici (media delle due lenti, scala 1-10)
 

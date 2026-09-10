@@ -79,6 +79,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from fantabot.tabellino import bersaglio_origine as bo        # noqa: E402
 from fantabot.tabellino import calibrazione as calib          # noqa: E402
 from fantabot.tabellino import configurazione as cfg          # noqa: E402
 from fantabot.tabellino import contratto                      # noqa: E402
@@ -228,12 +229,21 @@ def costruisci_ingressi(P, *, stagione: str, cutoff, proc: Path = None,
                         modo_bersaglio: str = "riferimento",
                         peso_bersaglio: float = 0.5,
                         squadre: str = None, n_squadre: int = 1,
-                        universo=None) -> IngressiC2:
+                        universo=None, bersaglio: Path | str = None,
+                        cartella_bersaglio: Path = None) -> IngressiC2:
     """Costruisce gli ingressi del pilota dalle sole righe anteriori al cutoff.
 
     `universo` permette al controfattuale di perturbare la mappa dei ruoli
     senza toccare il panel: sono due dipendenze diverse, e vanno verificate
     ciascuna sulla propria sorgente.
+
+    `bersaglio` e' il percorso di un CSV per origine
+    (`presenze_per_origine.csv` di `scripts/l1_presenze_per_origine.py`). Se
+    resta `None` il comportamento e' quello di sempre: il bersaglio viene da
+    `b_predictions_{stagione}.json`, cioe' da un file che non porta una data e
+    la cui disponibilita' al cutoff non e' dimostrata. Il CSV per origine porta
+    invece la data di origine e le feature ammesse, ed e' l'ingresso della
+    prova del par.3ter.
     """
     proc = Path(proc) if proc is not None else PROC
     cutoff = pd.Timestamp(cutoff)
@@ -245,9 +255,14 @@ def costruisci_ingressi(P, *, stagione: str, cutoff, proc: Path = None,
     P["data"] = pd.to_datetime(P["data"])
     Ppre = P[P.data < cutoff]
 
-    bers = presenze.costruisci(proc / f"b_predictions_{stagione}.json",
-                               giocatori, ruolo,
-                               storia_voti=Ppre[["master_id", "stato_voto"]])
+    storia = Ppre[["master_id", "stato_voto"]]
+    if bersaglio is None:
+        bers = presenze.costruisci(proc / f"b_predictions_{stagione}.json",
+                                   giocatori, ruolo, storia_voti=storia)
+    else:
+        bers = bo.costruisci_da_origine(
+            bersaglio, giocatori, ruolo, storia_voti=storia,
+            cartella_lavoro=cartella_bersaglio)
     somme = somme_per_ruolo(P, cutoff)
     obiettivo, diag_b = bersaglio_verso_somma(
         bers.per_giocatore, ruolo, squadra, somme,
@@ -384,6 +399,11 @@ def main() -> int:
     ap.add_argument("--squadre", default=None)
     ap.add_argument("--n-squadre", type=int, default=1)
     ap.add_argument("--istante", default=None)
+    ap.add_argument("--bersaglio", default=None,
+                    help="percorso di un `presenze_per_origine.csv` prodotto "
+                         "da scripts/l1_presenze_per_origine.py. Senza questa "
+                         "opzione il bersaglio resta `b_predictions_"
+                         "{stagione}.json`, cioe' il comportamento di sempre.")
     a = ap.parse_args()
 
     istante = a.istante or datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
@@ -408,10 +428,14 @@ def main() -> int:
         "peso_bersaglio": a.peso_bersaglio, "squadre": a.squadre,
         "n_squadre": a.n_squadre, "passo_voluto": PASSO_VOLUTO,
         "c": C_PERTURBAZIONE, "pazienza": PAZIENZA, "ogni": OGNI,
+        "bersaglio": a.bersaglio,
+        "fonte_bersaglio": ("b_predictions" if a.bersaglio is None
+                            else "presenze_per_origine"),
         "impronte_ingressi": esec.impronte_ingressi(
             percorsi=[PROC / f"players_{a.stagione}.parquet",
                       PROC / "l2_partite.parquet",
-                      PROC / f"b_predictions_{a.stagione}.json"],
+                      PROC / f"b_predictions_{a.stagione}.json"]
+                     + ([Path(a.bersaglio)] if a.bersaglio else []),
             moduli=esec.MODULI_RILEVANTI),
         "impronta_script": esec.impronta_file(__file__)}
     corsa = esec.apri(OUT, a.stagione, piano, istante=istante, prova=True)
@@ -421,7 +445,8 @@ def main() -> int:
     ing = costruisci_ingressi(
         P, stagione=a.stagione, cutoff=cutoff, proc=PROC,
         modo_bersaglio=a.modo_bersaglio, peso_bersaglio=a.peso_bersaglio,
-        squadre=a.squadre, n_squadre=a.n_squadre)
+        squadre=a.squadre, n_squadre=a.n_squadre, bersaglio=a.bersaglio,
+        cartella_bersaglio=corsa.cartella)
     rose, ruolo, squadra = ing.rose, ing.ruolo, ing.squadra
     giocatori, Ppre, bers = ing.giocatori, ing.Ppre, ing.bers
     somme, b_obiettivo, diag_b = ing.somme, ing.obiettivo, ing.diagnostica_bersaglio
@@ -434,6 +459,8 @@ def main() -> int:
     print(f"  bersaglio ({a.modo_bersaglio}): {len(diag_b)} celle, "
           f"{raggiunte} con la somma raggiunta, "
           f"{sum(d.get('saturati', 0) for d in diag_b.values())} saturati")
+    print(f"  fonte del bersaglio: {piano['fonte_bersaglio']}"
+          + (f" ({a.bersaglio})" if a.bersaglio else ""))
     print(f"  squadre {scelte} ({criterio})")
     print(f"  parametri: {len(ids)}")
 
@@ -588,6 +615,9 @@ def main() -> int:
         # tutte le celle: il piano dice «cella per cella», e troncare a 60 su
         # 80 perdeva sistematicamente le ultime squadre in ordine alfabetico
         "bersaglio": diag_b,
+        # la provenienza dell'ingresso principale, che il rapporto del cubo
+        # non registrava: senza questo nessuno vede da quale file venga
+        "bersaglio_ingresso": bers.diagnostica,
         "collegamento": {"theta_di_prova": 3.0,
                          "scarto_massimo_presenza": scarto_rilevabile},
         "guadagno": {k: v for k, v in g.items() if k != "grandezze"},

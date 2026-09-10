@@ -1,0 +1,458 @@
+{
+ "L5": {
+  "livello": "L5 — stagione in corso",
+  "colonne": {
+   "implementato": {
+    "valore": "parziale",
+    "prova": "Pezzi esistono ed eseguono: src/fantabot/season/lineup.py:28 pick_lineup, :65 score_giornata, :100 goals_from_points; src/fantabot/tabellino/partecipazione.py:320 stato_all_origine; src/fantabot/tabellino/generatore.py:319 parametro stato_iniziale; scripts/l2_genera_cubo.py:216 flag --solo-future. Percorso assente: zero righe per formazione di giornata, scambi, svincoli, riparazione (grep -rn -iE \"svincol|riparazion\" su src/ e scripts/ non trova funzionalita; solo PIANO.md:188-197 come progetto)."
+   },
+   "verificato": {
+    "valore": "parziale",
+    "prova": "RIPRODOTTO: PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_non_anticipazione.py tests/test_l2_stato_origine.py -q -> \"14 passed in 5.82s\". Coprono non-anticipazione di simulate_season/season_detail e definizione di stato_all_origine. RIPRODOTTO: python tests/smoke_season.py gira su voti sintetici. Nessuna prova su formazione di giornata, scambi, svincoli, riparazione: non c'e codice da sorvegliare."
+   },
+   "validato": {
+    "valore": "no",
+    "prova": "nessuna prova. Nessun confronto con criteri fissati prima su nulla di stagionale: nessuna formazione consigliata mai misurata, nessuno scambio mai valutato, nessuna riparazione mai simulata."
+   },
+   "collegato": {
+    "valore": "no",
+    "prova": "scripts/l2_genera_cubo.py:382 chiama gen.genera(cal, rose, mp, m_part, m_ev, m_voto, n_sims=a.sims, seme=a.seme, dipendenza=struttura, fasce_sv=fasce_sv) SENZA stato_iniziale. grep -rn \"stato_all_origine\" src scripts tests: solo partecipazione.py e tests/test_l2_stato_origine.py, nessuno script. pick_lineup chiamato solo da simulatori d'asta: livello3/valutatore.py:171, montecarlo.py:250, tabellino/punteggio.py:113, scripts/l2_banco_confronto.py:265, season/simulate.py:87, season/detail.py:46."
+   },
+   "operativo": {
+    "valore": "parziale",
+    "prova": "Vale solo per il punto (1) aggiornamento dati. RIPRODOTTO: data/packs/CORRENTE.json aggiornato 2026-09-10T06:25:18, impronta 202c4299d98c..., 594 giocatori, limitazioni: []; data/refresh/status.txt = \"ok\"; pack.b_predictions k=3 per 594/594; pack.votes_by_g = [290, 292, 291, 0 x 35]; python scripts/f11_refresh_all.py --elenca elenca gli 8 passi. Per i punti (2)(3)(4) nessuna prova: non esiste il comando. La decisione servita dal giro del 10/9 e l'asta, non una decisione di stagione: nessuna decisione di stagione e mai stata presa con questo codice."
+   }
+  },
+  "cambiato_rispetto_al_9_9": "CAMBIATO (riguarda l'asta, non L5): pack rigenerato data/packs/pack_2026-27.pkl del 2026-09-10 06:25, impronta 202c4299d98c..., 594 giocatori (prima db2584ea408b..., 587 — i rilievi w1/regole.md e w1/caccia_dati.md citano il pack precedente); k=3 per 594/594 (era 2); voti g3 presenti, votes_by_g = [290,292,291,0 x 35], quindi il rilievo D6 di w1/caccia_dati.md (\"pack senza i voti della 3a giornata\") risulta chiuso; data/copilot/eleggibilita_2026-27.json ricostruito, campo pack con impronta 202c4299d98c... e 594 giocatori, 54 indisponibili, 0 esclusi; scripts/f10_copilot.py modificato 10/9 06:23, scripts/f11_refresh_all.py 10/9 01:15. Effetto: la citazione del report \"scripts/f10_copilot.py:342 legge data/packs/pack_{season}.pkl\" e SCADUTA — oggi la riga 342 e `quote = quote or dict(STATE[\"quotas\"])` e le letture del pack stanno a 178, 265, 1091 (non era falsa quando scritta). NON CAMBIATO in L5: src/fantabot/season/lineup.py fermo al 4/9, simulate.py e detail.py al 6/9, scripts/l2_genera_cubo.py all'8/9 23:34. Dopo il report non e stata scritta una riga di L5. FALSO NEL REPORT DEL 9/9: (1) righe 101-102 \"Il generatore continua pero a ciclare su tutto il calendario: simulare SOLO il futuro e il pezzo che manca\" — vero della funzione genera (generatore.py:339-341), FALSO del percorso: --solo-future esiste in scripts/l2_genera_cubo.py:216-219, taglia il calendario alle righe 232-238 e finisce nel rapporto alla riga 405; quel file porta mtime 2026-09-08 23:34, cioe era su disco PRIMA del report (mtime reports/STATO_LIVELLI_20260909.md = 2026-09-10 00:06). Il pezzo mancante vero e un altro: l2_genera_cubo.py:382 non passa stato_iniziale, quindi anche con --solo-future ogni giocatore riparte da estrazione dalla marginale con run=1 — cio che stato_all_origine (partecipazione.py:323-329) era stato scritto per evitare. Il report ha dichiarato mancante la meta che c'era e non ha visto la giuntura assente. (2) riga 17 \"implementato: no\" e impreciso: i pezzi esistono, eseguono e 14 prove li sorvegliano; la lettura giusta e \"pezzi si, percorso no\". (3) incompleto: \"Esiste l'aggiornamento dei dati\" non dice che ha due manopole da girare a mano ogni settimana (GIORNATA_CORRENTE cablato, f12 fuori catena). FUORI DAL REPORT ma dentro L5: ASTA_VERA.md:29 dice \"la lega aggiunge 50 crediti a gennaio\", config/league.yaml:36 dice extra_credits: 100 con nota \"Corretto il 6/9/2026 ... come confermato dal committente\" — numero sbagliato nel documento d'azione che si legge stasera.",
+  "mancanze": [
+   "(2) Consiglio di formazione per giornata: MANCA il consumatore. Motore completo in src/fantabot/season/lineup.py:28-103 (7 moduli, 3 cambi, modificatore con >=4 D, soglia gol 66 passo 6) ma nessuno script stampa undici nomi per una giornata reale; tutti i chiamanti di pick_lineup sono simulatori d'asta. viz/replay.html mostra le formazioni della stagione SIMULATA.",
+   "(2bis) Ingressi gia pronti, mai usati: data/raw/mercato/probabili_20260910.csv, 473 righe tutte di giornata 4, colonne giornata/squadra/avversario/casa/nome/ruolo/pct_titolarita/stato/lista/ballottaggio_con/pct_ballottaggio/player_id; 471 righe con player_id, 467 sono chiavi del pack (RIPRODOTTO) — spazio di identita coincidente, nessun matching per nome necessario.",
+   "(2ter) data/raw/mercato/indisponibili_20260910.csv non ha alcun identificatore (colonne: squadra, nome, tipo, dettaglio, rientro_atteso, rientro_stima); la risoluzione a master_id esiste solo dentro scripts/f4_eleggibilita.py, che produce i 54 indisponibili in data/copilot/eleggibilita_2026-27.json.",
+   "(3) Scambi e svincoli: zero righe. Le uniche occorrenze di \"scambio\" sono livello3/ricerca.py:420-486 (scambi_locali dentro l'ottimizzatore d'ASTA) e livello3/indifferenza.py:463 (scambi fra giocatori pianificati nella simulazione). Manca prima la regola: config/league.yaml non dice quanti svincoli ne con che rimborso.",
+   "(4) Riparazione di gennaio: zero righe. config/league.yaml:48 repair_auction: false; repair_context.extra_credits: 100 e typical_leftover \"<50\" alle righe 35-37, letti da nessuno script. PIANO.md:188-197 e un progetto del 7/8, non un regolamento confermato.",
+   "config/league.yaml non e letto da nessuno script — lo dichiara il file stesso alle righe 9-11 e lo conferma reports/LIVELLO0_E_1.md:175. Qualunque regola scritta li non ha effetto su nessuna decisione.",
+   "(1) L'aggiornamento settimanale ha due punti manuali: scripts/f4_eleggibilita.py:96 GIORNATA_CORRENTE = 4 cablato (usato a :108 per le stime di rientro; f4 NON e nella catena f11), e f12_choose_objective tolto dalla catena (scripts/f11_refresh_all.py:99-101), per cui il pack esce senza obiettivo — pack.b_objective porta la nota 'copiato dal pack del 6/9 ... la catena di aggiornamento non include f12 e il pack usciva senza obiettivo'.",
+   "scripts/f11_refresh_all.py --prova non e a secco: scrive data/refresh/status.txt e crea data/refresh/run_* alle righe 203-208 e 226, prima di controllare il flag. OSSERVATO NEL CODICE; per questo non e stato eseguito.",
+   "scripts/f13_validate_plan.py:78 chiama simulate_season(pack.votes_by_g, ...) senza controllare che i voti ci siano: sul pack 2026-27 (3 giornate su 38) produrrebbe in silenzio una 'stagione' di 3 giornate. scripts/f6_live_auction.py:314-315 il controllo ce l'ha (giornate_con_voti < 5 -> rifiuta). OSSERVATO NEL CODICE, non eseguito.",
+   "Il ledger d'asta (data/copilot/ledger_*.json, chiavi season/names/my_index/budget/quotas/events) e l'unico posto dove finiranno le rose vere delle 10 squadre, ed e letto solo da scripts/f10_copilot.py:273. Dopo stanotte nessuno script trasforma quel file in rose per la stagione."
+  ],
+  "prova_decisiva": {
+   "descrizione": "Il secondo giro settimanale. Decide se il punto (1) — l'unica parte di L5 oggi chiamabile operativa — regge un secondo giro senza mani umane, o se il giro del 10/9 e stata un'operazione assistita. Da eseguire dopo la 4a giornata, cioe dal 14/9/2026, quando i voti g4 sono pubblicati.",
+   "comando": "cd \"fantabot\" && PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/f11_refresh_all.py --solo f8 ; poi PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/f11_refresh_all.py --da f0b_registry ; poi PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python -c \"import sys,pickle,collections; sys.path.insert(0,'src'); p=pickle.load(open('data/packs/pack_2026-27.pkl','rb')); print(collections.Counter(v.get('k') for v in p.b_predictions.values())); print([len(v) for v in p.votes_by_g][:6]); print(bool(getattr(p,'b_objective',None)))\"",
+   "durata_stimata": "20-40 minuti in tutto, dominata dallo scaricamento di f8 e da f1_make_predictions. Va spezzata in tre comandi perche la catena intera supera il limite di 15 minuti per comando; il secondo comando resta sotto i 15 minuti se f8 e gia andato.",
+   "criterio_accettazione": "Scritto PRIMA di guardare qualunque numero. Il punto (1) di L5 si dichiara operativo solo se valgono TUTTE E CINQUE: (1) entrambi i comandi escono con codice 0 e data/refresh/status.txt contiene \"ok\"; (2) k == 4 per tutti i giocatori del pack (oggi 3 per 594 su 594); (3) [len(v) for v in pack.votes_by_g][:6] mostra quattro giornate non vuote e la quarta con almeno 250 righe (le prime tre stanno fra 290 e 292); (4) data/packs/CORRENTE.json porta un'impronta diversa da 202c4299d98c... e limitazioni: []; (5) pack.b_objective e presente SENZA che nessuno lo copi a mano. Se cade anche solo la (5), cioe se l'obiettivo va di nuovo incollato dal pack precedente, il punto (1) resta PARZIALE: la catena gira, la routine no. Nessuna soglia si sposta dopo aver visto l'esito, e un giro riuscito non dice nulla sui punti (2), (3) e (4), che restano MANCA.",
+   "dati_necessari": "Rete verso fantacalcio.it, fanta.soccer e Understat; voti della giornata 4 pubblicati (quindi dal 14/9/2026); il pack corrente come riferimento (impronta 202c4299d98c..., k=3, votes_by_g con tre giornate piene: 290/292/291). Nessun dato nuovo da procurare."
+  },
+  "eseguito_ora": "Quattro cose, tutte brevi, con OMP_NUM_THREADS=2. (1) PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_non_anticipazione.py tests/test_l2_stato_origine.py -q -> \"14 passed in 5.82s\". (2) PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python tests/smoke_season.py -> gira, stampa la classifica H2H su 100 calendari con voti sintetici (C-tifoso 54%, A-flessibile 27%, ...). (3) python scripts/f11_refresh_all.py --elenca -> elenca gli 8 passi con le dipendenze. (4) letture: data/packs/pack_2026-27.pkl (campi, k, votes_by_g, b_objective), data/packs/CORRENTE.json, data/copilot/eleggibilita_2026-27.json, data/copilot/ledger_*.json (sole chiavi), data/raw/voti/voti_2026-27.csv (957 righe, giornate 1/2/3 da 319), data/raw/mercato/probabili_20260910.csv e indisponibili_20260910.csv, data/processed/l2_partite.parquet (380 partite 2026-27, 30 gia giocate prima del 10/9), mtime dei file chiave. NON eseguito di proposito: scripts/f11_refresh_all.py --prova, perche nonostante il nome scrive data/refresh/status.txt e crea data/refresh/run_* (righe 203-208 e 226) e avrebbe violato il vincolo di non toccare file del progetto. NON eseguito: qualunque generazione di cubo (vincolo \"nessuna rigenerazione\" e CPU condivisa con altri agenti). Nessun file del progetto creato, modificato, rinominato o cancellato; nessun server avviato.",
+  "passi_minimi": [
+   {
+    "passo": "P1 — unire stato_iniziale al cubo: importare stato_all_origine e passarlo a gen.genera quando --solo-future e attivo. Oggi le due meta esistono, sono verificate una per una e non sono unite da nessuna riga.",
+    "file": "scripts/l2_genera_cubo.py — import accanto agli altri e la sola chiamata alla riga 382. Nessuna modifica sotto src/.",
+    "test": "nuovo tests/test_l5_cubo_stato_iniziale.py: sostituisce gen.genera con una spia e verifica che con --solo-future l'argomento stato_iniziale arrivi non nullo e che il rapporto del cubo contenga la diagnostica di stato_all_origine.",
+    "accettazione": "Con --as-of 2026-09-11 --solo-future il rapporto riporta giocatori_con_stato_osservato > 0 e giocatori_con_stato_ignoto esplicito. SENZA --solo-future il cubo resta identico a quello di oggi a parita di seme: nessuna regressione sui percorsi L2 esistenti.",
+    "ripristino": "Progetto non git: copy scripts\\l2_genera_cubo.py scripts\\l2_genera_cubo.py.bak PRIMA di toccare; ripristino per copia inversa."
+   },
+   {
+    "passo": "P2 — consiglio di formazione per giornata: il pezzo piu corto di tutto L5, perche il motore e gli ingressi ci sono gia.",
+    "file": "nuovo scripts/f17_formazione.py. Legge data/copilot/ledger_*.json (rose vere), data/raw/mercato/probabili_<data>.csv filtrato sulla giornata, data/copilot/eleggibilita_<stagione>.json (54 indisponibili a master_id), il pack per b_predictions; chiama pick_lineup di src/fantabot/season/lineup.py. Nessun file esistente modificato.",
+    "test": "nuovo tests/test_l5_formazione.py su rosa fittizia da 25, senza rete e senza pack.",
+    "accettazione": "Fissata prima: (a) esattamente 11 titolari, modulo compreso nei sette di lineup.py:11-12, quote di ruolo rispettate; (b) un titolare presente negli indisponibili scende in panchina se esiste un'alternativa di ruolo disponibile, e resta titolare con avviso stampato se il reparto non basta; (c) a parita di ingressi l'uscita e identica fra due esecuzioni. NESSUN criterio sul punteggio: una giornata sola non valida niente, e va dichiarato.",
+    "ripristino": "File nuovi, si cancellano."
+   },
+   {
+    "passo": "P3 — togliere la giornata cablata, che oggi va cambiata a mano ogni settimana.",
+    "file": "scripts/f4_eleggibilita.py:96 (GIORNATA_CORRENTE = 4) -> opzione --giornata, default dedotto dalla prima giornata non giocata di data/raw/calendario/calendario_2026-27.csv (colonna giocata).",
+    "test": "nuovo tests/test_l5_giornata.py: con --giornata 5 una stima di rientro G4 non viene piu marcata «giornata gia giocata» (riga :108); senza --giornata il default coincide con la prima riga a giocata == 0.",
+    "accettazione": "Rieseguendo con --giornata 4 l'uscita coincide con l'attuale data/copilot/eleggibilita_2026-27.json in ogni campo tranne costruito_il.",
+    "ripristino": "copy scripts\\f4_eleggibilita.py scripts\\f4_eleggibilita.py.bak prima della modifica."
+   },
+   {
+    "passo": "P4 — allineare il numero dei crediti di gennaio: si corregge il documento, non il modello (nessun codice legge nessuno dei due).",
+    "file": "ASTA_VERA.md:29 («la lega aggiunge 50 crediti a gennaio») contro config/league.yaml:36 (extra_credits: 100, corretto il 6/9 su conferma del committente).",
+    "test": "nuovo tests/test_l5_coerenza_crediti.py: nessun .md del progetto (escludendo reports/_archivio/ e data/istantanee/) puo dire «50 crediti a gennaio» mentre league.yaml dice 100.",
+    "accettazione": "Il test fallisce OGGI — il che dimostra che il difetto esiste — e passa dopo la correzione della singola riga.",
+    "ripristino": "Una riga di markdown."
+   },
+   {
+    "passo": "P5 — prima della riparazione, la regola. Non e un passo di codice: quanti svincoli, con che rimborso, in che finestra, e se il pool comprende i nuovi arrivi di gennaio sono decisioni del committente, non deducibili dai dati. PIANO.md:188-197 e un progetto del 7/8, non un regolamento.",
+    "file": "config/league.yaml, sezione repair_context (oggi solo extra_credits: 100 e typical_leftover \"<50\", righe 35-37) — e, questo e il punto, far leggere quel file a qualcosa: oggi non lo apre nessuno script (league.yaml righe 9-11; reports/LIVELLO0_E_1.md:175).",
+    "test": "nuovo tests/test_l5_regole_riparazione.py: le chiavi di repair_context devono essere lette da almeno un modulo sotto src/, e i valori devono coincidere con quelli usati dal codice (stesso schema del confronto gia fatto per rosa/budget/soglie).",
+    "accettazione": "Il test fallisce finche league.yaml resta un promemoria non letto; passa quando un modulo lo carica e il confronto dei valori e verde. Finche non passa, qualunque numero scritto li non ha effetto su nessuna decisione, e va detto cosi invece di considerarlo configurazione.",
+    "ripristino": "copy config\\league.yaml config\\league.yaml.bak; i test nuovi si cancellano."
+   }
+  ],
+  "file_report": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\L5.md"
+ },
+ "L1": {
+  "livello": "L1 — dati e banco di prova",
+  "colonne": {
+   "implementato": {
+    "valore": "si",
+    "prova": "src/fantabot/tabellino/origine.py (268 righe: Ingresso, ManifestoOrigine, stato_partite, orizzonte); scripts/l1_presenze_per_origine.py; scripts/l1_ablazione_presenze.py; scripts/l1_confronto_bersagli.py; scripts/f0b_build_outputs.py:511 scrive players_{s}.parquet; scripts/f15_banco.py. Eseguiti oggi senza errori: l1_ablazione_presenze.py e l1_confronto_bersagli.py (vedi colonna validato)."
+   },
+   "verificato": {
+    "valore": "parziale",
+    "prova": "RIPRODOTTO: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_l1_presenze_per_origine.py tests/test_non_anticipazione.py -q -> '11 passed in 3.92s' (8+3). RIPRODOTTO: pytest tests/ -q --collect-only -> '581 tests collected in 5.54s'; conteggio per file: a L1 corrispondono 11 prove, non 562. Nessuna prova sorveglia players_*.parquet, la scelta dello snapshot (scripts/f0b_match.py:475-482) o le feature del percorso operativo."
+   },
+   "validato": {
+    "valore": "parziale",
+    "prova": "Parte validata: formula fantavoto riconciliata al 100% su 4 stagioni, affermazione di reports/LIVELLO0_E_1.md sezione 2, NON riprodotta oggi (nessuna prova eseguita). Parte non validata, riprodotta oggi con criteri scritti prima in scratchpad/w3/criteri_prima.md: scripts/l1_ablazione_presenze.py 2024-25 --k 0 --semi 5 --per-feature -> MAE tutte 5.5688 +-0.0132 (rho 0.8171), solo_ammesse 8.1259 +-0.0094 (rho 0.6008), differenza appaiata +2.5571 es 0.0150; per feature: fvm +1.7829, quot_fs_sett +0.6177, team_prev_xg +0.0100, cambio_squadra +0.0348. scripts/l1_confronto_bersagli.py -> attuale MAE 0.1453 rho 0.8189 somma 264.6; per_origine 0.2136 / 0.6014 / 280.4; osservato 281.9 su 679 giocatori. Nessun criterio fissato prima e' mai stato superato dal bersaglio onesto; nessun confronto con regola banale."
+   },
+   "collegato": {
+    "valore": "si",
+    "prova": "OSSERVATO NEL CODICE: scripts/f1_train_price.py:93 legge players_{season}.parquet; scripts/f2_build_packs.py:83-84 legge b_predictions_{season}_adj.json (o il non-adj); scripts/f15_banco.py:76 legge b_predictions_{season}.json; scripts/f10_copilot.py:342 legge data/packs/pack_{season}.pkl. Eccezione: l'artefatto per origine del 9/9 (data/l1/presenze/2024-25__origine20240816__a6a7eb010299) ha un solo lettore, scripts/l1_confronto_bersagli.py:53 — nessun pack, nessun bot."
+   },
+   "operativo": {
+    "valore": "si",
+    "prova": "data/refresh/last.log, corsa 10/9 06:03:45->06:21:02: f0b_match, f0b_outputs (players_2026-27.parquet 594 righe), f1_pred 968 s, f9_market 3 s, f2_pack 10 s, f7_demo, riga finale '=== fine: 0 falliti, 0 saltati; pack verificato ==='; bundle CORRENTE.json 594 giocatori."
+   }
+  },
+  "cambiato_rispetto_al_9_9": "1) Catena dati rieseguita per intero stanotte (data/refresh/last.log 10/9 06:03:45-06:21:02). 2) RIPRODOTTO con sha256sum contro data/istantanee/20260906_2102/impronte.json e data/_backup_fable_20260910/processed/: players_2021-22 (f5010763a14c6ef3), 2023-24 (dba537226b4b53cb), 2024-25 (700a9b471e21780a), 2025-26 (14cd69bb86969491), votes_2021-22/2023-24/2024-25 e b_predictions_2024-25.json (031f946f6a33eacf) INVARIATI: la riproduzione dell'ablazione e' legittima. 3) players_2026-27.parquet CAMBIATO: bfdab5a98fc0fe44 / 101936 byte -> 2d53a2e5ed0a10fa / 102587 byte, 594 righe, 66 colonne. 4) b_predictions_2026-27.json rigenerato con k=3 in tutte le 594 voci (il CICLO del 9/9 diceva k=2); giornate 1-3 del 2026-27 giocate 22/08-07/09 (l2_partite.parquet); snapshot fanta.soccer usato per quot_fs_sett resta g03 del 04/09/2026 (scelta per distanza assoluta dal 1/9, scripts/f0b_match.py:475-482, file g01..g04 presenti) -> per il 2026-27 quella feature NON e' posteriore all'informazione disponibile. 5) Codice L1 non toccato: origine.py 9/9 23:45, l1_ablazione 9/9 23:52, l1_confronto 9/9 23:57, l1_presenze_per_origine 10/9 00:01, i due file di test 9/9 23:56 e 6/9 20:54. 6) Suite cresciuta: 581 prove oggi contro 562 il 9/9; differenza = tests/test_copilot_asta.py (11, file 10/9 06:23) + tests/test_rettifica_indisponibili.py (7, 10/9 03:15), 581-18=563. FALSO/INESATTO nel report del 9/9: (a) la cella «verificato: si, 562 prove» attribuisce a L1 il conteggio dell'intera suite — L1 ha 11 prove; (b) «fvm e quot_fs_sett contengono l'esito della stagione da predire» e' vero per i backtest (k=0) e falso per il 2026-27 (k=3, snapshot 4/9): la distinzione esiste in CICLO_20260909.md e in l1_presenze_per_origine.py:78-88, non in STATO_LIVELLI; (c) «validato: parziale» e' generoso: la parte validata riguarda i dati grezzi, il bersaglio che decide non ha mai superato un criterio scritto prima. Tutto il resto del paragrafo L1 del 9/9 regge (contratto assente su players_*.parquet, artefatto per origine non sostitutivo).",
+  "mancanze": [
+   "Nessun contratto temporale su players_*.parquet: OSSERVATO NEL CODICE che scripts/f0b_build_outputs.py non contiene le parole contratto/manifesto/impronta e scrive il parquet a riga 511; su disco esistono solo dieci l2_panel_*.contratto.json. Le 66 colonne che alimentano i modelli non hanno stato temporale dichiarato.",
+   "Bersaglio operativo delle presenze addestrato su stagioni contaminate: fvm (+1,7829 MAE) e quot_fs_sett (+0,6177) sono nel train 2021-22/2023-24/2024-25 anche quando la stagione applicata (2026-27, k=3) non le ha posteriori.",
+   "Baseline del banco contaminata: scripts/f15_banco.py:76 legge b_predictions_{season}.json, quindi «presenze: errore 5,52 partite» (2024-25) e 5,62 (2025-26) misurano il modello con la fuga; il numero onesto corrispondente e' 8,13.",
+   "Nessuna prova automatica sorveglia la scelta dello snapshot fanta.soccer (f0b_match.py:475-482, distanza assoluta dal 1/9) ne' la riammissione di una feature posteriore nel percorso che gira: l'unico controllo, test_le_feature_escluse_sono_quelle_con_la_prova, guarda l'elenco dentro l1_presenze_per_origine.py.",
+   "Artefatto per origine non collegato: un solo lettore (l1_confronto_bersagli.py:53); b_predictions_*.json non ha origine, solo il campo k dentro ogni voce.",
+   "Fonti del giorno non dichiarate nell'artefatto: f9_apply_market.py:107-137 prende sempre il file piu' recente (probabili_20260910.csv, indisponibili_20260910.csv, rigoristi_20260910.csv, prezzi live dall'ultima rilevazione di _match/map_wayback.csv); b_predictions_2026-27_adj.json ha 594 voci e zero chiavi non numeriche, market_adjust_2026-27.csv ha colonne master_id,value,value_adj,q50_modello,q50_adj,f_disp,f_tit,f_rig,motivi,nome: nessuna data, nessun nome di file. Informazione legittima per stasera, non tracciata.",
+   "Panel: universo atteso non imposto, 1-2 omonimi con stesso id Transfermarkt, 2026-27 senza partite (dichiarato in LIVELLO0_E_1.md sezione 2, NON riverificato oggi).",
+   "Anche il cubo eredita la contaminazione (partecipazione.stima riceve lo stesso bersaglio): nessuno dei numeri pubblicati sul confronto cubo-bersaglio e' pulito."
+  ],
+  "prova_decisiva": {
+   "descrizione": "Il bersaglio onesto delle presenze batte una regola banale? Stagione 2025-26, origine estiva (K=0), non usata per scegliere l'elenco delle feature escluse (che viene dal 2024-25). Braccio A: previsione per origine con sole feature ammesse, 5 semi. Braccio B: prev1_presenze da players_2025-26.parquet, NaN->0 (395 valori su 663 non nulli). Stesso universo; presenze vere da votes_2025-26.parquet con sv==0, assenti = 0. Se A non batte B, il ramo presenze di L1 non e' validato e la calibrazione del cubo verso quel bersaglio insegue un riferimento che non vale piu' di un foglio di carta.",
+   "comando": "PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/l1_presenze_per_origine.py 2025-26 --feature ammesse --semi 5 --fuori \"C:/Users/ADMINI~1/AppData/Local/Temp/claude/E--claudecode-pesante/5ff20539-b495-4ac4-bed4-79eabbf8a8b7/scratchpad/w3/pres_2025-26_estiva\" && python \"C:/Users/ADMINI~1/AppData/Local/Temp/claude/E--claudecode-pesante/5ff20539-b495-4ac4-bed4-79eabbf8a8b7/scratchpad/w3/confronto_banale.py\"  (il secondo script, da scrivere nello scratchpad, legge presenze_per_origine.csv, players_2025-26.parquet e votes_2025-26.parquet e stampa MAE e rho dei due bracci)",
+   "durata_stimata": "2-5 minuti di CPU (CatBoost 500 iterazioni x 5 semi su 3 stagioni di train; il confronto e' aritmetica su 663 righe)",
+   "criterio_accettazione": "Scritto prima: L1 sul ramo presenze si dichiara validato solo se ENTRAMBE — MAE(onesto) <= MAE(banale) - 0,50 presenze su 38 giornate, e rho di rango(onesto) >= rho(banale) + 0,05. Se il margine non e' superato si scrive che il bersaglio onesto non batte una regola banale e L1 resta non validato; nessuna soglia viene rivista dopo aver visto i numeri. Se una sola delle due misure passa, l'esito e' INCONCLUDENTE, non equivalente.",
+   "dati_necessari": "data/processed/players_2021-22.parquet, players_2023-24.parquet, players_2024-25.parquet, players_2025-26.parquet, votes_2025-26.parquet, l2_partite.parquet — tutti presenti; le quattro stagioni archiviate sono invariate dal 6/9 (impronte in data/istantanee/20260906_2102/impronte.json). Nessun dato nuovo da scaricare, nessuna rigenerazione."
+  },
+  "eseguito_ora": "Quattro comandi, tutti in sola lettura sul progetto (output solo nello scratchpad w3). 1) PYTHONIOENCODING=utf-8 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python -m pytest tests/test_l1_presenze_per_origine.py tests/test_non_anticipazione.py -q -> «11 passed in 3.92s». 2) PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/l1_ablazione_presenze.py 2024-25 --k 0 --semi 5 --per-feature --fuori <w3>/ablazione_rerun_2024-25_k0.json -> tutte MAE 5.5688 +-0.0132 rho 0.8171; solo_ammesse 8.1259 +-0.0094 rho 0.6008; differenza appaiata +2.5571 es 0.0150; correlazione fra le due previsioni 0.7958; per feature fvm +1.7829 (es 0.0192), quot_fs_sett +0.6177 (es 0.0097), team_prev_xg +0.0100, cambio_squadra +0.0348; prova di contenuto fvm 2024-25 rho 0.708 con qt_iniziale contro 0.900 con qt_attuale, parziale sulle presenze dato qt_i 0.660. TUTTI i criteri fissati prima (scratchpad/w3/criteri_prima.md) soddisfatti: la fuga temporale del 9/9 e' RIPRODOTTA alla quarta cifra decimale. 3) PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/l1_confronto_bersagli.py -> attuale 0.1453 / 0.8189 / 264.6; per_origine 0.2136 / 0.6014 / 280.4; osservato 281.9; 679 giocatori; manifesto utilizzabile operativamente True. Identico ai numeri del CICLO del 9/9. 4) pytest tests/ -q --collect-only -> 581 tests collected in 5.54s, con conteggio per file. In piu', verifiche di impronte con sha256sum su players_*/votes_*/b_predictions/l2_partite contro data/istantanee/20260906_2102/impronte.json e data/_backup_fable_20260910/processed/. Costo totale sotto i due minuti di CPU, OMP_NUM_THREADS=2 sui due comandi con regressore. Nessun file del progetto creato, modificato o cancellato.",
+  "passi_minimi": [
+   {
+    "passo": "Eseguire la prova decisiva: bersaglio onesto contro regola banale sul 2025-26",
+    "file": "nessun file del progetto; script di confronto nello scratchpad w3",
+    "test": "nessuno (e' una misura, non una prova automatica): scripts/l1_presenze_per_origine.py 2025-26 --feature ammesse --semi 5 + confronto con prev1_presenze",
+    "accettazione": "MAE(onesto) <= MAE(banale) - 0,50 presenze E rho(onesto) >= rho(banale) + 0,05; una sola delle due = inconcludente",
+    "ripristino": "nessuno: non scrive nel progetto"
+   },
+   {
+    "passo": "Contratto temporale su players_*.parquet: stato e prova di disponibilita' per ognuna delle 66 colonne, impronte delle fonti, as_of",
+    "file": "scripts/f0b_build_outputs.py (scrive data/processed/players_{s}.contratto.json)",
+    "test": "nuovo tests/test_l1_contratto_players.py: ogni feature usata dai modelli ha uno stato; nessuna POSTERIORE fra le ammesse; contratto presente per le 5 stagioni",
+    "accettazione": "prove verdi E b_predictions_*.json invariati bit a bit dopo la rigenerazione",
+    "ripristino": "ripristinare f0b_build_outputs.py da data/istantanee/20260906_2102/file/ e cancellare i *.contratto.json nuovi"
+   },
+   {
+    "passo": "Dichiarare le fonti del giorno (probabili, indisponibili, rigoristi, prezzi live) dentro l'artefatto di mercato e dentro il pack",
+    "file": "scripts/f9_apply_market.py, scripts/f2_build_packs.py",
+    "test": "prova che il pack porti il blocco di provenienza e che nessuna data delle fonti sia posteriore alla data di decisione dichiarata",
+    "accettazione": "pack rigenerato con quotazioni identiche (differenza numerica nulla) e blocco presente",
+    "ripristino": "ripristinare i pack da data/_backup_fable_20260910/packs/"
+   },
+   {
+    "passo": "Sorvegliare con una prova la scelta dello snapshot fanta.soccer (oggi per distanza assoluta dal 1/9)",
+    "file": "scripts/f0b_match.py:475-482 (nessuna modifica di comportamento), nuovo file di prova",
+    "test": "per ogni stagione la data di rilevazione dello snapshot usato non deve essere posteriore alla data di decisione dichiarata per quella stagione",
+    "accettazione": "prova verde con le date attuali (2026-27: snapshot 04/09, asta 10/09) e rossa se si sposta la data di decisione prima del 4/9",
+    "ripristino": "cancellare il file di prova"
+   },
+   {
+    "passo": "Collegare il bersaglio per origine a partecipazione.stima e rifare il confronto cubo-bersaglio con ingressi puliti da entrambe le parti",
+    "file": "scripts/l2_valuta_pres.py (o il pilota C2), lettura di data/l1/presenze/...",
+    "test": "tests/test_l2_presenze.py esteso",
+    "accettazione": "criteri scritti prima del confronto; nessuna scrittura sui pack",
+    "ripristino": "nessuno: l'esperimento non tocca artefatti operativi"
+   }
+  ],
+  "file_report": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\L1.md"
+ },
+ "L2": {
+  "livello": "L2 — cubo TABELLINO",
+  "colonne": {
+   "implementato": {
+    "valore": "si",
+    "prova": "RIPRODOTTO: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONIOENCODING=utf-8 PYTHONPATH=src OMP_NUM_THREADS=2 python -m pytest tests/test_l2_*.py -q -> '360 passed, 1 skipped, 1 warning in 125.72s', 361 raccolte. Codice: src/fantabot/tabellino/ (16 moduli), scripts/l2_*.py (21 script). L'ultima esecuzione del pilota su disco (data/l2/prove/2024-25__20260909T234040__28e4c59b3477/esecuzione.json) porta impronta_script e688e36901b3fa86..., uguale allo sha256[:16] di scripts/l2_pilota_c2.py ricalcolato stanotte: il codice attuale ha girato davvero (3 iterazioni, sims 2).",
+    "valore_note": ""
+   },
+   "verificato": {
+    "valore": "si",
+    "prova": "RIPRODOTTO: 361 prove L2, 360 passate 1 saltata. Ripartizione: verdetto 27, verificatore 26, inferenza 23, generatore 20, origine 20, calibrazione 19, esecuzione 18, configurazione 16, distribuzione 16, appartenenza_tempo 15, panel 15, contratto 13, esecuzione_esclusiva 13, ingressi_c2 13, viste_temporali 13, partita 11, presenze 11, stato_origine 11, progressivo 9, percorso_dati 8. CREPA DICHIARATA: due dei tre presidi citati dal report 9/9 non certificano il codice su disco. (a) data/l2/prove/c2_controfattuale_2024-25.json registra impronta_produttore 36458d8aa0e07e76 mentre scripts/l2_pilota_c2.py oggi vale e688e36901b3fa86 (artefatto 23:33:13, file modificato 23:39:50; anche scripts/l2_controfattuale_c2.py modificato 23:33:25, 12 s dopo l'artefatto). (b) OSSERVATO NEL CODICE scripts/l2_verifica_c2.py:64-128: coincidenza_col_candidato confronta impronte dei file dati, dei moduli, bersaglio per giocatore e insieme parametri, NON impronta_script; il candidato 89314011c6c4 fu prodotto da script 6803831dafa51bef con passo_voluto 0.2 mentre il disco ha e688e36901b3fa86 con PASSO_VOLUTO=0.05 (scripts/l2_pilota_c2.py:119), e la verifica cf5c9ee9d8df dichiara comunque stessi_ingressi=true, 'stesso candidato'."
+   },
+   "validato": {
+    "valore": "no",
+    "prova": "Nessuna prova riproducibile misura il cubo dove il cubo lavora. Dipendenze: misura descrittiva senza criterio scritto prima — data/l2/cubo_rapporto_2026-27.json, correlazioni osservate/simulate portiere-difensori 0,2919/0,1695, difensori 0,4042/0,3832, centrocampisti 0,3779/0,2806, attaccanti 0,3629/0,2603; reports/CRITERI_L2_L3.md §3.4 fissa solo coerenza fisica, §3.7 fissa CRPS/Brier (marginali) e chiama le correlazioni 'quantita di realismo, non decisive'. Durata assenze: NESSUNA misura — RIPRODOTTO grep -rln 'striscia|durata_assenz|spell' su scripts/ e tests/ trova solo 3 file di test e zero script; OSSERVATO NEL CODICE src/fantabot/tabellino/partecipazione.py:339-341 dichiara che le cause non sono dedotte. Punteggi di rosa: misurati solo dentro il confronto interno C1-vs-C2 su 10 rose, 6 scenari, 3 semi, 2 gradi di liberta, t_critico_95=4,303 (data/l2/prove/2024-25__20260909T233755__cf5c9ee9d8df/verifica_c2_2024-25.json); rosa_punti_sd differenza +0,0092 con es 0,0415, intervallo che attraversa lo zero. Decisioni d'asta: AFFERMATO (RIPRESA.md §4.6) che i numeri L3 vengono dal bot difettoso. Verdetto esistente contro il cubo: AFFERMATO RIPRESA.md §2, C1-I1 CRPS empirico +0,097268 (2024-25) e +0,050467 (2025-26), intervalli che escludono lo zero. Vizio a monte: AFFERMATO RIPRESA.md §3ter, bersaglio con fvm e quot_fs_sett non databili."
+   },
+   "collegato": {
+    "valore": "no",
+    "prova": "RIPRODOTTO: chiavi di SeasonPack nei tre pack (2024-25, 2025-26, 2026-27) = season, players, votes_by_g, quotas, budget, b_predictions, a_price_list, voti_by_g, use_mod_difesa, b_objective — nessun theta, nessun cubo. RIPRODOTTO: grep -n 'cubo|tabellino' su scripts/f10_copilot.py, scripts/fantaoracle_app.py, src/fantabot/optimizer.py, src/fantabot/bots/bot_b.py -> zero righe. I sette consumatori di cubo_*.pkl (a1_due_attaccanti.py:104, l2_coda_gol.py:79, l2_genera_cubo.py:469, l3_confronto_asta.py:280, l3_pilota.py:50, l3_tetti.py:194) sono tutti sperimentali o su rami sospesi. OSSERVATO NEL CODICE: theta viene applicato scrivendo temporaneamente m_part.logit_base_convocato in scripts/l2_pilota_c2.py:313-330 con ripristino in finally: non e' un parametro che un artefatto porta con se."
+   },
+   "operativo": {
+    "valore": "no",
+    "prova": "Stessa prova di 'collegato'. L'asta di stasera gira su data/packs/pack_2026-27.pkl, impronta 202c4299d98c2e088de864addd54082b..., 594 giocatori, dichiarato in data/packs/CORRENTE.json (run 20260910T060345_06512, aggiornato 2026-09-10T06:25:18). Quel pack non porta niente del cubo."
+   }
+  },
+  "cambiato_rispetto_al_9_9": "CODICE L2 INVARIATO. RIPRODOTTO: find src scripts tests data/packs -newermt \"2026-09-10 00:00\" elenca bot_b.py, optimizer.py, piani.py, rettifica_indisponibili.py, f10_copilot.py, f11_refresh_all.py, f14_listino_offline.py, f4_eleggibilita.py, fantaoracle_app.py, l1_presenze_per_origine.py, test_copilot_asta.py, test_rettifica_indisponibili.py, CORRENTE.json, pack_2026-27.pkl. Nessun src/fantabot/tabellino/, nessun scripts/l2_*, nessun tests/test_l2_*.\n\nMA IL CUBO 2026-27 E' DIVENTATO STALE STANOTTE. RIPRODOTTO ricalcolando le impronte con l'algoritmo di scripts/l2_costruisci_panel.py:134 (sha256[:16]): voti registrato cafd8667fce11d00 -> oggi c0ccb3bf1a882976 DIVERSO; listone (players_2026-27.parquet) bfdab5a98fc0fe44 -> 2d53a2e5ed0a10fa DIVERSO; partite f725c558b6da934b UGUALE; game_lineups 5e83d6fad28364aa UGUALE. data/l2/cubo_2026-27.pkl e' dell'8/9 23:15.\n\nBERSAGLIO CAMBIATO SENZA CONTROLLO. OSSERVATO NEL CODICE scripts/l2_genera_cubo.py:91 legge data/processed/b_predictions_{stagione}.json. RIPRODOTTO: b_predictions_2026-27.json riscritto oggi alle 06:20; la stringa \"b_pred\" NON compare in data/l2/cubo_rapporto_2026-27.json, quindi il rapporto non registra l'impronta del proprio bersaglio e nessun controllo automatico intercetta il cambio.\n\nRAMO 2024-25 INTATTO. RIPRODOTTO: voti_2024-25.csv ce9581ac61006cd3 e players_2024-25.parquet 700a9b471e21780a coincidono con quanto registrato in data/l2/prove/2024-25__20260909T201500__89314011c6c4/esecuzione.json. Il candidato C2 congelato non e' stato invalidato.\n\nDUE AFFERMAZIONI FALSE NEI DOCUMENTI. (1) reports/STATO_LIVELLI_20260909.md, riga L1 \"si, 562 prove\": 562 e' la suite intera (RIPRESA.md §1 lo dice), e 361 di quelle 562 sono prove L2 (RIPRODOTTO stanotte); la riga L2 porta un \"si\" senza numero. (2) RIPRESA.md §3bis terzo limite, \"il controfattuale ha potenza su tre grandezze su cinque: bersaglio e squadre non si muovono nemmeno perturbando i ruoli anteriori\": contraddetto dall'artefatto su disco — data/l2/prove/c2_controfattuale_2024-25.json ha \"dipendenze_senza_potenza\": {}, \"passato\": true, e la perturbazione \"mappa_ruoli: ruoli ruotati P->D->C->A->P\" muove bersaglio_obiettivo, mappa_ruoli, parametri e squadre_scelte. L'artefatto e' del 9/9 23:33, RIPRESA.md e' del 10/9 00:06, cioe' scritto DOPO. Rovescio da dire: neanche la smentita e' certificata, perche' lo script del controfattuale e' stato modificato 12 s dopo l'artefatto.\n\nALTRE VOCI DEL 9/9 CHE REGGONO. \"il pilota C2 gira\" (impronta_script dell'ultima esecuzione = file su disco); \"differenze appaiate a molte decine di errori standard\" (34,6 e 32,8 es dal log data/l2/log_pilota_c2_v2.txt; 12,6 contro l'osservato); \"30 giocatori di una squadra, una stagione\" (parametri 30, Fiorentina, 2024-25); \"theta non e' in nessun pack, nessun consumatore lo legge\". IMPRECISE: \"il controfattuale esercita il produttore vero e passa\" (vero per il produttore 36458d8a, non per e688e369 su disco) e \"la verifica controlla che gli ingressi coincidano\" (vero per i dati, non per il codice).",
+  "mancanze": [
+   "Nessuna misura, in nessun file del progetto, della durata delle assenze simulate contro quella osservata: grep 'striscia|durata_assenz|spell' su scripts/ trova zero script. La colonna e' vuota, non parziale.",
+   "Nessun criterio di accettazione scritto prima sulle dipendenze fra compagni: CRITERI_L2_L3.md §3.4 copre solo la coerenza fisica, §3.7 dichiara le correlazioni 'non decisive'. Il cubo sottostima ogni correlazione (portiere-difensori -42%) e non esiste soglia che possa superare o mancare.",
+   "Punteggi di rosa misurati solo come confronto interno C1 vs C2, su 3 semi e 2 gradi di liberta: non dicono se le rose del cubo somiglino a quelle vere.",
+   "scripts/l2_pilota_c2.py non ha un punto di aggancio per un bersaglio alternativo: costruisci_ingressi (riga 227) fissa il percorso alla riga 248 e nessuno dei 16 argomenti di riga di comando (righe 363-386) lo cambia. Il passo 1 di RIPRESA.md §4 non e' eseguibile.",
+   "Formati incompatibili: l1_presenze_per_origine.py:257-262 scrive un CSV (presenze_residue_attese, presenze_gia_fatte, orizzonte_giornate), presenze.costruisci (src/fantabot/tabellino/presenze.py:101) vuole un JSON id->{'pres': somma}. Serve un adattatore, ed e' il punto dove l'unita di misura e' gia' stata sbagliata in passato.",
+   "coincidenza_col_candidato (scripts/l2_verifica_c2.py:64-128) non confronta impronta_script: un candidato prodotto con passo_voluto 0.2 passa come 'stesso candidato' sotto un codice con PASSO_VOLUTO 0.05.",
+   "cubo_rapporto_*.json non registra l'impronta di b_predictions: l'ingresso principale del cubo puo' cambiare senza che niente se ne accorga, ed e' cambiato stanotte alle 06:20.",
+   "Il controfattuale temporale non e' stato rieseguito dopo le modifiche del 9/9 alle 23:39: l'unico artefatto su disco certifica un produttore che non esiste piu'.",
+   "Il cubo 2026-27 su disco e' stale rispetto a due delle sue quattro fonti di panel e al suo bersaglio.",
+   "theta non ha un posto dove stare: SeasonPack ha dieci attributi fissi, nessuna versione, nessun manifesto; e theta e' definito su 30 giocatori di una squadra di una stagione, senza una regola scritta su cosa significhi applicarlo altrove."
+  ],
+  "prova_decisiva": {
+   "descrizione": "Prova decisiva del §3ter, in forma completa: rifare il pilota C2 sul 2024-25 alimentando partecipazione.stima con il bersaglio per origine (sole feature ammesse) invece di b_predictions, e misurare contro le presenze realizzate due bracci appaiati — bersaglio onesto da solo, cubo alimentato dal bersaglio onesto. NON eseguibile oggi: (1) il pilota non ha un parametro per il bersaglio (scripts/l2_pilota_c2.py:227 e 248, argomenti 363-386); (2) il CSV per origine e il JSON atteso da presenze.costruisci non combaciano; (3) costa 95-105 minuti contro un limite di 15. I passi 1 e 2 la rendono eseguibile.",
+   "comando": "PYTHONIOENCODING=utf-8 PYTHONPATH=src OMP_NUM_THREADS=2 python scripts/l2_pilota_c2.py 2024-25 --cutoff 2024-08-17 --bersaglio data/l1/presenze/2024-25__origine20240816__a6a7eb010299/presenze_per_origine.csv --iterazioni 200 --sims 6 --sims-verifica 16 --semi-verifica 5    # l'opzione --bersaglio non esiste ancora: e' il passo 1",
+   "durata_stimata": "95-105 minuti (RIPRODOTTO dal log del candidato data/l2/log_pilota_c2_v2.txt: 'modelli in 34.2 s' + '200 iterazioni, 406 valutazioni di ottimizzazione + 32 di monitoraggio, 5483.6 s', cioe' ~12,5 s per valutazione a sims 6; la verifica appaiata 16 sims x 5 semi x 2 bracci aggiunge ~5-6 minuti). Stima ottimistica: stanotte la CPU e' condivisa con altri agenti.",
+   "dati_necessari": "Tutti gia' su disco e verificati stanotte: data/l1/presenze/2024-25__origine20240816__a6a7eb010299/presenze_per_origine.csv (esiste; c'e' anche una seconda origine, 2024-25__origine20241001__b7387ee1df53); data/processed/players_2024-25.parquet (impronta 700a9b471e21780a, invariata); data/processed/l2_partite.parquet (f725c558b6da934b, invariata); data/processed/b_predictions_2024-25.json (031f946f6a33eacf..., invariata); i panel data/processed/l2_panel_*.parquet dell'8/9. Nessun dato da scaricare. Da dichiarare o risolvere: l'origine disponibile e' il 16/8/2024, il cutoff del pilota il 17/8.",
+   "criterio_accettazione": "SCRITTO PRIMA DI QUALSIASI NUMERO NUOVO. (1) Misura primaria: errore assoluto medio per giocatore fra presenze simulate e presenze REALIZZATE, sugli stessi cinque semi di verifica per entrambi i bracci, differenze appaiate seme per seme. (2) Bracci: bersaglio onesto da solo contro cubo alimentato dal bersaglio onesto. (3) Il cubo e' dichiarato utile sulle marginali SOLO se la differenza appaiata media e' a suo favore e |d|/es(d) >= 2,776 (t di Student al 95% con 4 gradi di liberta, cinque semi). (4) Intervallo che attraversa lo zero = inconcludente, e resta inconcludente: margine di non inferiorita zero, come impone CRITERI_L2_L3.md §1.2. (5) Se il cubo peggiora con intervallo che esclude lo zero, si scrive che peggiora e non si compensa con un'altra misura. (6) Nessuna soglia si sposta dopo aver visto i numeri, nessun braccio si aggiunge dopo, nessun seme si scarta. (7) I quattro numeri gia' pubblicati — 0,1453 bersaglio contaminato, 0,2136 bersaglio onesto, 0,1749 cubo con bersaglio contaminato, 0,2530 cubo senza bersaglio — sono contesto e NON soglie: in particolare non e' ammesso dichiarare un successo perche' il numero nuovo cade sotto 0,2530. Cosa NON decide: se il cubo serva. Decide solo se la calibrazione delle marginali abbia senso a ingressi puliti; dipendenze, durata delle assenze e decisioni d'asta restano fuori."
+  },
+  "eseguito_ora": "Una sola esecuzione, quella autorizzata: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONIOENCODING=utf-8 PYTHONPATH=src OMP_NUM_THREADS=2 python -m pytest tests/test_l2_*.py -q -> \"360 passed, 1 skipped, 1 warning in 125.72s (0:02:05)\", 361 prove raccolte su 20 file. Unico avviso: FutureWarning di pandas dentro tests/test_l2_verificatore.py:334, prodotto dal test stesso.\n\nOltre a questo, solo letture: cat/sed/grep su reports/STATO_LIVELLI_20260909.md, RIPRESA.md, RIPRESA_L2_L3.md, reports/LIVELLO2.md, reports/CRITERI_L2_L3.md, scripts/l2_pilota_c2.py, scripts/l2_controfattuale_c2.py, scripts/l2_verifica_c2.py, scripts/l2_genera_cubo.py, scripts/l2_costruisci_panel.py, scripts/l1_presenze_per_origine.py, src/fantabot/tabellino/*.py; calcolo di impronte sha256 in memoria su otto file di dati; apertura in sola lettura dei tre pack per elencarne le chiavi; find per data di modifica.\n\nNON eseguito, per mandato o per costo: scripts/l2_controfattuale_c2.py e scripts/l2_pilota_c2.py (scriverebbero sotto data/l2/prove/, e il compito vieta di creare file del progetto); scripts/l2_banco_confronto.py (due corse --sims 30 --semi 8); scripts/l2_genera_cubo.py; la suite intera (il numero 562 resta AFFERMATO in RIPRESA.md, non riprodotto).\n\nEffetto collaterale inevitabile della suite: riscrittura dei .pyc sotto tests/__pycache__ e src/fantabot/**/__pycache__. Nessun sorgente, dato o artefatto toccato.",
+  "passi_minimi": [
+   {
+    "passo": "Parametro del bersaglio nel pilota: aggiungere a costruisci_ingressi un argomento per il percorso del bersaglio e l'opzione --bersaglio alla riga di comando, lasciando invariato il comportamento predefinito.",
+    "file": "scripts/l2_pilota_c2.py (firma riga 227, uso riga 248, argomenti righe 363-386)",
+    "test": "Due casi nuovi in tests/test_l2_ingressi_c2.py: senza l'opzione, IngressiC2.vettori() e' identico a quello di oggi elemento per elemento; con l'opzione, bersaglio_grezzo cambia e universo no.",
+    "accettazione": "Le 361 prove tests/test_l2_*.py continuano a passare, piu' i due casi nuovi.",
+    "ripristino": "Copia del file in data/l2/ripristino_<data>/ prima di toccarlo, come il progetto fa gia' (data/l2/ripristino_20260909c/scripts__l2_pilota_c2.py)."
+   },
+   {
+    "passo": "Adattatore dal CSV per origine al bersaglio: convertire presenze_residue_attese + presenze_gia_fatte + orizzonte_giornate nella forma che presenze.costruisci accetta.",
+    "file": "modulo nuovo, oppure una funzione in scripts/l2_pilota_c2.py; contratto in src/fantabot/tabellino/presenze.py:101-130",
+    "test": "Un CSV finto con presenze_gia_fatte e orizzonte_giornate noti produce le probabilita' calcolate a mano; un identificativo assente finisce nel prior di ruolo e non a zero.",
+    "accettazione": "Prove nuove verdi e somma dichiarata uguale a somma ottenuta, come gia' impone bersaglio_verso_somma.",
+    "ripristino": "File nuovo: si cancella."
+   },
+   {
+    "passo": "Rieseguire il controfattuale temporale sul produttore corrente, perche' l'unico artefatto su disco certifica un produttore che non esiste piu'.",
+    "file": "nessuna modifica; scripts/l2_controfattuale_c2.py",
+    "test": "PYTHONPATH=src python scripts/l2_controfattuale_c2.py 2024-25",
+    "accettazione": "Scritta prima: \"passato\": true, \"dipendenze_senza_potenza\": {}, e impronta_produttore uguale allo sha256[:16] di scripts/l2_pilota_c2.py al momento della corsa.",
+    "ripristino": "Lo script scrive solo sotto data/l2/prove/, radice separata da quella dei risultati: niente da ripristinare."
+   },
+   {
+    "passo": "Aggiungere impronta_script al controllo di coincidenza del candidato, cosi' che un cambio di codice non passi come 'stesso candidato'.",
+    "file": "scripts/l2_verifica_c2.py:64-128 (coincidenza_col_candidato)",
+    "test": "Un piano con impronta_script diversa deve comparire nel risultato come voce dichiarata; rieseguendo la verifica del candidato 89314011c6c4 col codice attuale deve emergere 6803831dafa51bef -> e688e36901b3fa86.",
+    "accettazione": "La verifica non puo' piu' dire 'stesso candidato' quando il codice che ha prodotto il candidato non e' quello in esecuzione. Se la differenza debba far fallire o solo comparire va deciso e scritto PRIMA della modifica: il codice gia' distingue i due regimi per i moduli.",
+    "ripristino": "Copia del file in data/l2/ripristino_<data>/ prima di toccarlo."
+   },
+   {
+    "passo": "Registrare l'impronta di b_predictions nel rapporto del cubo e rigenerare il cubo 2026-27, stale rispetto a voti, listone e bersaglio. DA NON FARE PRIMA DELL'ASTA: la rigenerazione non e' autorizzata in questo ciclo e il cubo non e' sul percorso operativo.",
+    "file": "scripts/l2_genera_cubo.py:91 e la sezione che scrive cubo_rapporto_*.json",
+    "test": "PYTHONPATH=src python scripts/l2_genera_cubo.py 2026-27 (costo misurato dall'ultimo log: 105,0 s di stima + 44,6 s di generazione, 40 scenari)",
+    "accettazione": "Le quattro impronte di contratti_panel/2026-27/fonti coincidono con i file su disco al momento della corsa, e il rapporto porta l'impronta di b_predictions_2026-27.json.",
+    "ripristino": "Archiviare il cubo vecchio in data/l2/archivio/ prima di sovrascrivere."
+   },
+   {
+    "passo": "La prova decisiva del §3ter, dopo i passi 1, 2 e 3.",
+    "file": "scripts/l2_pilota_c2.py con --bersaglio",
+    "test": "vedi campo prova_decisiva",
+    "accettazione": "vedi criterio_accettazione, scritto prima",
+    "ripristino": "Scrive sotto data/l2/prove/: nessun artefatto pubblicato viene toccato."
+   },
+   {
+    "passo": "Solo se la prova decisiva non e' inconcludente: portare la misura dove il cubo lavora, a partire dalla distribuzione della durata delle assenze simulate contro osservata, con criterio scritto prima. Oggi quella misura non esiste in nessun file del progetto.",
+    "file": "script nuovo sotto scripts/, sorgenti data/processed/l2_panel_*.parquet e data/l2/cubo_*.pkl",
+    "test": "da scrivere: distribuzione delle strisce di assenza simulate contro osservate, per ruolo",
+    "accettazione": "da fissare PRIMA di guardare i numeri; nessuna soglia va inventata per far passare qualcosa",
+    "ripristino": "file nuovo: si cancella"
+   }
+  ],
+  "file_report": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\L2.md"
+ },
+ "L3": {
+  "livello": "L3 — P(1°) e tetti",
+  "colonne": {
+   "implementato": {
+    "valore": "si",
+    "prova": "src/fantabot/livello3/{valutatore,ricerca,esatto,indifferenza}.py; src/fantabot/bots/bot_l3.py:385 BBotCoerente, :549 BotL3; 5 script scripts/l3_*.py. RIPRODOTTO: 165 prove L3 raccolte ed eseguite; asta completa a 10 bot girata in memoria, 250 lotti venduti.",
+    "prova_tipo": "RIPRODOTTO"
+   },
+   "verificato": {
+    "valore": "parziale",
+    "prova": "RIPRODOTTO: PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python -m pytest sui 10 file L3 -> '2 failed, 163 passed, 165 collected in 264.17s'. Rosse: tests/test_bot_l3_parita.py:356 'assert 594 == 587' e :424 'L3 impegna sul piano 121 crediti, B+ ne impegna 146 / assert 121 > 146'. La dichiarazione del 9/9 «si, 165 prove» oggi non si riproduce."
+   },
+   "validato": {
+    "valore": "no",
+    "prova": "Criterio congelato reports/CRITERI_L2_L3.md:187-189 = differenza appaiata P(1) POSITIVA con IC95 che esclude lo zero. Unica misura esistente data/l3/asta/confronto_asta_2026-27.json (7/9 22:13): L3 -0,0625 IC95 [-0,11480; -0,01929], esclude lo zero dal lato sbagliato; ed e' bloccata come diagnosi (reports/PROTOCOLLO_v2.md:43, RIPRESA_L2_L3.md 2.1-2.2: il braccio L3 cambiava due cose insieme). Nessun esperimento rigiocato dopo l'8/9."
+   },
+   "collegato": {
+    "valore": "no",
+    "prova": "OSSERVATO NEL CODICE: scripts/f10_copilot.py:45 importa fantabot.bots.bot_b.BBot; nessun import di fantabot.livello3 ne' di bot_l3. RIPRODOTTO con grep -rn 'livello3|bot_l3|BotL3|BBotCoerente' --include=*.py src scripts: fuori dai moduli L3 e dagli script l3_*, unico uso e' scripts/a1_due_attaccanti.py:37,39 (esperimento, non consumatore decisionale)."
+   },
+   "operativo": {
+    "valore": "no",
+    "prova": "Stanotte all'asta reale gira il Copilota con BBot. Nessun artefatto L3 entra nel pack; data/l3/asta/tetti_2026-27.json non e' letto da nessun percorso di produzione."
+   }
+  },
+  "cambiato_rispetto_al_9_9": "TRE COSE. (1) PACK RIGENERATO ROMPE 2 PROVE L3. RIPRODOTTO: data/packs/pack_2026-27.pkl (10/9 06:25) ha 594 giocatori, data/l2/cubo_2026-27.pkl (8/9 23:15) ne ha 587; 587 in comune, 7 solo nel pack (795 El Shaarawy q50 9,16; 6319 Leite 2,44; 2169 Rodriguez R. 2,48; 6047 Ehizibue 1,82; 7627 Enem 1,70; 7626 Pompei 1,03; 7628 Sierro 1,40), 0 solo nel cubo. Falliscono tests/test_bot_l3_parita.py:356 (guardia del mondo, 'assert 594 == 587' — ha fatto il suo lavoro) e :424 (esito: L3 impegna 121 crediti sul piano contro 146 di B+; il docstring prevedeva «se cambia va spiegata, non tolta»; le 3 asserzioni di meccanismo passano). (2) CONSEGUENZA PIU' GRAVE: L'ESPERIMENTO L3 OGGI NON E' RIGIOCABILE. scripts/l3_confronto_asta.py:374-382 scarta la replica intera se un giocatore di rosa non e' nel cubo, ma riga 254 passa al motore tutto il pack. RIPRODOTTO (prova_pool5.py, stessi semi e sedie del confronto): 5 repliche su 5 scartate, 1-3 giocatori fuori dal cubo ciascuna; 2169 in tutte e cinque. Zero repliche utili. (3) NULLA DI L3 E' STATO COLLEGATO: f10_copilot.py non importa L3; b_objective presente e non vuoto nel pack nuovo; i 25 giocatori del piano data/l3/pilota/rosa_migliore.json sono tutti ancora nel pack (RIPRODOTTO: 'piano fuori dal pack nuovo: []'). IL REPORT DEL 9/9 DICEVA IL FALSO? No sul L3. «165 prove» era vero il 9/9 (587 e' il numero scritto nella guardia) e oggi non lo e' piu': superato, non falso. «tre difetti corretti l'8/9» vero (OSSERVATO NEL CODICE + prove verdi test_il_piano_non_fa_sparire_il_pavimento_di_spesa, test_i_contatori_del_piano_riconciliano_col_ledger, test_l_invariante_dei_contatori_regge_a_ogni_martelletto). «il quarto difetto e' ancora vero» vero e SOTTOSTIMATO. «il bot d'asta massimizza value, non P(1)» vero: src/fantabot/optimizer.py:64 pulp.LpMaximize su v dai values; src/fantabot/bots/bot_b.py:75-85 cap = q90 + peso_ombra*dropoff per titolari, max(q50*1,10; 2,0) per gli altri. RESIDUO DA CORREGGERE ALTROVE: reports/LIVELLO3.md (7/9 22:33) contiene ancora in 5 «il Livello 3 peggiora la probabilita' di arrivare primi» e i 21,73 target persi; l'AVVERTENZA sopra li ritratta, ma il documento non e' stato riscritto.",
+  "mancanze": [
+   "QUARTO DIFETTO ANCORA VERO NEL PRODUTTORE: scripts/l3_tetti.py:236-238 costruisce UN SOLO StatoAsta (rose vuote, budget 500, tutto il pool) e le righe 242-248 calcolano tutte le 25 curve da li'; la docstring lo dichiara alle righe 9-10 e il file scritto alle righe 267-271 («o dopo il primo martelletto, il consumatore li respinge e conta il ripiego»); CRITERI_L2_L3.md:441-444 lo conferma come scelta deliberata.",
+   "IL CONSUMATORE ORA LI RESPINGE (correzione dell'8/9, non del difetto): bot_l3.py:930 return None,'stato_cambiato' su confronto per uguaglianza esatta con chiave_stato_corrente (bot_l3.py:812-843, include impronta_disponibili e impronta_avversari) -> ogni martelletto invalida ogni tetto congelato. Codificato in tests/test_bot_l3_parita.py:465 test_i_tetti_congelati_non_sopravvivono_al_primo_martelletto, RIPRODOTTO verde.",
+   "IL FILE DEI TETTI E' INSERVIBILE ANCHE PRIMA DEL PRIMO MARTELLETTO — piu' grave di quanto dica il quadro 9/9. RIPRODOTTO (prova_tetti.py chiama carica_tetti sul file vero): 'usabili: 0, letti: 25, senza_identita: 25, contesto: None'. data/l3/asta/tetti_2026-27.json e' del 7/9 21:52, scripts/l3_tetti.py e' stato corretto l'8/9 21:43: il file non e' mai stato rigenerato e porta la serializzazione vecchia (chiavi nome/ruolo/mercato/tetto_economico/massimo_legale/stato/secondi/curva, senza giocatore, chiave_validita, completamento; nessun blocco contesto).",
+   "ZERO TETTI USABILI PER TRE RAGIONI INDIPENDENTI E SOVRAPPOSTE: (a) senza_identita 25/25 al caricamento; (b) conteggio_stati = {verificato 0, approssimato 0, inconcludente 25} e CRITERI_L2_L3.md:427-428 ammette solo verificato/approssimato; (c) stato_cambiato a ogni martelletto.",
+   "COSTO EVITATO, MISURATO (bot_l3.py:175-179): ai 120 lotti venduti la curva di Malen ricalcolata da' tetto economico 220 con stato verificato contro 110 con stato inconcludente dello stato iniziale — fattore 2 sullo stesso giocatore.",
+   "NESSUN ESPERIMENTO RIGIOCATO dopo le correzioni dell'8/9: i numeri L3 pubblicati (confronto_asta_2026-27.json del 7/9) vengono dal bot difettoso, e oggi non sono nemmeno riproducibili (universo pack/cubo disallineato).",
+   "MANIFESTO SENZA VOCE: data/l3/MANIFESTO.json ha 36 voci, l'ultima su L3 e' F9 del 7/9 22:19; bot_l3.py e' dell'8/9 22:07 e scripts/l3_tetti.py dell'8/9 21:43. Le correzioni piu' importanti del livello non hanno una voce nel loro manifesto.",
+   "P(1) NON ENTRA MAI AL MARTELLETTO: entra solo (a) nel piano offline, scelto ai prezzi q50 come se fossero listino (LIVELLO3.md 5: il piano vale P(1) 0,40 in verifica e 0,032 in asta) e (b) nei tetti, tutti respinti. Al momento dell'offerta decide sempre optimizer.optimize_roster su value.",
+   "DIAGNOSI GIA' RITRATTATA E LEGGIBILE ACCANTO: PROTOCOLLO_v2.md:334-346 (9.4) «i tetti erano condannati in partenza» e' ritrattato in 10.5 (righe 464-476): «1,96 x sd / sqrt(n) non e' un'analisi di potenza… resta vero che il disegno era poco preciso; 'impossibile concludere' e' piu' forte di quanto misurato»."
+  ],
+  "prova_decisiva": {
+   "descrizione": "Banco appaiato a due bracci, B congelato contro L3 selezione, senza tetti (i tetti oggi non entrano in nessun lotto: includerli misurerebbe zero per costruzione, non due politiche). Stessi semi (seme = 20260907 + rep), sedie che ruotano (seggio = rep % 10), gli stessi nove avversari gia' dichiarati in l3_confronto_asta.py:86-87, stesso cubo, stesso stato iniziale, mondi separati, confronto appaiato replica per replica. Piano dalla ricerca L3 gia' su disco (25 giocatori, tutti nel cubo: verificato). PRECONDIZIONE BLOCCANTE: oggi non e' eseguibile — RIPRODOTTO, 5 repliche su 5 scartate perche' pack (594) e cubo (587) non condividono l'universo. Va prima eseguito il passo 1.",
+   "comando": "PYTHONIOENCODING=utf-8 OMP_NUM_THREADS=2 python scripts/l3_confronto_asta.py --repliche 22 --scenari 40 --trattamenti B L3 --piano data/l3/pilota/rosa_migliore.json",
+   "durata_stimata": "circa 10-11 minuti (1.244 s per 88 aste nel run del 7/9 = 14,1 s per asta; qui 44 aste), piu' 1,5 s di caricamento. Sotto il tetto dei 15 minuti per comando.",
+   "criterio_accettazione": "SCRITTO PRIMA DI GUARDARE I NUMERI, ed e' quello gia' congelato in reports/CRITERI_L2_L3.md:187-189 — nessuna soglia nuova. (1) VALIDITA' DELLA CORSA, da controllare per prima, prima di leggere qualsiasi differenza: 44 aste su 44 concluse; ZERO repliche scartate per «giocatori fuori dal cubo» e zero per «rose illegali»; piano_non_classificati = 0 a ogni martelletto in entrambi i bracci; conta_milp['pavimento_violato'] = 0 in entrambi. Se una di queste cade, la corsa non produce verdetto e si dichiara nulla. (2) PROMOZIONE DI L3: differenza appaiata di P(1) (L3 - B) POSITIVA con IC95 che ESCLUDE lo zero. (3) BOCCIATURA: IC95 interamente NEGATIVO. (4) INCONCLUDENTE: IC95 che contiene lo zero — si scrive «inconcludente» e si riporta la semiampiezza ottenuta; non si scrive «equivalenti» e non si sposta la soglia. (5) PRECISIONE ATTESA: con lo scarto misurato 0,0478 sulla differenza appaiata, 22 repliche danno semiampiezza circa 0,020; se la semiampiezza osservata supera 0,030 il disegno si dichiara insufficiente per l'effetto cercato, qualunque sia il segno. (6) DA RIPORTARE COMUNQUE: piano_miei_dopo, piano_ai_rivali, piano_disponibili, crediti_sul_piano, speso e residuo medi per braccio.",
+   "dati_necessari": "Un pack_2026-27.pkl e un cubo_2026-27.pkl che condividano lo STESSO universo di giocatori (oggi NON lo condividono: 594 contro 587, 7 giocatori solo nel pack); data/l3/pilota/rosa_migliore.json (25 giocatori, tutti gia' nel cubo, verificato); i nove avversari dichiarati A, C:stars_scrubs, C:informato, C:semitop, C:medio, C:panic, C:ancorato, C:tirchio, C:tifoso; seme 20260907. Lo script sovrascrive data/l3/asta/confronto_asta_2026-27.csv e .json: copiarli prima."
+  },
+  "eseguito_ora": "SETTE COMANDI, TUTTI IN SOLA LETTURA SUL PROGETTO (nessun file del progetto scritto, nessun training, nessuna rigenerazione, nessun server, OMP_NUM_THREADS=2 ovunque). (1) pytest sui dieci file L3 con PYTEST_DISABLE_PLUGIN_AUTOLOAD=1: «2 failed, 163 passed, 609479 warnings in 264.17s». (2) pytest --collect-only: «165 tests collected in 1.60s»; per file: valutatore 13, ricerca 7, esatto 8, indifferenza 15, contabilita 18, percorso_tetti 23, tetti_classificazione 17, parita 10, piano 14, bot_l3_tetti 40. (3) Ripetizione delle due rosse con traceback: tests/test_bot_l3_parita.py:356 «AssertionError: assert 594 == 587»; tests/test_bot_l3_parita.py:424 «L3 impegna sul piano 121 crediti, B+ ne impegna 146 ... assert 121 > 146». (4) prova_tetti.py — carica data/l3/asta/tetti_2026-27.json con carica_tetti di scripts/l3_confronto_asta.py: «usabili: 0, contesto: None, letti 25, senza_identita 25, contesto_mancante: il file non dichiara il blocco contesto». (5) prova_pool.py — un'asta completa a 10 bot in memoria (seme 20260907, seggio 0): 250 lotti venduti, 2 giocatori di rosa fuori dal cubo (2169 Rodriguez R. a 5, 7626 Pompei a 1). (6) prova_pool5.py — cinque repliche con i semi e le sedie del confronto: 5 su 5 SCARTATE, fuori dal cubo 2/1/3/2/1. (7) Ispezione di pack, cubo e piano: pack 594 giocatori (10/9 06:25), cubo 587 con fantavoto (40,35,587) e gol_subiti presenti (8/9 23:15), 7 giocatori solo nel pack, 0 solo nel cubo, b_objective presente e non vuoto, 25 giocatori del piano tutti dentro il pack nuovo.",
+  "passi_minimi": [
+   {
+    "passo": "Allineare l'universo di pack e cubo: o si limita il pool d'asta ai 587 del cubo, o si rigenera il cubo sui 594 del pack. La prima e' una riga, la seconda costa e stanotte non si fa. Senza questo passo l'esperimento L3 produce zero repliche utili.",
+    "file": "scripts/l3_confronto_asta.py:254 (AuctionEngine(dict(pack.players), ...)) oppure data/l2/cubo_2026-27.pkl",
+    "test": "nuova prova che pretende set(pool) sottoinsieme di set(cubo.giocatori) prima di giocare, in tests/test_l3_percorso_tetti.py",
+    "accettazione": "corsa con --repliche 5 e zero righe con campo 'errore' nel CSV prodotto",
+    "ripristino": "copia del file in C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\ prima della modifica; il progetto non e' git"
+   },
+   {
+    "passo": "Riallineare la guardia del mondo al pack vero, spiegando il cambio invece di allentarlo",
+    "file": "tests/test_bot_l3_parita.py:356",
+    "test": "la guardia stessa (test_il_mondo_di_prova_e_quello_dell_esperimento)",
+    "accettazione": "165 su 165 verdi",
+    "ripristino": "il numero 587 resta scritto in commento con la sua data, come chiede la regola sulle conclusioni ritrattate"
+   },
+   {
+    "passo": "Spiegare, non togliere, l'asserzione d'esito caduta: misurare crediti_sul_piano di B+ e L3 sul pack nuovo e scrivere perche' L3 ora impegna meno (121 contro 146)",
+    "file": "tests/test_bot_l3_parita.py:424",
+    "test": "la prova stessa (test_il_piano_cambia_davvero_l_asta)",
+    "accettazione": "l'asserzione passa, oppure viene sostituita da una che misura la stessa cosa con la spiegazione accanto; mai indebolita in silenzio",
+    "ripristino": "testo originale conservato in commento; copia del file nello scratchpad w3"
+   },
+   {
+    "passo": "Rigenerare i tetti con lo script corretto, cosi' che il file porti giocatore, chiave_validita, completamento e il blocco contesto. Attenzione: gli stati resteranno inconcludente con 4 repliche, quindi usabili restera' 0 — serve piu' numerosita', non una soglia piu' permissiva",
+    "file": "scripts/l3_tetti.py -> data/l3/asta/tetti_2026-27.json",
+    "test": "prova_tetti.py, o una prova equivalente dentro tests/ che chiami carica_tetti sul file vero",
+    "accettazione": "carica_tetti riporta letti 25, senza_identita 0, contesto non nullo",
+    "ripristino": "copiare il file esistente (7/9 21:52) nello scratchpad w3 prima di sovrascriverlo; rifarlo costa 319,1 s"
+   },
+   {
+    "passo": "Eseguire la prova decisiva del banco appaiato B contro L3, e solo dopo scrivere il verdetto",
+    "file": "scripts/l3_confronto_asta.py -> data/l3/asta/confronto_asta_2026-27.csv e .json",
+    "test": "il criterio di validita' della corsa (44/44 aste, zero repliche scartate, piano_non_classificati 0, pavimento_violato 0)",
+    "accettazione": "differenza appaiata P(1) L3-B positiva con IC95 che esclude lo zero = promozione; IC95 tutto negativo = bocciatura; IC95 che contiene lo zero = inconcludente, con semiampiezza riportata",
+    "ripristino": "copiare i due file del 7/9 22:13 nello scratchpad w3 prima di lanciare: lo script li sovrascrive"
+   },
+   {
+    "passo": "Registrare l'esito e le correzioni dell'8/9 nel manifesto, che oggi non porta nessuna voce per esse",
+    "file": "data/l3/MANIFESTO.json (36 voci, ultima su L3 = F9 del 7/9 22:19; bot_l3.py e' dell'8/9 22:07, l3_tetti.py dell'8/9 21:43)",
+    "test": "nessuno automatico: e' un registro",
+    "accettazione": "una voce datata con comandi, ingressi e impronte per le correzioni dell'8/9 e per la corsa del passo 5",
+    "ripristino": "copia preventiva del JSON nello scratchpad w3"
+   }
+  ],
+  "file_report": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\L3.md"
+ },
+ "L4": {
+  "livello": "L4 — prezzi",
+  "colonne": {
+   "implementato": {
+    "valore": "parziale",
+    "prova": "Catena presente ed eseguita stanotte: scripts/f1_train_price.py:124-174 (CatBoost/TabPFN + split conformal globale), scripts/f1_make_predictions.py:414-421 (media dei due conformalizzati, x500), src/fantabot/market_adjust.py:180-184 (q50_adj = 0.6*mercato + 0.4*q50_modello), scripts/f2_build_packs.py:83-84 (pack legge _adj) e :93-160 (ref_price: listino 1/9 -> curva quotazione -> qt_i, poi bias di selezione + tilt). RIPRODOTTO mancanze: ref_price_sd = 0 per tutti i 594 (causa f2_build_packs.py:118, std solo con n_est>=3, e per il 2026-27 n_est=0); 3 predizioni violano q10<=q50<=q90 (7533 Happonen 1.0/0.84/1.79, 7048 De Marzi 1.0/0.92/1.88, 543 Padelli 1.0/0.86/2.04, causa market_adjust.py:184 max(1.0, q10+delta) senza riordino); pack senza versione ne' manifesto del prezzo.",
+    "prova_dettaglio_omessa": true
+   },
+   "verificato": {
+    "valore": "no",
+    "prova": "RIPRODOTTO: grep su tests/*.py per market_adjust|f1_train_price|f9_apply_market|price_target|conformal -> zero import. 43 file di test, nessuno sul prezzo. q50 compare solo come dato finto (tests/smoke_bot_b.py:25, tests/test_bot_l3_piano.py:91) e in un controllo di passaggio (tests/test_copilot_asta.py:133: il Copilota non altera il q50 del pack, non che il q50 sia giusto). Conferma il 9/9."
+   },
+   "validato": {
+    "valore": "no",
+    "prova": "Unica misura: reports/f1_price_eval.json, del 6/8/2026 (Aug 6 03:54), anteriore al codice (f1_train_price.py del 6/9, righe 56-59 dichiarano rimosso il run R3 che quel file contiene ancora). RIPRODOTTO ricalcolando da pred_ens_tab_cat_*.csv + players_*.parquet: copertura [q10,q90] 0.718 (test 2024-25, n=255) e 0.753 (test 2023-24, n=336) contro nominale 0.80; per fascia da 0.222 ([60+) 2023-24) a 0.948 ([0,3) 2023-24); per ruolo A 0.667, C 0.651. Criterio scritto prima (globale in [0.75,0.85] e ogni fascia n>=30 in [0.70,0.90]): NON calibrato. Zero misure su cio' che gira: w_mkt=0.6, bias+tilt di f2_build_packs.py:120-160, ref_price 2026-27."
+   },
+   "collegato": {
+    "valore": "si",
+    "prova": "RIPRODOTTO: pack.b_predictions[*]['q50'] == b_predictions_2026-27_adj.json, scarto massimo 0.0 su 594. Consumatori: scripts/f10_copilot.py:571 (prezzo atteso del piano = q50*calore), :600 (prezzi passati all'ottimizzatore), scripts/f14_listino_offline.py:74-76 (listino stampabile con q50/tetto/mercato), viz/copilot.html:1460-1461 (prezzo di mercato mostrato)."
+   },
+   "operativo": {
+    "valore": "si",
+    "prova": "RIPRODOTTO: data/packs/CORRENTE.json -> pack_2026-27.pkl impronta 202c4299d98c..., 594 giocatori, aggiornato 2026-09-10T06:25:18; pack caricato con K=3. E' il pack che risponde stasera. Buco operativo misurato: piano a tavolo vuoto costa 499.7 a q50 e 597.2 a prezzi di mercato (budget 500), e 16 target su 25 hanno max_consigliato sotto il prezzo di mercato mostrato accanto."
+   }
+  },
+  "cambiato_rispetto_al_9_9": "Rigenerato tutto stanotte: pack_2026-27.pkl del 10/9 06:25, impronta 202c4299d98c, 594 giocatori, K=3 (il 9/9: 587 giocatori, K=2, impronta db2584ea408b); b_predictions + _adj + market_adjust_2026-27.csv alle 06:20; aste_reali_clean.csv alle 06:04 (stessi 48.624 righe / 216 aste); eleggibilita_2026-27.json alle 06:25 (379 prezzi di mercato); viz/copilot.html alle 06:16 ORA mostra il prezzo di mercato (la caccia dati delle 03:00 diceva che la pagina non lo stampava); scripts/f14_listino_offline.py nuovo (06:12), stampa q50/tetto/mercato. Il MODELLO prezzo non e' cambiato: f1_train_price.py 6/9 18:39, f1_make_predictions.py 6/9 03:11. b_objective (lam 0.5, attack_share 0.35-0.5, p_win 0.59) COPIATO dal pack del 6/9: il vincolo di spesa in attacco che modella il piano e' stato stimato con 100 simulazioni sui prezzi del 6/9, non su quelli di stasera. FALSO/FUORVIANTE nel report del 9/9: la riga «la semantica di periodo E' documentata in data/raw/gruppoesperti/REPORT.md:18». REPORT.md:18 contiene una lettura senza prova; la verifica forte e' rivendicata altrove (scripts/f0b_build_outputs.py:146-151 e data/processed/FASE0B_REPORT.md:71, «verificata coi trasferimenti reali») e NON regge: RIPRODOTTO su aste_reali_clean.csv, Ronaldo 2021-22 (master_id 2610, JUV) compare in 5 aste periodo=2 a 20/210/184/365/1 crediti (mediana 184), quindi «CR7 sparisce dalle aste p2» e' falso; Osimhen 2024-25 mediana per periodo 52.0 (n=5) / 12.0 (1) / 38.0 (5) / 2.5 (2): il crollo si vede solo in periodo=3. Il taglio periodo<=1 che definisce l'intero bersaglio (88 aste su 216) resta una convenzione. VERE invece, tutte RIPRODOTTE: 88 aste per il target con 64/19/5 per 2021-22/2023-24/2024-25; copertura 2024-25 255 su 679; copertura 2025-26 zero nei tre canali d'asta; 0 aste chiudono a budget esatto, 22 sopra, 12 oltre 1.10; zero prove automatiche; Mondrian solo sul valore (f1_make_predictions.py:228-249 per ruolo x fascia; il prezzo usa un delta globale, f1_train_price.py:157-174).",
+  "mancanze": [
+   "Zero prove automatiche su tutto il livello: nessun test importa f1_train_price, market_adjust, f9_apply_market, f2_build_packs.",
+   "Il q50 pubblicato e' gia' mercato al 60% (market_adjust.py:181, identita' verificata su 369 giocatori, scarto max 0.004), ma la pagina mostra il mercato come «riferimento, non tetto» (viz/copilot.html:1461): non e' un secondo parere, e' il 60% del numero con cui viene confrontato. Rapporto mercato/q50 del modello PURO: mediana 2.48, massimo 16.1.",
+   "Due prezzi di mercato diversi in circolazione: f9_apply_market.py:136-146 usa il file piu' recente di map_wayback (prezzi_2026-27_live_20260910.csv, 369 prezzi, quello che entra nel q50); eleggibilita_2026-27.json ne espone 379 dal bundle del 09/09 22:35 (quello mostrato). In comune 342, 36 differiscono oltre 0.5 crediti, scarto massimo 27.26; 37 sono solo nell'eleggibilita' (prezzi dell'asta 2025-26) e per quelli il q50 non e' miscelato affatto (rapporto mediano 3.43, max 16.1).",
+   "w_mkt = 0.6 non e' mai stato misurato e non e' misurabile con questo archivio: per ogni stagione con aste reali i listini disponibili sono tutti POST asta (2021-22 -> 26/1/2022; 2023-24 -> 19/5/2024; 2024-25 -> 14/2/2025, 16/6/2025, 4/10/2024). Nessuna stagione passata ha listino pre-asta E aste reali.",
+   "ref_price_sd = 0 per tutti i 594: i bot di riferimento lavorano con un prezzo senza dispersione (f2_build_packs.py:118).",
+   "3 predizioni con q10 > q50 nel pack corrente (tre portieri); la miscela cambia anche la LARGHEZZA dell'intervallo per 38 giocatori su 594, pur essendo dichiarata una traslazione.",
+   "Le feature del prezzo includono fvm e quot_fs_sett (f1_train_price.py:40-50), le due feature non databili documentate in reports/CICLO_20260909.md:1177-1212 (fvm negli archivi segue la quotazione di fine stagione: rho con qt_a 0.861/0.900/0.876 contro 0.746/0.708/0.718 con qt_i; nel listone fresco 2026-27 coincidono, 0.920). L'ablazione misurata riguarda le presenze (+1.78 MAE senza fvm), non il prezzo: per il prezzo e' IPOTESI, ma rende ottimistiche le uniche metriche esistenti.",
+   "reports/f1_price_eval.json e' disallineato dal codice: contiene R3, rimosso da f1_train_price.py:56-59; e' del 6/8, il codice del 6/9.",
+   "with_conformal (f1_train_price.py:157-174) divide fit/calibrazione per RIGA con RandomState(13), mentre l'unita' di ricampionamento dichiarata in reports/LIVELLO4.md §10 e' l'ASTA: lo stesso giocatore cade da entrambe le parti.",
+   "b_objective copiato dal pack del 6/9: attack_share (0.35-0.5) stimato su prezzi diversi da quelli di stasera.",
+   "Il campione: 88 aste per il bersaglio, di cui 16 nella configurazione 10 x 400-600 crediti e UNA SOLA per il 2024-25; 1.019 giocatori-stagione con almeno 2 osservazioni estive; 2022-23 e 2025-26 assenti."
+  ],
+  "prova_decisiva": {
+   "descrizione": "Trasferibilita' della calibrazione degli intervalli per segmento (fascia di q50 x ruolo, 24 celle). Split conformal per gruppo sui punteggi s = max(q10-y, y-q90), delta di cella con shrink verso il delta globale (n0=30, stessa forma di f1_make_predictions.py:236-249), divisione fit/calibrazione PER ASTA e non per riga. Delta stimati SOLO su 2023-24 e applicati a 2024-25, che non li ha visti. Due bersagli riportati entrambi: prezzo medio fra aste e martelletto individuale delle aste estive (il bersaglio giusto per la copertura secondo LIVELLO4.md §6.5). E' l'unica cosa misurabile fuori tempo: w_mkt non e' falsificabile (nessun listino pre-asta nelle stagioni con aste) e il ref_price 2026-27 non ha bersaglio.",
+   "comando": "cd \"fantabot\" & set PYTHONPATH=src & set PYTHONIOENCODING=utf-8 & set OMP_NUM_THREADS=2 & python scripts/f1_train_price.py  (passo 1, facoltativo: rigenera pred_*_2023-24.csv e pred_*_2024-25.csv col codice del 6/9)  &  python <scratchpad>\\w3\\prova_decisiva_l4.py  (passo 2, sola lettura)",
+   "durata_stimata": "passo 1: 10-20 min (quattro adattamenti TabPFN su CPU, due run x due chiamate di with_conformal; fit_predict_tabpfn NON usa la cache su disco, che serve solo al ramo del valore). Passo 2: meno di 30 s. Con CPU occupata: eseguire solo il passo 2 sulle predizioni salvate del 6/8 e ETICHETTARE il risultato come sonda, non validazione.",
+   "criterio_accettazione": "Scritto prima, in blocco, sul 2024-25 (non usato per stimare i delta). Si adotta SOLO se valgono tutte e cinque: (1) copertura globale [q10,q90] dentro [0.75, 0.85] (oggi 0.718); (2) nessuna cella con n>=30 sotto 0.60 (oggi [8,15) a 0.588 nel 2024-25; tre celle sotto 0.60 nel 2023-24); (3) pinball (0.1+0.9) non peggiore dell'attuale entro 1% relativo (oggi 0.00550); (4) ampiezza mediana dell'intervallo non oltre +25% dell'attuale (allargare tutto per coprire non e' calibrare); (5) segno del miglioramento coerente sulle due stagioni: se i delta stimati su 2024-25 e applicati a 2023-24 peggiorano il pinball, la proposta cade. Nessuna soglia si muove dopo aver visto i numeri; un risultato a meta' significa «non adottata», non «quasi».",
+   "dati_necessari": "Nessun dato nuovo. data/processed/players_{2021-22,2023-24,2024-25}.parquet; data/processed/pred_ens_tab_cat_{2023-24,2024-25}.csv; data/processed/aste_reali_clean.csv (martelletti individuali, periodo<=1, asta_anomala=0) per la variante sul singolo lotto."
+  },
+  "eseguito_ora": "Tutto in sola lettura, script in scratchpad\\\\w3, PYTHONIOENCODING=utf-8 e OMP_NUM_THREADS=2, nessun server, nessun addestramento, nessun file di progetto toccato. (1) repro_rapporto.py: pack sha256 202c4299d98c, 594 giocatori, K=3; rapporto mediano mercato/q50 per fascia = [0,3) 1.12 (n=90), [3,8) 1.29 (70), [8,15) 1.47 (121), [15,30) 1.25 (56), [30,60) 1.02 (29), [60+) 1.03 (13) — COINCIDE cifra per cifra col fatto dichiarato. (2) repro_blend2.py: identita' q50_adj = 0.6*live + 0.4*q50_modello su 369 giocatori, scarto max 0.004; pack q50 == adj q50, scarto max 0.0 su 594; due fonti di mercato, 342 in comune, 36 oltre 0.5 cr di scarto, max 27.26; ref_price somma*500 = 5311, sd>0 su 0 giocatori. (3) repro_piano.py / repro_piano2.py: f10_copilot importato senza server (LEDGER_PATH None), tavolo 10x500 vuoto; costo_atteso_piano 499.7 a q50, 597.2 a prezzi di mercato (+97.4, +19.5% del budget), 16 target su 25 con max_consigliato sotto il mercato. Dichiarati nel compito 498 e 581: le fasce coincidono, il piano no, differenza NON ricostruita (ipotesi: misurato prima della rigenerazione delle 06:20-06:25). (4) repro_campione.py + repro_clean.py: 216 aste, 48.624 righe; 88 aste periodo<=1 non anomale (64/19/5); 16 in configurazione 10x400-600, una sola del 2024-25; coperture 428/336/255 per n_obs>=2; 2025-26 e 2026-27 zero. (5) repro_periodo.py: spesa==budget esatto 0 aste, >1 22, >1.10 12; Osimhen e Ronaldo per periodo (vedi campo cambiato_rispetto_al_9_9). (6) sonda_copertura.py, criteri scritti prima nel report §5.0: copertura globale 0.718 (2024-25) e 0.753 (2023-24), coincidenti alla terza cifra con f1_price_eval.json; per fascia 0.588-0.871 e 0.222-0.948; verdetto NON calibrato. (7) ispeziona_extra.py / scan_piccoli.py / conta_aste_extra.py: i tre file extra grandi sono GIA' parsati (1J4t 24 aste, 1MeKG7 55, 1Uxv42 15, quest'ultimo azzerato dalla deduplica perche' sottoinsieme di 1J4t); i non parsati sono gli otto piccoli (7-98 KB), formato diverso, con proprietari dei lotti, crediti iniziali/rimasti/spendibili e fogli «Asta iniziale» / «Riparazione Settembre|Dicembre|Febbraio». (8) controlli sul pack: 3 violazioni q10<=q50<=q90, larghezza cambiata dalla miscela per 38 su 594, b_objective copiato dal 6/9. Report completo scritto nel file indicato.",
+  "passi_minimi": [
+   {
+    "passo": "Prova di contratto sul prezzo pubblicato (P1): q10<=q50<=q90; q50>=1; identita' della miscela q50_adj = w_mkt*live + (1-w_mkt)*q50_modello entro 0.01, e q50_adj == q50_modello dove il live manca; pack q50 == adj q50; nessun NaN in q10,q50,q90,value,value_up,pres,sigma; stessa fonte di prezzo di mercato per miscela ed eleggibilita'.",
+    "file": "nuovo tests/test_l4_contratto_prezzo.py (nessun file di progetto modificato)",
+    "test": "set PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 & python -m pytest tests/test_l4_contratto_prezzo.py -q",
+    "accettazione": "Il test gira e FALLISCE oggi su due punti noti: 3 quantili invertiti e 36 scarti fra le due fonti di mercato. Una prova che passa subito non sta misurando niente.",
+    "ripristino": "Cancellare il file. Nessun artefatto d'asta toccato: eseguibile anche prima delle 19:30."
+   },
+   {
+    "passo": "Reimporre l'ordinamento dei quantili dopo la miscela di mercato (una riga: ordinare q10,q50,q90 dopo la traslazione).",
+    "file": "src/fantabot/market_adjust.py:184",
+    "test": "il test del passo 1",
+    "accettazione": "Zero violazioni su 594; nessun altro q50 cambia (confronto prima/dopo su tutti i 594).",
+    "ripristino": "Il progetto NON e' git: copia di sicurezza del file prima della modifica. Il pack NON va rigenerato prima dell'asta: passo da eseguire DOPO le 19:30."
+   },
+   {
+    "passo": "Una sola fonte per il prezzo di mercato: stesso file e stessa data per la miscela e per l'eleggibilita'; escludere o etichettare le 37 righe di stagione 2025-26.",
+    "file": "scripts/f4_eleggibilita.py e scripts/f9_apply_market.py:136-146",
+    "test": "prova nuova: gli insiemi di master_id con prezzo coincidono e gli scarti sono 0",
+    "accettazione": "0 giocatori con due prezzi diversi; i 37 prezzi del 2025-26 spariscono oppure sono marcati con la stagione di provenienza.",
+    "ripristino": "Copia di sicurezza dei due script. DA NON FARE prima dell'asta di stasera."
+   },
+   {
+    "passo": "Prova di non anticipazione della fonte prezzo (P2): PRICE_SOURCES valido solo con data anteriore all'asta; il listino wayback delle stagioni passate e' post-asta e non puo' diventare bersaglio; nessuna riga della stagione bersaglio nel train; il listino 2026-27 precede il giorno dell'asta.",
+    "file": "nuovo tests/test_l4_non_anticipazione_prezzo.py",
+    "test": "set PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 & python -m pytest tests/test_l4_non_anticipazione_prezzo.py -q",
+    "accettazione": "Passa oggi e fallisce se qualcuno promuove un listino post-asta a bersaglio.",
+    "ripristino": "Cancellare il file. Eseguibile prima dell'asta."
+   },
+   {
+    "passo": "Rigenerare reports/f1_price_eval.json col codice corrente, oppure marcarlo storico, e aggiungere la prova di copertura registrata (P3) che ricalcola copertura/pinball/MAE da pred_*.csv e li confronta col file entro 0.01.",
+    "file": "reports/f1_price_eval.json + nuovo tests/test_l4_copertura_registrata.py",
+    "test": "python scripts/f1_train_price.py e poi il test P3",
+    "accettazione": "Il file non contiene piu' il run R3; i numeri ricalcolati coincidono entro 0.01.",
+    "ripristino": "Conservare la copia del 6/8 accanto alla nuova, con la data nel nome. Da fare dopo l'asta (10-20 min di CPU)."
+   },
+   {
+    "passo": "Prova decisiva di trasferibilita' e, solo se passa, calibrazione per segmento (fascia x ruolo) con divisione fit/calibrazione PER ASTA.",
+    "file": "nuovo scripts/l4_calibrazione_prezzo.py + modifica di with_conformal in scripts/f1_train_price.py:157-174",
+    "test": "lo script stesso + P3",
+    "accettazione": "I cinque criteri scritti prima (copertura globale in [0.75,0.85]; nessuna cella n>=30 sotto 0.60; pinball non peggiore entro 1%; ampiezza mediana non oltre +25%; segno coerente sulle due stagioni).",
+    "ripristino": "La calibrazione resta un modulo separato con interruttore spento per difetto finche' non passa (precedente: ROLE_CALIB=False in f1_make_predictions.py:48-52, spento perche' gli offset per ruolo non si trasferivano)."
+   },
+   {
+    "passo": "Correggere le due affermazioni sbagliate sulla semantica di periodo, lasciando leggibile la conclusione ritrattata accanto a chi l'ha ritrattata.",
+    "file": "data/processed/FASE0B_REPORT.md:71 e commento in scripts/f0b_build_outputs.py:146-151",
+    "test": "ripetere scratchpad/w3/repro_periodo.py",
+    "accettazione": "Il testo dice che la verifica sui trasferimenti NON regge su Ronaldo 2021-22 (5 aste periodo=2, prezzi 20/210/184/365/1) e regge solo su periodo=3 per Osimhen; e che il taglio periodo<=1 resta una convenzione, non una prova.",
+    "ripristino": "Copia di sicurezza dei due file. Nessun effetto sull'asta di stasera."
+   }
+  ],
+  "file_report": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\claude\\E--claudecode-pesante\\5ff20539-b495-4ac4-bed4-79eabbf8a8b7\\scratchpad\\w3\\L4.md"
+ }
+}

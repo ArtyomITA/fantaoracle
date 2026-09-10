@@ -116,6 +116,14 @@ class BBot(Bot):
         if sol is None:
             quotas_left = {r: view.quotas[r] - len(view.me.roster[r]) for r in view.quotas}
             sol = greedy_roster(candidates, prices, values, quotas_left, view.me.budget)
+            # il fallback puo' non trovare un completamento sostenibile: prima
+            # restituiva comunque una rosa, anche fuori budget. Adesso lo dice,
+            # e il piano resta quello parziale invece di essere illegale.
+            self.piano_non_fattibile = not sol.get("feasible", True)
+            self.quote_non_coperte = sol.get("quote_mancanti") or {}
+        else:
+            self.piano_non_fattibile = False
+            self.quote_non_coperte = {}
         self.module = sol.get("module", "4-4-2")
         self.targets = {pid for ids in sol["roster"].values() for pid in ids} - set(fixed)
         self.starter_targets = set(sol.get("starters") or set()) - set(fixed)

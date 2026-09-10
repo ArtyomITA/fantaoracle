@@ -8,8 +8,10 @@ interno a ogni aggiudicazione, stessi massimi di offerta, stesse chiamate al
 solutore. Controllare che i metodi vengano chiamati non prova niente: il test
 precedente confrontava `BotL3(piano=None)` con un altro `BotL3(piano=None)`.
 
-Il mondo e' quello vero dell'esperimento: pack 2026-27 (587 giocatori, quote
-3/8/8/6, budget 500), i nove avversari dichiarati in `scripts/l3_confronto_asta.py`,
+Il mondo e' quello vero dell'esperimento: pack 2026-27 (594 giocatori dal
+10 settembre 2026, erano 587 il 7-8 settembre 2026; vedi la guardia
+`test_il_mondo_di_prova_e_quello_dell_esperimento` per il cambio), quote
+3/8/8/6, budget 500, i nove avversari dichiarati in `scripts/l3_confronto_asta.py`,
 seme 20260907, nostro seggio 0. Sono cinque aste complete, circa dodici secondi
 l'una: e' il prezzo di una prova che puo' davvero fallire.
 
@@ -351,9 +353,31 @@ def _uguali(x, y, etichetta):
 
 # ------------------------------------------------------------------ parita'
 def test_il_mondo_di_prova_e_quello_dell_esperimento():
-    """Se il mondo cambia, i test qui sotto non parlano piu' dell'esperimento."""
+    """Se il mondo cambia, i test qui sotto non parlano piu' dell'esperimento.
+
+    ## Cambio di mondo del 10 settembre 2026
+
+    Fino al 9 settembre 2026 la guardia pretendeva **587** giocatori: era il
+    pack `pack_2026-27.pkl` su cui l'esperimento L3 del 7 settembre era stato
+    giocato. Il 10 settembre 2026 alle 06:25 la catena `f11_refresh_all` ha
+    rigenerato il pack (impronta sha256 `71ec262b4bdf…`, dichiarata in
+    `data/packs/CORRENTE.json`) e il pack porta **594** giocatori: 587 in
+    comune col precedente piu' 7 nuovi (795, 2169, 6047, 6319, 7626, 7627,
+    7628).
+
+    Il numero e' stato portato a 594 perche' il mondo di prova deve essere
+    quello che l'esperimento gioca davvero, e l'esperimento gioca sul pack
+    corrente. Non e' un allentamento: la guardia resta un'uguaglianza esatta e
+    tornera' rossa al prossimo cambio di pack, che e' il suo scopo. Il cubo
+    `data/l2/cubo_2026-27.pkl` e' stato rigenerato lo stesso giorno sui
+    medesimi 594 identificativi, cosi' che pack e cubo condividano l'universo.
+
+    Il numero vecchio resta scritto qui con la sua data, come chiede la regola
+    sulle conclusioni superate: 587 valeva dal 7 all'8 settembre 2026.
+    """
     b = _run("B+")
-    assert len(b["pack"].players) == 587
+    # 594 dal 10/9/2026 (pack 71ec262b4bdf…); era 587 dal 7/9 all'8/9/2026
+    assert len(b["pack"].players) == 594
     assert dict(b["pack"].quotas) == {"P": 3, "D": 8, "C": 8, "A": 6}
     assert b["pack"].budget == 500
     assert len(b["impronta"]) > 2000, len(b["impronta"])

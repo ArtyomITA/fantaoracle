@@ -23,13 +23,13 @@ Legenda dello stato:
 | `LIVELLO0_E_1.md` | corrente per il Livello 0, **superato** per il panel | il panel descritto li' non realizzava il contratto: rifatto in `scripts/l2_costruisci_panel.py`, vedi `LIVELLO2.md` §3 |
 | `INDAGINE_PUNTI_APERTI.md` | corrente salvo la cassa | la parte sulla dispersione dei prezzi e' superata: `ref_price_sd` e' informazione della stagione valutata e per il 2026/27 non esiste (`LIVELLO2.md` §8.1) |
 | `INDICE.md` | corrente | questo file |
-| `CHECK_O3_O4.md` | corrente per O4, **superato** per O3 | i numeri di O3 sono stati rifatti dopo la correzione dell'anticipazione; O3c va riletto come diagnostico con informazione privilegiata |
-| `CHECK_20260906.md` | **superato** | la copertura "16-42%" misurava un modello che non gira in produzione |
-| `LIVELLO0.md` | **superato in parte** | validi i fix descritti; superate le conclusioni su copertura degli intervalli, doppio conteggio del premio ai nuovi e budget |
+| `_archivio/CHECK_O3_O4.md` | corrente per O4, **superato** per O3 | i numeri di O3 sono stati rifatti dopo la correzione dell'anticipazione; O3c va riletto come diagnostico con informazione privilegiata |
+| `_archivio/CHECK_20260906.md` | **superato** | la copertura "16-42%" misurava un modello che non gira in produzione |
+| `_archivio/LIVELLO0.md` | **superato in parte** | validi i fix descritti; superate le conclusioni su copertura degli intervalli, doppio conteggio del premio ai nuovi e budget |
 | `ARCHITETTURE_2.0.md` | corrente come proposta | il Livello 2 e' ora implementato in forma sperimentale; i numeri della proposta restano stime dei giudici, non misure |
 | `ARCHITETTURE_E_OTTIMIZZAZIONI.md` | corrente per la Lista 1, superato dove cita la copertura | |
-| `ARCHITETTURE_raw_journal.md`, `ARCHITETTURE2_raw_architetti.md` | materiale grezzo | esiti degli agenti, non conclusioni |
-| `REPORT_FINALE.md`, `VERDETTO*.md`, `DIAGNOSI_ROSA.md`, `RAGIONAMENTI_UMANI.md` | **non riproducibili** | prodotti ad agosto con codice precedente a tutte le correzioni di settembre; da leggere come storia |
+| `_archivio/ARCHITETTURE_raw_journal.md`, `_archivio/ARCHITETTURE2_raw_architetti.md` | materiale grezzo | esiti degli agenti, non conclusioni |
+| `_archivio/REPORT_FINALE.md`, `_archivio/VERDETTO*.md`, `DIAGNOSI_ROSA.md`, `_archivio/RAGIONAMENTI_UMANI.md` | **non riproducibili** | prodotti ad agosto con codice precedente a tutte le correzioni di settembre; da leggere come storia |
 
 ## Artefatti
 
@@ -46,6 +46,7 @@ Legenda dello stato:
 | `data/l2/banco_verdetto_*.csv` | **corrente** | differenze appaiate con intervallo dei quattro generatori (criteri §3.7) |
 | `data/l2/g1/` | **corrente** | esperimento G1 sulla calibrazione della distribuzione dei gol: esito inconcludente, resta il comportamento attuale |
 | `data/l3/` | **corrente** | manifesto della sessione, pilota, tetti di indifferenza, confronto d'asta |
+| `_archivio/` | **archivio** | i report qui sopra marcati superati o non riproducibili sono stati spostati in `reports/_archivio/` il 10 settembre. Nessuna cancellazione: `_archivio/LEGGIMI.md` dice di ognuno perché è lì |
 | `data/istantanee/_archivio/` | **corrente** | archivio per impronta: contiene i byte, non solo le impronte |
 | `data/istantanee/20260907_014307_e6b11750/` | **corrente** | stato congelato prima dei fix del 7/9 |
 | `data/istantanee/20260906_2102/` | archivio | formato vecchio (solo impronte per il grezzo) |
@@ -82,3 +83,8 @@ Legenda dello stato:
 | cassa e obiettivi persi in asta | `python scripts/indagine/check_o3_cassa.py --aste 20` |
 | combinazione dei quantili di prezzo | `python scripts/indagine/check_o4_quantili.py` |
 | confronto sintetico del piano | `python scripts/f13_validate_plan.py 2025-26` |
+
+## 10 settembre 2026 — notte pre-asta (Fable)
+- `STATO_LIVELLI_20260910.md` — corrente: cinque colonne dopo la rigenerazione del pack; due prove L3 rosse spiegate.
+- `livelli_20260910/L1..L5.md` — corrente: un rapporto per livello (agenti in sola lettura), criteri scritti prima.
+- `asta_20260910/` — diagnostico: caccia ai difetti del Copilota (consigli, dati, persistenza, UI), regole vs codice, simulazione politiche prezzo (36 semi), rapporto UI, screenshot 1366x768, script del confronto pack.

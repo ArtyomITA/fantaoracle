@@ -4,7 +4,7 @@ Data: 5 settembre 2026. Risultato del workflow a 21 agenti (4 audit
 indipendenti, 4 proposte di architettura, 12 giudici che hanno verificato ogni
 affermazione sul repo, 1 sintesi). Materiale grezzo:
 `reports/ARCHITETTURE_workflow_result.json` e
-`reports/ARCHITETTURE_raw_journal.md`.
+`reports/_archivio/ARCHITETTURE_raw_journal.md`.
 
 Tutti i numeri qui sotto sono misurati sui dati del progetto (backtest
 leave-future-out su 2024/25 e 2025/26, listone 2026/27, 216 aste reali) o

@@ -19,6 +19,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 from f0b_lib import (RAW, PROC, MATCH_DIR, PLAYERS_SEASONS, VOTI_SEASONS,  # noqa: E402
                      norm, pick_best_per_master)
 
+# Cartella di uscita: PROC salvo `--out` (aggiunta additiva del 10/9/2026 per
+# poter rigenerare in una cartella temporanea e confrontare le impronte senza
+# toccare i file correnti). Le LETTURE restano sempre da PROC.
+OUT_DIR = PROC
+
 PREF_KEEP = "extra/1J4tILPqyErS5Ccpr0Dy-595D2PgubYxlPaqfX8-pjYw.xlsx"
 
 # soglie fix round 1
@@ -128,7 +133,7 @@ def build_aste(reg):
             "modificatore", "periodo", "ruolo", "player_raw", "master_id", "nome",
             "prezzo", "pct_budget", "acquisti_doppi", "spesa_ratio", "asta_anomala"]
     aste = aste[cols]
-    aste.to_csv(PROC / "aste_reali_clean.csv", index=False, encoding="utf-8")
+    aste.to_csv(OUT_DIR / "aste_reali_clean.csv", index=False, encoding="utf-8")
     n_aste = aste.groupby(["source_file", "auction_id"]).ngroups
     n_anom = aste[aste.asta_anomala == 1].groupby(["source_file", "auction_id"]).ngroups
     matched = aste.master_id.notna().mean()
@@ -189,7 +194,7 @@ def build_price_targets(aste, reg):
                for p in ["n_obs", "mean_pct", "std_pct"]]
             + ["wayback_p500_10sq"])
     pt = pt[cols]
-    pt.to_csv(PROC / "price_targets.csv", index=False, encoding="utf-8")
+    pt.to_csv(OUT_DIR / "price_targets.csv", index=False, encoding="utf-8")
     print(f"price_targets: {len(pt)} righe (master, stagione)")
     n_aste_est10 = e10.groupby(["source_file", "auction_id"]).ngroups
     print(f"  aste estive 10x(400-600) totali: {n_aste_est10}")
@@ -200,7 +205,7 @@ def build_price_targets(aste, reg):
         tardive3=("n_obs_tardiva", lambda x: (x >= 3).sum()),
         wayback=("wayback_p500_10sq", lambda x: x.notna().sum())).to_string())
     # rilettura dal CSV: i target nei players_* devono essere IDENTICI al file
-    return pd.read_csv(PROC / "price_targets.csv")
+    return pd.read_csv(OUT_DIR / "price_targets.csv")
 
 
 # ------------------------------------------------------------------ votes
@@ -219,7 +224,7 @@ def build_votes(reg):
         out["sv"] = out.sv.astype(int)
         # dedup difensivo (stesso master due volte nella stessa giornata: non atteso)
         out = out.drop_duplicates(["master_id", "giornata"], keep="first")
-        out.to_parquet(PROC / f"votes_{s}.parquet", index=False)
+        out.to_parquet(OUT_DIR / f"votes_{s}.parquet", index=False)
         pct = len(matched) / len(v) * 100
         print(f"votes_{s}.parquet: {len(out)} righe ({pct:.1f}% delle righe voti matchate)")
         all_hist[s] = matched  # righe voti complete matchate, per lo storico players
@@ -508,7 +513,8 @@ def build_players(reg, pt, votes_hist):
                     + NEW_FEATS)
         out = base[out_cols]
         assert out.master_id.is_unique
-        out.to_parquet(PROC / f"players_{s}.parquet", index=False)
+        out.to_parquet(OUT_DIR / f"players_{s}.parquet", index=False)
+        scrivi_contratto_players(s)
         print(f"players_{s}.parquet: {len(out)} righe | squadra da fanta.soccer: "
               f"{(out.squadra_fonte=='fantasoccer').sum()} | eta' nota: {out.eta.notna().sum()} | "
               f"target est. 10x500: {(out.target_n_obs_10x500_estiva>0).sum()} | "
@@ -516,7 +522,31 @@ def build_players(reg, pt, votes_hist):
               f"target wayback: {out.target_wayback_p500_10sq.notna().sum()}")
 
 
-def main():
+def scrivi_contratto_players(s):
+    """Aggancio additivo (10/9/2026): scrive il contratto temporale delle colonne
+    accanto al parquet. Non deve MAI fermare la catena: qualunque errore viene
+    stampato e ignorato."""
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+        from fantabot.contratto_players import scrivi_contratto
+        p = scrivi_contratto(s, parquet=OUT_DIR / f"players_{s}.parquet",
+                             cartella=OUT_DIR)
+        print(f"  contratto: {p.name}")
+    except Exception as e:  # noqa: BLE001
+        print(f"  contratto NON scritto per {s}: {type(e).__name__}: {e}")
+
+
+def main(argv=None):
+    global OUT_DIR
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--out", default=None,
+                    help="cartella di uscita alternativa (default data/processed)")
+    a = ap.parse_args(argv)
+    if a.out:
+        OUT_DIR = Path(a.out)
+        OUT_DIR.mkdir(parents=True, exist_ok=True)
+        print(f"uscita in {OUT_DIR}")
     reg = pd.read_csv(PROC / "registry.csv")
     aste = build_aste(reg)
     pt = build_price_targets(aste, reg)

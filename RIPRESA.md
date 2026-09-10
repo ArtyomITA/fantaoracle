@@ -4,9 +4,8 @@
 livelli.** Il fatto nuovo che conta e' in §3ter: due feature del modello
 delle presenze contengono l'esito, e questo vizia il confronto su cui si
 reggeva la lettura del ramo. Questo è il
-puntatore corrente. `RIPRESA_L2_L3.md` descrive la pausa del 7 settembre ed è
-conservato come storico: alcune sue conclusioni sono state ritrattate, e sono
-marcate lì.
+puntatore corrente per il lavoro sui livelli; per l'asta vera il punto di
+ripresa è `RIPRESA_ASTA.md` e la guida operativa è `GUIDA_ASTA.md`.
 
 Regole della sessione che restano valide: criteri scritti **prima** degli
 esperimenti; un test fallito non si risolve indebolendo il test; una soglia non
