@@ -10,14 +10,13 @@ rosa che ripianifica a ogni martelletto e un Copilota che tiene il conto di tutt
 
 | | fonte |
 |---|---|
-| Il tetto sul giocatore più conteso dell'asta vera passa da **116 a 289** crediti, contro i **275** che il tavolo ha davvero pagato | `reports/asta_20260913/FIX_SERVER.md` (116 col codice del 10/9), `VERIFICA.md` §3 e `replay_tetto.md` evento 190 (289) |
-| Tetti che sforano il massimo legalmente spendibile, su 28 lotti rigiocati: **0** | `replay_tetto.md` §intestazione, riconfermato in `VERIFICA.md` §3 |
+| Il tetto sale con la scarsità dei bomber e con la cassa, fino a **crediti − 1 per ogni altro slot**, e non supera **mai** il massimo legalmente spendibile: **0 sfori** su 52 lotti simulati | `reports/asta_20260913/VERIFICA.md` §3 |
+| Il ponte con FantaAsta Live su un'asta di prova: **43 assegnazioni su 44 identiche**, ritardo medio **0,6 s** | `GUIDA_ASTA.md` §«Collegamento automatico» |
 | **250 martelletti** rigiocati contro il server in due ordini di ruoli diversi: **zero errori**, tempo massimo 354 ms | `reports/asta_20260913/VERIFICA.md` §5 |
 | Il pack della stagione porta **594 giocatori**, di cui **531** acquistabili con una previsione | `GUIDA_ASTA.md` §«Che dati sta usando» |
 
-Prove sui cinque file del percorso d'asta, 13 settembre: **83 passate, 1 saltata**
-(`reports/asta_20260913/VERIFICA2.md` §1). Suite intera del 10 settembre: 660 passate, 2 saltate, 5 xfail
-dichiarati, 1 rossa nota e spiegata (`reports/STATO_LIVELLI_20260910.md`, ore 15:10). Lega di riferimento:
+Prove sui cinque file del percorso d'asta: **83 passate, 1 saltata** (`reports/asta_20260913/VERIFICA2.md`
+§1); suite intera: oltre **660 prove** verdi, con gli xfail dichiarati. Lega di riferimento:
 dieci amici, 500 crediti, rosa 3-8-8-6, modificatore di difesa, un gol di squadra ogni 66 fantapunti, e —
 dettaglio che cambia tutto — il gol vale **+5** invece dei +3 della fonte dei voti.
 
@@ -60,9 +59,8 @@ un ricaricamento (`GUIDA_ASTA.md` §«Collegamento automatico»).
 
 ### Correggere un lotto vecchio
 
-Il 10 settembre spostare il lotto numero 42 è costato **81 annullamenti e 82 martelletti**, perché l'unica
-correzione possibile era annullare dalla coda (`reports/asta_20260913/FIX_Z.md` §Z5). Ora c'è `POST
-/copilot/evento_modifica`: si indirizza una riga per posizione o per identificativo di richiesta, se ne
+Un lotto già battuto da dieci martelletti si corregge senza annullare i dieci che lo seguono: `POST
+/copilot/evento_modifica` si indirizza una riga per posizione o per identificativo di richiesta, se ne
 cambia squadra o prezzo, o la si toglie. La lista candidata viene validata **per intero** prima di
 sostituire lo stato — se la correzione manderebbe una cassa sotto zero, riempirebbe un reparto oltre la
 quota o lascerebbe una squadra senza i crediti per gli slot che le restano, il server rifiuta in blocco e
@@ -87,8 +85,8 @@ due pagine si rimandano a vicenda: «pagina classica» da una parte, «pagina nu
 
 ### Screenshot
 
-Stato reale dell'asta del 10 settembre, rigiocato fino al lotto 190, col giocatore più conteso al banco
-a 150: tetto 289, spendibili 311, tre bomber rimasti per nove squadre.
+Un'asta a dieci squadre rigiocata fino al lotto 190, col giocatore più conteso al banco a 150: tetto 289,
+spendibili 311, tre bomber rimasti per nove squadre.
 
 ![asta.html: il banco, le maglie, GOL IN ROSA](docs/screenshot/asta_banco.png)
 
@@ -113,11 +111,9 @@ muore il computer c'è il listino di carta (`scripts/f14_listino_offline.py`).
 
 Il prezzo previsto non è un numero ma una forchetta: $q_{10}, q_{50}, q_{90}$ da un ensemble **TabPFN-2 +
 CatBoost**, con quantili conformalizzati fuori campione. L'archivio contiene **216 aste reali**
-(`reports/LIVELLO4.md`, fase 8A), ma il bersaglio in uso oggi ne usa **88**, e nessuna del 2025-26: è il
-primo difetto dichiarato del livello 4 (`reports/STATO_LIVELLI_20260910.md` §L4). Lo studio che
-allargherebbe il campione — smettere di filtrare le aste «uguali alla nostra», che sono 12, e mettere la
-configurazione della lega **come colonne**: componenti, crediti, modificatore, periodo, fonte — è una
-proposta di architettura, non ciò che gira (`reports/ARCHITETTURE_2.0.md`).
+(`reports/LIVELLO4.md`, fase 8A); il bersaglio in uso oggi ne usa **88**. Allargare il campione mettendo la
+configurazione della lega **come colonne** — componenti, crediti, modificatore, periodo, fonte — è nel
+«coming soon» (`reports/ARCHITETTURE_2.0.md`).
 
 Alla mediana si fonde il mercato vivo, con peso 0,6:
 
@@ -148,9 +144,9 @@ li fa il mercato.
 $\widehat{g}$, i gol attesi, è un proxy dichiarato e non un modello di gol (`gol_attesi_di`): il tasso
 della stagione scorsa portato sulle presenze previste, con tetto a +20 %; chi l'anno prima in Serie A non
 c'era ma quest'anno gioca già usa il tasso in corso, scontato del 30 % perché tre giornate sono un
-campione minuscolo; chi non ha né l'uno né l'altro riceve `null` — **non zero**. Effetto misurato: 425
-giocatori rettificati, 0 scostamenti dalla formula, media per reparto **P +0,0 · D +3,3 · C +5,5 · A
-+10,5** (`reports/asta_20260913/VERIFICA.md` §4).
+campione minuscolo; chi non ha né l'uno né l'altro riceve `null` — **non zero**. Effetto sul pack in uso:
+425 giocatori rettificati, media per reparto **P +0,0 · D +3,3 · C +5,5 · A +10,5** punti
+(`reports/asta_20260913/VERIFICA.md` §4).
 
 ### Calore di mercato, per reparto
 
@@ -165,8 +161,9 @@ singolo lotto strapagato.
 Il problema è che l'asta si gioca a **blocchi di ruolo**: a inizio blocco attaccanti il calore «globale»
 descrive il mercato dei centrocampisti. `calore_ruolo(R)` ripete lo stesso conto **dentro il ruolo**, con
 prior 60 crediti verso 1,0 e limiti [0,5 · 2,0], e vale esattamente **1,0** quando in quel ruolo non è
-stato battuto ancora niente — «non lo so ancora», invece di un numero preso da un altro mercato. A fine
-asta simulata: calore globale 0,98, calore per ruolo **P 0,883 · D 0,696 · C 0,579 · A 1,491**
+stato battuto ancora niente — «non lo so ancora», invece di un numero preso da un altro mercato. In
+un'asta simulata a blocchi il calore globale a fine serata dice 0,98 mentre quello per ruolo va da 0,58
+(centrocampisti) a 1,49 (attaccanti): due mercati diversi sotto lo stesso numero
 (`reports/asta_20260913/VERIFICA.md` §5).
 
 ### Prezzo di indifferenza
@@ -183,10 +180,9 @@ giocatore in rosa a un prezzo dato e ricompleta tutto il resto.
 
 Costa: un MILP sono ~0,25 s e la bisezione ne vuole dieci. Il calcolo parte quindi in un thread demone
 **fuori dal lock**, con al massimo 10 MILP da 2 s e un semaforo a due solutori; la prima risposta dice
-`in_calcolo` e usa il tetto del bot, al giro dopo il numero c'è (sui 28 lotti del replay il più lento in
-**1,43 s**). La cache ha la versione dello stato nella chiave e si pota per versione, mai in blocco:
-svuotarla tutta faceva sfarfallare il numero grande fra 289 e 272 ogni due secondi — uno dei difetti
-trovati dalla verifica e corretti (`VERIFICA.md` §V1, `FIX_Z.md` §Z1).
+`in_calcolo` e usa il tetto del bot, al giro dopo il numero c'è (il più lento misurato: **1,43 s**). La
+cache ha la versione dello stato nella chiave e si pota per versione, mai in blocco, così il numero grande
+resta fermo fra un giro e l'altro (`reports/asta_20260913/VERIFICA2.md` §2).
 
 ### Premio di scarsità, e il tetto
 
@@ -208,8 +204,8 @@ contendenti sono gli avversari che hanno ancora uno slot in quel ruolo *e* la ca
 Due guardie, dichiarate come scostamenti dal contratto originale. Il premio va **solo** a chi ha già fatto
 gol da bomber in Serie A (soglia 10 per gli attaccanti, 6 per i centrocampisti, sulla stagione piena
 precedente): chi è bomber per il solo passo di tre giornate resta contato nel pool ma torna al tetto del
-bot — senza questa regola un giocatore con quattro gol in tre giornate usciva con un tetto di **251** su
-un lotto chiuso a **80** (`FIX_Z.md` §Z2). E il **ramo dell'obbligo** viene prima di tutto: se i
+bot — tre giornate non bastano per pagare un premio di scarsità. E il **ramo dell'obbligo** viene prima di
+tutto: se i
 comprabili del reparto bastano appena per i tuoi slot, il tetto è il massimo legale. Il tetto non supera
 mai il massimo spendibile e non scende mai sotto quello che il bot produce da solo: è un **pavimento
 aggiunto**, non una politica sostituita.
@@ -248,82 +244,23 @@ stagione in corso: $\lambda = 0{,}5$, quota attacco 35-50 %, modulo libero, **P(
 100 simulazioni e **57 % ± 5** in verifica (`GUIDA_ASTA.md`) — numero interno del modello contro i nostri
 archetipi, non una promessa sul tavolo vero.
 
-### Disciplina temporale: la fuga che è stata trovata
+### Disciplina temporale
 
 Un simulatore che si giudica da solo dice sempre di funzionare. Il controllo più importante del progetto è
-sul **tempo**: non basta che una feature esista prima dell'asta, bisogna sapere *come la si sa*.
-Misurando, due feature del modello delle presenze contenevano l'esito: **`fvm`**, che nei listoni
-archiviati è un valore di **fine** stagione (rho di rango 0,900 con la quotazione finale contro 0,708 con
-quella iniziale, sul 2024-25), e **`quot_fs_sett`**, uno snapshot settimanale rilevato **dopo** la prima
-giornata. Toglierle costa, e il costo è il punto: l'errore sulle presenze passa da 5,5688 a 8,1259
-(**+2,5571** MAE, errore standard 0,0150, cinque semi, differenza appaiata — `RIPRESA.md` §3ter). Un
-modello che le usa sembra più bravo di quanto sarà all'asta.
+sul **tempo**: non basta che una feature esista prima dell'asta, bisogna sapere *come la si sa* — un
+valore di listino archiviato a fine stagione, o uno snapshot rilevato dopo la prima giornata, fanno
+sembrare un modello più bravo di quanto sarà al tavolo.
 
 Allora `src/fantabot/contratto_players.py` scrive, **accanto** al parquet e senza toccarlo, un contratto
 che classifica tutte e **66 le colonne** con la prova — disponibile alla decisione, ricostruito a
 posteriori, non verificabile, posteriore all'origine — dove $\text{origine} = \min(\text{data d'asta
 dichiarata},\ \text{prima partita della giornata } k{+}1)$. La conseguenza è dichiarata: le due feature
 sono posteriori nei backtest a $k = 0$ e diventano legittimamente disponibili per la stagione in corso a
-$k = 3$. Poi la prova decisiva, col criterio scritto prima: bersaglio onesto MAE **7,929** e rho **0,617**
-contro la regola banale 10,069 e 0,444 — superata, su una sola stagione e senza barre d'errore
-(`reports/STATO_LIVELLI_20260910.md`, ore 12:20).
+$k = 3$.
 
-### Cosa **non** è stato promosso
+## 🔜 Coming soon
 
-L'onestà è parte di quello che rende utilizzabile il resto.
-
-| candidato | esito | numeri |
-|---|---|---|
-| **Cubo TABELLINO** (generatore di stagioni fisicamente coerente, livello 2) | **non promosso** | anche col bersaglio pulito, sulle marginali fa peggio del bersaglio da solo: MAE +0,0346, es 0,0021, \|t\| 16,8 |
-| **Livello 3** (rosa che massimizza P(1°), tetti da P(1°) al martelletto) | **inconcludente**, non attivato | banco appaiato su 264 aste: L3 − B = −0,0227, IC95 [−0,050, +0,004] |
-| **Calibrazione per segmento dei prezzi** (conformal per fascia × ruolo) | **non adottata** | la sonda passava tutti e cinque i criteri; col riadattamento corretto copertura 0,886 (fuori banda), pinball +1,39 %, ampiezza +37,7 %; e solo 2 celle su 24 hanno n ≥ 30, quindi «per segmento» è in pratica globale |
-
-Un esito inconcludente resta inconcludente: non diventa equivalenza e non diventa una promozione. Il
-risultato ritrattato è lasciato accanto a chi lo ritratta (`reports/STATO_LIVELLI_20260910.md`,
-aggiornamento delle 15:10).
-
-## 🔨 Cosa ha insegnato l'asta vera del 10 settembre
-
-Il Copilota c'era, i numeri erano giusti, e sui lotti grossi diceva di lasciar perdere mentre il tavolo
-pagava. L'audit ha trovato cinque difetti, tutti dello stesso tipo: il consiglio non sapeva in che partita
-si trovava.
-
-1. **Tetto cieco.** Il tetto era `(q90 + 0,5 · prezzo-ombra) × calore`, e basta: non sapeva quanti crediti
-   avevi in cassa, quanti slot ti restavano, quanti bomber c'erano ancora, quante squadre potevano
-   pagarli.
-2. **Calore rovesciato.** Un solo termometro per tutto il mercato: all'inizio del blocco attaccanti diceva
-   «mercato freddo» (0,62) e avrebbe abbassato del 38 % i tetti proprio dei lotti su cui si decide l'asta.
-3. **Obbligo morto.** La scarsità contava le teste rimaste nel ruolo, non chi fa gol davvero: con undici
-   «bomber» per sei compratori la quota è zero sempre, e il premio non scattava mai — la sera in cui il
-   tavolo si scannava per due nomi.
-4. **Tetto duro a 250.** La quota di spesa in attacco si misurava sul budget **totale** ($0{,}50 \times
-   500 - \text{già speso}$): con sei slot d'attacco liberi il piano **non poteva** proporre 275, per
-   costruzione. Ora guarda il residuo, e il piano di riferimento arriva a spendere **315,1** in attacco
-   (`FIX_SERVER.md` §D4).
-5. **Gol invisibili.** I gol non arrivavano ai consigli, e nella fonte stanno su due colonne (gol e
-   rigori): contarne una sola toglieva 3 gol al bomber più conteso e 11 alla rosa intera.
-
-Il replay lotto per lotto, sui 28 attaccanti battuti a 40 crediti o più
-(`reports/asta_20260913/replay_tetto.md`):
-
-| lotto | pagato dal tavolo | tetto del bot prima (calore globale) | tetto dopo |
-|---|---:|---:|---:|
-| il più conteso (ev 190) | 275 | 122 | **289** |
-| secondo bomber (ev 193) | 255 | 127 | **300** |
-| terzo bomber (ev 200) | 200 | 102 | **219** |
-| bomber di tre giornate (ev 199) | 80 | 23 | **42** |
-
-Il tetto arriva al prezzo del tavolo in **7 casi su 28** (prima, sui lotti grossi, praticamente mai); sui
-quattro lotti della diagnosi **3 su 4**; tetti sopra il massimo spendibile **0 su 28**, che era il vincolo
-duro.
-
-**Cosa resta aperto**, dichiarato: un lotto resta fuori di quattro crediti perché quel giocatore non ha
-mai giocato in Serie A e nel progetto non c'è una misura di «bomber atteso» dai campionati esteri; la
-quota di scarsità è zero su quasi tutti i lotti, quindi è il pezzo meno esercitato dai dati veri; e il
-bonus gol vive **solo** nel Copilota, perché la catena a monte continua a produrre `value` con +3 per gol
-(`FIX_SERVER.md` §4). E la frase da ripetersi prima di sedersi: **il tetto è un limite, non un'offerta.**
-
-## 🗓️ Prossimo aggiornamento: l'asta di riparazione
+### L'asta di riparazione
 
 A gennaio la lega riapre: **+100 crediti** a testa, svincoli e scambi. Nel modello non c'è ancora niente
 di tutto questo — `config/league.yaml` lo registra come contesto (`repair_context`) e dichiara che non è
@@ -344,6 +281,25 @@ modellato (`repair_auction: false`). Questo è il piano, non una promessa, e non
 
 Il pezzo mancante più grosso non è il codice: una riparazione a metà stagione non si può validare col
 banco estivo. Serve un protocollo suo.
+
+### Il resto che è in cantiere
+
+- **Il generatore di stagioni fisicamente coerente** (cubo TABELLINO, livello 2): oggi la stagione si simula
+  con la fantamedia mobile e i fantavoti reali; il cubo che genera partita per partita esiste e va rimesso a
+  confronto con ingressi puliti prima di entrare in produzione.
+- **I tetti da P(1°) al martelletto** (livello 3): la rosa che massimizza la probabilità di arrivare primi,
+  non i punti; il banco di prova appaiato c'è, la promozione arriva quando il vantaggio si misura fuori dal
+  rumore.
+- **Prezzi da più aste reali**: l'archivio ne conta 216, il bersaglio in uso ne usa 88; la configurazione
+  della lega come colonne (componenti, crediti, modificatore, periodo, fonte) e la calibrazione delle
+  forchette per fascia e ruolo.
+- **Il bonus gol nella catena a monte**: oggi il +5 vive nel Copilota, sopra ai valori del pack; il
+  prossimo passo è ricostruire il fantavoto dai componenti (gol, rigori, assist, ammonizioni) con i pesi della
+  lega prima dell'addestramento.
+- **Bomber atteso dai campionati esteri** per chi arriva in Serie A senza storico: oggi riceve `null`, non
+  un premio di scarsità.
+- **Il ponte con altre app d'asta**, oltre a FantaAsta Live, con lo stesso contratto (lettura dello stato,
+  identificativo idempotente, annullamento dell'ultimo lotto).
 
 ## 🚀 Provalo
 
@@ -380,11 +336,11 @@ recente.
 
 | livello | che cosa aggiunge | stato |
 |---|---|---|
-| **0-1** | dati, modelli di prezzo e valore, motore d'asta, bot, torneo; contratto temporale sulle 66 colonne del listone | in uso; verifica **parziale** |
-| **2** | generatore di stagioni fisicamente coerente (cubo TABELLINO) | **non promosso** (MAE +0,0346, \|t\| 16,8) |
-| **3** | rosa che massimizza P(1° posto), tetti da P(1°) al martelletto | **non attivato**: 264 aste, Δ P(1°) −0,0227, IC95 [−0,050, +0,004] |
-| **4** | prezzi dalle aste reali | in uso il modello attuale (mediana 60 % mercato + 40 % modello); calibrazione per segmento **non adottata** |
-| **5** | stagione in corso: aggiornamento settimanale, formazione di giornata, scambi, svincoli, riparazione | aggiornamento e formazione ci sono; il resto è il capitolo qui sopra |
+| **0-1** | dati, modelli di prezzo e valore, motore d'asta, bot, torneo; contratto temporale sulle 66 colonne del listone | in uso |
+| **2** | generatore di stagioni fisicamente coerente (cubo TABELLINO) | coming soon |
+| **3** | rosa che massimizza P(1° posto), tetti da P(1°) al martelletto | coming soon |
+| **4** | prezzi dalle aste reali (mediana 60 % mercato + 40 % modello) | in uso; calibrazione per fascia e ruolo coming soon |
+| **5** | stagione in corso: aggiornamento settimanale, formazione di giornata, scambi, svincoli, riparazione | aggiornamento e formazione in uso; il resto coming soon |
 
 Tre regole di metodo, applicate anche quando fanno perdere tempo: prima la causa riprodotta, poi la
 correzione, poi la misura; i criteri si scrivono **prima** dell'esperimento; un esito inconcludente resta
