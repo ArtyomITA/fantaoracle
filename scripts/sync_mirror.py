@@ -32,7 +32,7 @@ MIRROR = RADICE.parent / "fantabot-github"
 # esplicito di proposito, così aggiungere una cartella al progetto non la
 # pubblica per distrazione.
 DA_COPIARE = [
-    "src", "scripts", "tests", "config", "viz", "reports",
+    "src", "scripts", "tests", "config", "viz", "reports", "docs",
     "requirements.txt", "LICENSE",
     "README.md", "DATA.md", "PIANO.md", "BRAINSTORMING.md",
     "RIPRESA.md", "RIPRESA_ASTA.md", "GUIDA_ASTA.md", "FantaOracle.bat",

@@ -14,6 +14,10 @@ menu). Serve solo Python 3.11+ gia' installato.
 Uso:
     python scripts/prepara_chiavetta.py F:\\FantaOracle      # sulla chiavetta F:
     python scripts/prepara_chiavetta.py                     # cartella accanto al progetto
+    python scripts/prepara_chiavetta.py F:/FantaOracle --senza-magazzino  # niente wheelhouse/
+
+Con `wheelhouse/` (pacchetti gia' scaricati per Python 3.11-3.13, Windows 64
+bit) il portatile installa senza rete; serve comunque Python installato.
     python scripts/prepara_chiavetta.py F:\\FantaOracle --tutto   # anche le cartelle pesanti
 """
 from __future__ import annotations
@@ -47,9 +51,9 @@ LEGGIMI = """FantaOracle sulla chiavetta — copiata il {data}
 2. Serve Python 3.11 o piu' recente: https://www.python.org/downloads/
    (spunta «Add python.exe to PATH» durante l'installazione).
 3. Doppio click su AVVIA_SU_PORTATILE.bat: crea l'ambiente, installa i
-   pacchetti (pandas, numpy, PuLP, psutil), prova il Copilota e apre il menu.
-   La prima volta ci mette qualche minuto (scarica i pacchetti); le volte
-   dopo basta FantaOracle.bat.
+   pacchetti (pandas, numpy, PuLP, psutil) dalla cartella wheelhouse/ senza
+   bisogno di rete, prova il Copilota e apre il menu. Le volte dopo basta
+   FantaOracle.bat.
 4. Menu: http://localhost:8899/viz/index.html -> ASTA VERA -> Copilota.
    Guida all'asta: GUIDA_ASTA.md. Installazione: INSTALLA.md.
 
@@ -104,9 +108,36 @@ def stagione_corrente() -> str:
         return "?"
 
 
+VERSIONI_PYTHON = ("3.11", "3.12", "3.13")
+
+
+def scarica_magazzino(dest: Path) -> None:
+    """Scarica in `wheelhouse/` i pacchetti di requirements-asta.txt per
+    Windows 64 bit e per le versioni di Python in VERSIONI_PYTHON, cosi' sul
+    portatile `installa.py` li prende da li' senza rete. Un solo tentativo per
+    versione: se una manca su PyPI si va avanti con le altre."""
+    import subprocess
+    magazzino = dest / "wheelhouse"
+    magazzino.mkdir(parents=True, exist_ok=True)
+    req = ROOT / "requirements-asta.txt"
+    for v in VERSIONI_PYTHON:
+        print(f"  scarico i pacchetti per Python {v} (win_amd64)...")
+        r = subprocess.run([sys.executable, "-m", "pip", "download", "-q",
+                            "-r", str(req), "-d", str(magazzino),
+                            "--only-binary=:all:", "--platform", "win_amd64",
+                            "--python-version", v, "--implementation", "cp"],
+                           check=False)
+        if r.returncode != 0:
+            print(f"  ATTENZIONE: download per Python {v} non riuscito")
+    n = len(list(magazzino.glob("*.whl")))
+    mb = sum(f.stat().st_size for f in magazzino.glob("*.whl")) / 1e6
+    print(f"  magazzino: {n} pacchetti, {mb:.0f} MB")
+
+
 def main() -> int:
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     tutto = "--tutto" in sys.argv
+    senza_magazzino = "--senza-magazzino" in sys.argv
     dest = Path(args[0]) if args else \
         ROOT.parent / f"FantaOracle_chiavetta_{dt.date.today():%Y%m%d}"
     if dest.resolve() == ROOT.resolve() or ROOT.resolve() in dest.resolve().parents:
@@ -125,6 +156,8 @@ def main() -> int:
     # la copia non deve portarsi dietro il lock di un Copilota acceso qui
     for lock in (dest / "data" / "copilot").glob("*.lock"):
         lock.unlink()
+    if not senza_magazzino:
+        scarica_magazzino(dest)
     tot = sum(p.stat().st_size for p in dest.rglob("*") if p.is_file())
     print(f"copiati {n} file ({byte / 1e6:.0f} MB nuovi); la cartella pesa "
           f"{tot / 1e6:.0f} MB")

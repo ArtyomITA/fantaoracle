@@ -845,6 +845,9 @@ header{position:sticky; top:0; z-index:60;}
     <div class="hstat"><div class="n heat" id="hHeat">—</div><div class="l">calore</div></div>
     <div class="saved" id="saved" title="ogni acquisto è scritto subito su disco"><b>salvato ✓</b><span class="fn" id="savedFn">—</span></div>
     <button class="hbtn" id="btnSetup" title="ricomponi il tavolo (solo prima del primo acquisto)" hidden>⚙ tavolo</button>
+    <!-- la pagina nuova (asta.html) ha il link a questa; qui mancava il
+         contrario, e da questa schermata non si tornava di la' -->
+    <a class="hbtn" id="lnkNuova" href="asta.html" title="la pagina nuova: maglie, tasti 1-0, tetto a tabellone">⚽ pagina nuova</a>
   </div>
 </header>
 
@@ -1053,6 +1056,8 @@ function d1(x){ const v = num(x); return v == null ? "—" : (Math.round(v*10)/1
 /* ---------- stato ---------- */
 const params = new URLSearchParams(location.search);
 const BASE = String(params.get("live") || "http://localhost:8770").replace(/\/+$/, "");
+/* stessa porta anche per la pagina nuova, come fa lei con «pagina classica» */
+document.getElementById("lnkNuova").href = "asta.html?live=" + encodeURIComponent(BASE);
 const C = {
   state:null, plan:null, down:false, lastN:-1, lastBids:-1,
   sel:null,           // giocatore al banco (oggetto player_info)

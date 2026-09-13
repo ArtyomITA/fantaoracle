@@ -75,9 +75,21 @@ def prepara_venv(con_playwright: bool) -> bool:
             return False
     else:
         print("   .venv c'e' gia'")
-    esegui([str(py), "-m", "pip", "install", "--upgrade", "pip", "--quiet"])
     req = ROOT / "requirements-asta.txt"
-    r = esegui([str(py), "-m", "pip", "install", "-r", str(req)])
+    magazzino = ROOT / "wheelhouse"
+    r = None
+    if magazzino.is_dir() and any(magazzino.glob("*.whl")):
+        # la chiavetta porta con se' i pacchetti gia' scaricati (vedi
+        # scripts/prepara_chiavetta.py): si installa da li', senza rete
+        print(f"   pacchetti dal magazzino locale {magazzino.name}/ (senza rete)")
+        r = esegui([str(py), "-m", "pip", "install", "--no-index",
+                    "--find-links", str(magazzino), "-r", str(req)])
+        if r.returncode != 0:
+            print("   il magazzino non basta per questa versione di Python: "
+                  "provo dalla rete")
+    if r is None or r.returncode != 0:
+        esegui([str(py), "-m", "pip", "install", "--upgrade", "pip", "--quiet"])
+        r = esegui([str(py), "-m", "pip", "install", "-r", str(req)])
     if r.returncode != 0:
         print("   installazione dei pacchetti fallita: controlla la connessione "
               "e rilancia")
