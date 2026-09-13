@@ -231,13 +231,20 @@ def _differenze(base: dict, altro: dict) -> dict:
     return fuori
 
 
-def piano_al_prezzo(ctx: Contesto, pid: str, prezzo: float, nome_info) -> dict:
+def piano_al_prezzo(ctx: Contesto, pid: str, prezzo: float, nome_info,
+                    *, calcola_riferimento: bool = True) -> dict:
     """«Se lo compro a X, come si completa la rosa?»
 
     Non tocca il registro: si sostituisce il prezzo di quel giocatore, lo si
     impone in rosa e si ricalcola tutto il resto. Il nome del piano non
     garantisce di comprarlo a quella cifra — e infatti si vede subito che cosa
     cambia se il prezzo sale.
+
+    `calcola_riferimento=False` salta il piano libero di confronto (e quindi
+    `scarto_dal_riferimento` e `differenze`): serve a chi chiama questa
+    funzione molte volte di fila sullo stesso contesto — la bisezione del
+    prezzo di indifferenza — e il piano libero e' lo stesso a ogni giro. Con
+    il valore predefinito il comportamento non cambia di una virgola.
     """
     prezzi = dict(ctx.prezzi)
     prezzi[pid] = float(prezzo)
@@ -246,7 +253,7 @@ def piano_al_prezzo(ctx: Contesto, pid: str, prezzo: float, nome_info) -> dict:
         valori_up=ctx.valori_up, quote=ctx.quote, budget=ctx.budget,
         fissati=ctx.fissati, lam=ctx.lam, forced_spend=ctx.forced_spend,
         min_spend=ctx.min_spend, time_limit=ctx.time_limit)
-    libero = _risolvi(ctx)
+    libero = _risolvi(ctx) if calcola_riferimento else None
     sol = _risolvi(finto, required={pid}, required_starters={pid})
     if sol is None:
         return {"stato": "non fattibile", "prezzo_ipotetico": float(prezzo),

@@ -143,6 +143,21 @@ python scripts/asta_registra.py "Malen > Marco : 205" "calo > io : 12"
 Nomi senza accenti e parziali; un nome ambiguo non viene registrato e ti
 mostra i candidati. `--undo`, `--escludi Nome`, `--riammetti Nome`, `--stato`.
 
+Per correggere un acquisto **qualsiasi**, non solo l'ultimo (il 10/9 spostare
+il lotto 42 è costato 81 annullamenti e 82 martelletti):
+
+```bash
+python scripts/asta_registra.py --elenco                    # indici di tutti gli acquisti
+python scripts/asta_registra.py --modifica "42 > Nightmare : 12"
+python scripts/asta_registra.py --rimuovi 42
+```
+
+Dopo l'indice le due parti sono facoltative: `"42 > Nightmare"` sposta e
+basta, `"42 : 12"` cambia solo la cifra. Il server rifiuta in blocco (e non
+tocca niente) se la correzione manda una cassa sotto zero, riempie un reparto
+oltre la quota o lascia una squadra senza il credito per gli slot che le
+restano.
+
 ## Piani con bomber diversi
 
 Il pannello **PIANI CON BOMBER DIVERSI**, pulsante «calcola», mostra come

@@ -107,7 +107,7 @@ Il candidato per chiudere il divario è una calibrazione congiunta verso bersagl
 
 ## Provalo
 
-La demo funziona senza i dati originali (esclusi perché scaricati da fonti terze — vedi [`DATA.md`](DATA.md)):
+La demo funziona senza i dati originali (esclusi perché scaricati da fonti terze — vedi [`DATA.md`](DATA.md)). Per usare il Copilota su un altro computer con i dati veri: [`INSTALLA.md`](INSTALLA.md) (`installa.py` + bundle dei dati).
 
 ```bash
 pip install -r requirements.txt

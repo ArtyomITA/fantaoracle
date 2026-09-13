@@ -105,7 +105,25 @@ class BBot(Bot):
             spent_a = sum(pr for _, pr in view.me.roster.get("A", []))
             lo_s, hi_s = self.objective["attack_share"]
             lo = max(0.0, lo_s * view.budget_total - spent_a)
-            hi = max(lo, hi_s * view.budget_total - spent_a)
+            # Il tetto della quota d'attacco si misurava sul budget TOTALE:
+            # 0.50 * 500 - speso_A. Con sei slot d'attacco liberi e nessuna
+            # spesa fatta, comprare un attaccante a p obbligava p + 5 <= 250,
+            # cioe' p <= 245: il piano NON POTEVA proporre 275 per costruzione,
+            # anche con la cassa piena e tutti i reparti gia' chiusi. Il vincolo
+            # ora guarda il residuo: quello che resta da spendere, meno un
+            # credito per ogni slot fuori dall'attacco ancora da riempire. Se
+            # non resta nessun altro slot, l'attacco puo' prendersi tutta la
+            # cassa. La stessa identica formula sta in `contesto_piani`
+            # (scripts/f10_copilot.py): le due cambiano insieme, e
+            # `tests/test_copilot_asta.py::test_piani_riferimento_uguale_al_piano_del_bot`
+            # confronta i loro risultati.
+            slot_altri = sum(view.me.slots_left(view.quotas, r)
+                             for r in view.quotas if r != "A")
+            if slot_altri == 0:
+                hi = max(lo, float(view.me.budget))
+            else:
+                hi = max(lo, min(hi_s * view.budget_total - spent_a,
+                                 float(view.me.budget - slot_altri)))
             forced = {"A": (lo, hi)}
         sol = optimize_roster(candidates, prices, values, view.quotas, view.me.budget,
                               forced_spend=forced, fixed=fixed, values_up=values_up,

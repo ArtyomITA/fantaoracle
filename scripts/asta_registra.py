@@ -9,7 +9,16 @@ Uso:
     python scripts/asta_registra.py --undo
     python scripts/asta_registra.py --escludi "Colombo"      # o --riammetti
     python scripts/asta_registra.py --stato
+    python scripts/asta_registra.py --elenco                 # acquisti con l'indice
+    python scripts/asta_registra.py --modifica "42 > Nightmare : 12"
+    python scripts/asta_registra.py --rimuovi 42
     opzioni: --porta 8770 (predefinita), --secco (risolve i nomi senza registrare)
+
+`--modifica` corregge UN acquisto qualsiasi, non solo l'ultimo: «indice >
+squadra : prezzo», e le due parti dopo l'indice sono facoltative («42 >
+Nightmare» sposta e basta, «42 : 12» cambia solo la cifra). L'indice e' quello
+che stampa `--elenco`. Prima si annullava fino al lotto sbagliato e si
+ribatteva tutto: il 10/9 sono costati 81 annullamenti e 82 martelletti.
 
 Ogni voce e' «giocatore > squadra : prezzo». Il giocatore si cerca senza
 accenti e per prefisso; se la ricerca e' ambigua la voce NON viene registrata
@@ -102,6 +111,62 @@ def stampa_stato(cop: Copilota) -> None:
         print("  ultimi:", "; ".join(f"{e['nome']} -> {st['names'][e['team_index']]} {e['price']}" for e in ultimi))
 
 
+def stampa_elenco(cop: Copilota) -> None:
+    """Tutti gli acquisti con la loro posizione nel registro.
+
+    `--stato` mostra gli ultimi cinque, e il lotto da correggere quasi mai e'
+    fra gli ultimi cinque: l'indice che `--modifica` e `--rimuovi` chiedono si
+    legge qui.
+    """
+    righe = cop.get("/copilot/eventi")
+    print(f"\n--- {len(righe)} acquisti registrati ---")
+    for e in righe:
+        print(f"  {e['indice']:>3}  {e['nome']:<18} {e['ruolo']} "
+              f"{e['squadra']:<14} -> {e['acquirente']:<26} {e['prezzo']:>4}")
+
+
+def applica_modifica(cop: Copilota, indice: int, *, ti: int | None = None,
+                     prezzo: int | None = None, rimuovi: bool = False) -> int:
+    """Manda la correzione e racconta cosa e' cambiato.
+
+    Il server valida l'intera lista di eventi prima di accettare: se dice di
+    no, qui non resta niente da disfare e si stampa il motivo che ha dato.
+    """
+    righe = cop.get("/copilot/eventi")
+    riga = next((r for r in righe if r["indice"] == indice), None)
+    if riga is None:
+        print(f"indice {indice}: non esiste ({len(righe)} acquisti registrati). "
+              "Usa --elenco")
+        return 1
+    # nanosecondi, non secondi: due correzioni sulla stessa riga nello stesso
+    # secondo (cambia il prezzo, poi toglila) avrebbero lo stesso identificativo
+    # e la seconda tornerebbe indietro come «duplicato», senza fare niente
+    corpo = {"indice": indice,
+             "richiesta_id_modifica": f"cli-mod-{indice}-{time.time_ns()}"}
+    if rimuovi:
+        corpo["rimuovi"] = True
+    if ti is not None:
+        corpo["team_index"] = ti
+    if prezzo is not None:
+        corpo["price"] = prezzo
+    d, code = cop.post("/copilot/evento_modifica", corpo)
+    testa = f"{riga['nome']} ({riga['ruolo']} {riga['squadra']}) indice {indice}"
+    if not d.get("ok"):
+        print(f"  RIFIUTATO {testa} -> {d.get('err')} ({code})")
+        return 1
+    if rimuovi:
+        print(f"  TOLTO {testa}: era di {riga['acquirente']} a {riga['prezzo']}. "
+              f"Acquisti: {d.get('n_events')}")
+    else:
+        dopo = d.get("dopo") or {}
+        nomi = cop.squadre()
+        print(f"  OK {testa}: {riga['acquirente']} {riga['prezzo']} -> "
+              f"{nomi[dopo.get('team_index', riga['team_index'])]} "
+              f"{dopo.get('price', riga['prezzo'])}"
+              f"{' | duplicato' if d.get('duplicato') else ''}")
+    return 0
+
+
 def main() -> int:
     args = sys.argv[1:]
     porta = int(args[args.index("--porta") + 1]) if "--porta" in args else 8770
@@ -119,6 +184,39 @@ def main() -> int:
     if "--stato" in args:
         stampa_stato(cop)
         return 0
+    if "--elenco" in args:
+        stampa_elenco(cop)
+        return 0
+    if "--rimuovi" in args:
+        crudo = args[args.index("--rimuovi") + 1] if len(args) > args.index("--rimuovi") + 1 else ""
+        if not crudo.isdigit():
+            print(f"--rimuovi vuole l'indice dell'acquisto, non «{crudo}». "
+                  "Gli indici li stampa --elenco")
+            return 1
+        esito = applica_modifica(cop, int(crudo), rimuovi=True)
+        stampa_stato(cop)
+        return esito
+    if "--modifica" in args:
+        voce = args[args.index("--modifica") + 1] if len(args) > args.index("--modifica") + 1 else ""
+        m = re.match(r"^\s*(\d+)\s*(?:[>=]\s*([^:]+?)\s*)?(?::\s*(\d+)\s*)?$", voce)
+        if not m:
+            print(f"voce non capita: «{voce}» (forma: indice > squadra : prezzo)")
+            return 1
+        indice, squadra, prezzo = int(m.group(1)), m.group(2), m.group(3)
+        if squadra is None and prezzo is None:
+            print(f"«{voce}»: niente da cambiare. Dai una squadra, un prezzo, "
+                  "o usa --rimuovi")
+            return 1
+        ti = None
+        if squadra is not None:
+            ti = risolvi_squadra(nomi, squadra)
+            if ti is None:
+                print(f"«{squadra}»: squadra ambigua o assente fra {nomi}")
+                return 1
+        esito = applica_modifica(cop, indice, ti=ti,
+                                 prezzo=int(prezzo) if prezzo else None)
+        stampa_stato(cop)
+        return esito
     if "--undo" in args:
         d, code = cop.post("/copilot/undo", {"richiesta_id": f"cli-undo-{time.time()}"})
         print("annullato:", (d.get("annullato") or {}).get("player_id"), "| acquisti:", d.get("n_events"))

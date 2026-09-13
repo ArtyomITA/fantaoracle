@@ -33,8 +33,14 @@ def test_bookmarklet_porta_scelta():
     assert "127.0.0.1%3A8792" in pb.bookmarklet(SORGENTE, 8792)
 
 
-def test_pagina_contiene_link_e_istruzioni():
+def test_pagina_contiene_link_e_istruzioni(tmp_path, monkeypatch):
+    # V5: il test scriveva davvero `viz/ponte.html` a ogni esecuzione. Il
+    # contenuto era identico, ma una passata di pytest non deve toccare i file
+    # del progetto: si sposta la destinazione in una cartella temporanea e si
+    # controlla lo stesso identico HTML.
+    monkeypatch.setattr(pb, "PAGINA", tmp_path / "ponte.html")
     pagina = pb.scrivi_pagina(8770)
+    assert pagina == tmp_path / "ponte.html"
     html = pagina.read_text(encoding="utf-8")
     assert 'id="bm"' in html and 'href="javascript:(function(){' in html
     assert "PONTE FantaAsta" in html

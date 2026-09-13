@@ -1,0 +1,7 @@
+# Il minimo per usare il Copilota all'asta (menu + f10_copilot + registrazione
+# da terminale). Il modello non si riaddestra qui: per la pipeline completa
+# (TabPFN, CatBoost) vedi requirements.txt.
+pandas>=2.2
+numpy>=1.26
+pulp>=2.8
+psutil>=5.9

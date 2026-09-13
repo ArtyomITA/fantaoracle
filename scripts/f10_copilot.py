@@ -14,6 +14,10 @@ API (JSON, CORS aperto):
   POST /copilot/setup                 -> {"names":[...], "my_index":0, "budget":500}
   POST /copilot/hammer                -> {"player_id":..,"team_index":..,"price":..}
   POST /copilot/undo                  -> annulla l'ultima aggiudicazione
+  POST /copilot/evento_modifica       -> {"indice"|"richiesta_id", "team_index"?,
+                                          "price"?, "rimuovi"?} corregge UN
+                                         acquisto qualsiasi, non solo l'ultimo
+  GET  /copilot/eventi                -> tutti gli acquisti con la loro posizione
   POST /copilot/bid                   -> {"player_id":..,"team_index":..,"price":..}
                                          registra un rilancio osservato al tavolo
   POST /copilot/undo_bid              -> cancella l'ultimo rilancio registrato
@@ -23,6 +27,7 @@ API (JSON, CORS aperto):
   GET  /copilot/players?role=&q=&squadra=  -> ricerca nel pool residuo
   GET  /copilot/rigoristi              -> rigoristi e punizioni per squadra,
                                           con lo stato al momento
+  GET  /copilot/gol_rosa               -> gol veri delle dieci rose, in classifica
 """
 from __future__ import annotations
 
@@ -50,6 +55,7 @@ from fantabot.models import ROLES, Player, TeamState  # noqa: E402
 from fantabot import piani as pn  # noqa: E402
 from fantabot import rettifica_indisponibili as ri  # noqa: E402
 from fantabot.market_adjust import norm as norm_mercato  # noqa: E402
+from fantabot.rules import BONUS_GOL_FONTE, BONUS_GOL_LEGA  # noqa: E402
 
 LOCK = threading.Lock()
 PACK = None
@@ -140,7 +146,10 @@ def prepara_pack(stagione: str, oggi: datetime.date | None = None) -> None:
       si registra, e il consiglio dice che il modello non sa niente di loro;
     - il valore degli indisponibili scende in proporzione alle giornate che
       perderanno (`rettifica_indisponibili`): il piano iniziale conteneva
-      Locatelli, fermo fino a gennaio, a prezzo pieno.
+      Locatelli, fermo fino a gennaio, a prezzo pieno;
+    - i gol valgono 5 in questa lega e 3 nella fonte: la differenza si paga
+      qui (`applica_bonus_gol`), PRIMA della rettifica, perche' chi salta
+      mezza stagione deve perdere anche il bonus gol di quelle giornate.
     """
     global PRED_ATTIVE, RETTIFICHE, NOTE_ESPERTO
     for r in ELEGGIBILITA.get("senza_previsione") or []:
@@ -158,6 +167,10 @@ def prepara_pack(stagione: str, oggi: datetime.date | None = None) -> None:
     # squalifiche alle presenze attese, e rifarlo qui conterebbe due volte
     # (Locatelli: 225 -> 128 nel pack del 10/9, poi x0,54 = 69).
     global RETTIFICA_MOTIVO
+    # i gol veri servono PRIMA: il bonus di lega si calcola su quelli, e la
+    # rettifica degli indisponibili deve poi ridurre anche il bonus
+    costruisci_gol()
+    base = applica_bonus_gol(PACK.b_predictions)
     calendario = ROOT / "data" / "raw" / "calendario" / f"calendario_{stagione}.csv"
     data_pack = data_del_pack(stagione)
     data_fonti = str(ELEGGIBILITA.get("acquisito") or "")[:19]
@@ -165,16 +178,15 @@ def prepara_pack(stagione: str, oggi: datetime.date | None = None) -> None:
     if calendario.exists() and ELEGGIBILITA.get("indisponibili") and pack_piu_vecchio:
         cal = ri.carica_calendario(calendario)
         PRED_ATTIVE, RETTIFICHE = ri.rettifica_valori(
-            PACK.b_predictions, ELEGGIBILITA["indisponibili"], cal, oggi or OGGI)
+            base, ELEGGIBILITA["indisponibili"], cal, oggi or OGGI)
         RETTIFICA_MOTIVO = (f"pack del {data_pack[:16]} piu' vecchio delle fonti del "
                             f"{data_fonti[:16]}: valore ridotto qui per gli indisponibili")
     else:
-        PRED_ATTIVE, RETTIFICHE = dict(PACK.b_predictions), {}
+        PRED_ATTIVE, RETTIFICHE = base, {}
         RETTIFICA_MOTIVO = ("infortuni gia' dentro il pack (catena di aggiornamento "
                             f"del {data_pack[:16]}, fonti del {data_fonti[:16]})"
                             if data_pack else "data del pack sconosciuta: nessuna rettifica")
     NOTE_ESPERTO = carica_note_esperto(stagione)
-    costruisci_gol()
     costruisci_rigoristi()
 
 
@@ -382,7 +394,85 @@ def campi_gol(pid: str | None) -> dict:
         out[f"pres_{suf}"] = d["pres"] if d else None
     d25 = GOL_VOTI.get("2025-26", {}).get(pid) if pid else None
     out["assist_2025"] = d25["assist"] if d25 else None
+    # gol TOTALI: nella fonte «gol_fatti» esclude i rigori, che stanno in
+    # «rigore_segnato». Chi conta solo la prima colonna perde 3 gol a Malen e
+    # 11 all'intera rosa dell'utente.
+    out["gol_tot_2025"] = (None if out["gol_2025"] is None and out["rig_2025"] is None
+                           else (out["gol_2025"] or 0) + (out["rig_2025"] or 0))
+    out["gol_tot_2026"] = (None if out["gol_2026"] is None and out["rig_2026"] is None
+                           else (out["gol_2026"] or 0) + (out["rig_2026"] or 0))
     return out
+
+
+def gol_attesi_di(pid: str, pres_prevista: float | None) -> float | None:
+    """Quanti gol ci si aspetta da lui in questa stagione, dichiarando come.
+
+    Non e' un modello di gol: e' il tasso della stagione scorsa portato sulle
+    presenze previste dal pack, con un tetto a +20% (chi ha giocato mezza
+    stagione non raddoppia i gol per il solo fatto di essere sano). Chi in
+    Serie A l'anno scorso non c'era ma quest'anno gioca gia' usa il tasso
+    2026-27, scontato del 30% perche' tre giornate sono un campione minuscolo.
+    Chi non ha ne' l'uno ne' l'altro non riceve niente e lo si dice: `None`
+    non e' zero, e' «non lo so».
+    """
+    g = campi_gol(pid)
+    pres = float(pres_prevista or 0.0)
+    if pres <= 0:
+        return None
+    p25 = g.get("pres_2025") or 0
+    if p25 >= 5:
+        return (g.get("gol_tot_2025") or 0) * min(1.2, pres / p25)
+    p26 = g.get("pres_2026") or 0
+    if p26 >= 2:
+        return (g.get("gol_tot_2026") or 0) / p26 * pres * 0.7
+    return None
+
+
+def applica_bonus_gol(pred: dict) -> dict:
+    """Il gol vale 5 in questa lega, 3 nella fonte: la differenza si paga qui.
+
+    Il difetto: `value` e' la somma dei fantavoto della fonte, e la fonte
+    somma gia' +3 per ogni gol (misurato sugli eventi isolati dei voti grezzi
+    2025-26). La lega dell'utente paga +5. Nel pack quindi un bomber e' sotto
+    di 2 punti per gol, e un centrocampista da 6 in pagella non perde niente:
+    e' esattamente il divario che il modello non vedeva. Qui si aggiunge
+    `(5 - 3) * gol_attesi` a `value` e a tutti i quantili di valore — i PREZZI
+    non si toccano, quelli li fa il mercato.
+
+    Ritorna una copia: `PACK.b_predictions` resta il dato del modello.
+    """
+    delta_gol = BONUS_GOL_LEGA - BONUS_GOL_FONTE
+    nuove = {pid: dict(v) for pid, v in pred.items()}
+    if delta_gol == 0:
+        return nuove                     # lega col punteggio standard: nulla da fare
+    campi = ("value", "value_modello", "value_up",
+             "value_q10", "value_q25", "value_q75", "value_q90")
+    conta = {r: 0 for r in ROLES}
+    somma = {r: 0.0 for r in ROLES}
+    for pid, v in nuove.items():
+        atteso = gol_attesi_di(pid, v.get("pres"))
+        v["gol_attesi"] = round(atteso, 2) if atteso is not None else None
+        if not atteso:
+            v["bonus_gol_lega"] = 0.0
+            continue
+        delta = delta_gol * atteso
+        for campo in campi:
+            if v.get(campo) is not None:
+                v[campo] = float(v[campo]) + delta
+        v["bonus_gol_lega"] = round(delta, 2)
+        v["motivi"] = ((v.get("motivi") or "") +
+                       ("; " if v.get("motivi") else "") +
+                       f"bonus gol lega +{BONUS_GOL_LEGA:.0f}: +{delta:.1f} pt "
+                       f"({atteso:.1f} gol attesi)")
+        r = PACK.players[pid].role if pid in PACK.players else None
+        if r in conta:
+            conta[r] += 1
+            somma[r] += delta
+    print(f"  bonus gol lega (+{BONUS_GOL_LEGA:.0f} contro +{BONUS_GOL_FONTE:.0f} "
+          f"della fonte): " + ", ".join(
+              f"{r} {conta[r]} rettificati, +{(somma[r] / conta[r]) if conta[r] else 0:.1f} medio"
+              for r in ROLES))
+    return nuove
 
 
 def rigoristi_ora() -> dict:
@@ -617,6 +707,71 @@ def stato_valido(candidato: dict) -> dict:
             "quotas": quote, "events": eventi}
 
 
+def valida_eventi(candidata: list[dict]) -> str | None:
+    """Dice PERCHE' una lista di acquisti non sta in piedi, o `None` se sta.
+
+    Replica `teams()` su una lista candidata invece che sullo stato corrente:
+    serve a `/copilot/evento_modifica`, che deve poter dire di no PRIMA di
+    toccare la memoria e il disco. I criteri sono gli stessi che il
+    martelletto applica uno per volta e che `stato_valido` applica al setup:
+    prezzo intero da almeno un credito, squadra esistente, un giocatore una
+    volta sola, nessun reparto oltre la quota, nessuna cassa negativa e — il
+    vincolo che il solo controllo sulla cassa non cattura — ogni squadra deve
+    restare in grado di riempire gli slot che le avanzano a un credito l'uno.
+    """
+    nomi = STATE["names"]
+    if not nomi:
+        return "tavolo non configurato"
+    quote = STATE["quotas"]
+    budget = int(STATE["budget"])
+    slot_totali = sum(int(v) for v in quote.values())
+    visti: set = set()
+    conti = [{"speso": 0, "n": 0, "ruoli": {r: 0 for r in ROLES}}
+             for _ in nomi]
+    for k, e in enumerate(candidata):
+        pid = e.get("player_id")
+        if pid not in PACK.players:
+            return f"riga {k}: giocatore {pid!r} inesistente"
+        if pid in visti:
+            return (f"riga {k}: {PACK.players[pid].name} risulterebbe "
+                    "aggiudicato due volte")
+        visti.add(pid)
+        try:
+            ti = indice_valido(e.get("team_index"), len(nomi))
+            prezzo = intero_valido(e.get("price"), minimo=1)
+        except ValueError as exc:
+            return f"riga {k}: {exc}"
+        ruolo = PACK.players[pid].role
+        c = conti[ti]
+        c["ruoli"][ruolo] += 1
+        c["speso"] += prezzo
+        c["n"] += 1
+        if c["ruoli"][ruolo] > int(quote.get(ruolo, 0)):
+            return (f"{nomi[ti]}: il reparto {ruolo} andrebbe a "
+                    f"{c['ruoli'][ruolo]} su {int(quote.get(ruolo, 0))}")
+    for i, nome in enumerate(nomi):
+        c = conti[i]
+        if c["speso"] > budget:
+            return f"{nome}: spenderebbe {c['speso']} crediti su {budget}"
+        restano = slot_totali - c["n"]
+        if c["speso"] + max(0, restano) > budget:
+            return (f"{nome}: le resterebbero {budget - c['speso']} crediti "
+                    f"per {restano} slot, e ogni slot ne costa almeno 1")
+    return None
+
+
+def indice_eventi() -> dict:
+    """Da giocatore alla riga del registro che lo ha aggiudicato.
+
+    Le rose escono da `teams()`, che somma gli eventi e perde la posizione:
+    senza questa mappa la pagina non puo' dire quale riga correggere quando
+    l'utente clicca su un giocatore gia' in rosa.
+    """
+    return {e["player_id"]: {"indice": i,
+                             "richiesta_id": e.get("richiesta_id")}
+            for i, e in enumerate(STATE["events"])}
+
+
 def rebuild_advisor():
     """Ricostruisce l'oracolo dallo stato: replan + calore mercato dai
     prezzi gia' battuti (stessa logica del bot B in asta simulata)."""
@@ -657,6 +812,14 @@ def player_info(pid: str) -> dict:
              "escluso_manuale": pid in (STATE.get("esclusi_manuali") or []),
              "fuori_lista": pid in ELEGGIBILITA.get("esclusi", ()),
              "senza_previsione": bool(pr.get("senza_previsione"))}
+    # I GOL, ovunque. Erano calcolati (`campi_gol`) ma usati in un posto solo,
+    # il pannello rigoristi: consiglio, ricerca, piano e rose uscivano senza.
+    # Passando da qui entrano in /copilot/players, /copilot/advice,
+    # /copilot/plan, /copilot/state e nell'export, tutti insieme.
+    fuori.update(campi_gol(pid))
+    fuori["bomber"] = e_bomber(pid, p.role)
+    fuori["gol_attesi"] = pr.get("gol_attesi")
+    fuori["bonus_gol_lega"] = pr.get("bonus_gol_lega", 0.0)
     if pid in RETTIFICHE:
         fuori["value_originale"] = pr.get("value_originale")
         fuori["rettifica"] = RETTIFICHE[pid]
@@ -699,7 +862,405 @@ def concorrenti_sopra(v: AuctionView, ruolo: str, tetto: int) -> dict:
             "concorrenti_max": sopra[0][0] if sopra else 0}
 
 
-def decisione_operativa(pid: str, price: int | None) -> dict:
+# ----------------------------------------- calore per ruolo, bomber, tetto
+# Il difetto (D2). `BBot.market_heat()` e' UN numero solo per tutto il
+# mercato: prezzi battuti diviso q50, su ogni ruolo insieme. L'asta pero' va a
+# blocchi, e la sera del 10/9 il blocco degli attaccanti e' partito quando
+# erano gia' stati battuti 175 lotti fra P, D e C a 0,64 volte le q50: calore
+# 0,67. Il bot ha letto «mercato freddo» e ha abbassato del 33% i tetti degli
+# attaccanti proprio mentre il blocco A pagava 1,5 volte le q50 — il segno
+# rovesciato, perche' i soldi risparmiati su P/D/C sono esattamente quelli che
+# finiscono sugli attaccanti. Qui il calore si misura DENTRO il ruolo, e con
+# nessun lotto battuto in quel ruolo vale 1.0: meglio non sapere che sapere il
+# contrario. Resta PRIVATO al Copilota: `BBot.market_heat` non si tocca,
+# perche' e' la politica con cui il bot e' stato misurato in simulazione.
+CALORE_PRIOR = 60.0            # crediti di prior verso 1.0 (~1 lotto grosso)
+CALORE_MIN, CALORE_MAX = 0.5, 2.0
+
+# Chi e' un bomber, per ruolo. Soglie sui gol TOTALI (azione + rigori) della
+# stagione 2025-26. Solo A e C: un difensore o un portiere non prendono il
+# premio di scarsita', e questo tiene fermo il tetto dove il difetto non c'era.
+SOGLIA_GOL = {"A": 10, "C": 6}
+# Il passo 2026-27 serve a chi in Serie A l'anno scorso non c'era (nessun dato
+# 2025-26) o ha giocato pochissimo. Con tre giornate in archivio, pero', UN
+# gol proietta 12,7 gol stagionali: preso alla lettera, il criterio
+# «gol/presenze * 38 >= 10» promuoveva a bomber 27 attaccanti su 86 all'evento
+# 190 — Osmajic e Ramos G. compresi, che in Serie A non hanno mai segnato — e
+# con 27 bomber la scarsita' e' nulla e il premio non scatta mai. Si chiede
+# quindi anche un numero di gol gia' fatti che un campione di tre partite non
+# produce per caso: 3. Misura: 27 bomber col criterio nudo, 11 con questo.
+MIN_GOL_2026_BOMBER = 3
+
+
+def calore_ruolo(ruolo: str) -> float:
+    """Prezzi battuti / q50, DENTRO un ruolo. Nessun lotto: 1.0, mai il calore
+    globale, che a inizio blocco descrive un altro mercato."""
+    num = den = 0.0
+    for e in STATE["events"]:
+        p = PACK.players.get(e["player_id"])
+        if p is None or p.role != ruolo:
+            continue
+        q50 = ADVISOR._q(e["player_id"], "q50") if ADVISOR else 0.0
+        if q50 <= 3:            # riempitivi da un credito: non dicono niente
+            continue
+        num += e["price"]
+        den += q50
+    if den <= 0:
+        return 1.0
+    return max(CALORE_MIN, min(CALORE_MAX,
+                               (num + CALORE_PRIOR) / (den + CALORE_PRIOR)))
+
+
+def calore_per_ruolo() -> dict:
+    return {r: round(calore_ruolo(r), 3) for r in ROLES}
+
+
+def e_bomber(pid: str, ruolo: str) -> bool:
+    """Fa gol davvero? Numeri di fonte (pagelle), non del modello."""
+    soglia = SOGLIA_GOL.get(ruolo)
+    if soglia is None:
+        return False
+    g = campi_gol(pid)
+    if (g.get("gol_tot_2025") or 0) >= soglia:
+        return True
+    p26, g26 = g.get("pres_2026") or 0, g.get("gol_tot_2026") or 0
+    return bool(p26 >= 2 and g26 >= MIN_GOL_2026_BOMBER
+                and g26 / p26 * 38 >= soglia)
+
+
+def livello_gol(pid: str) -> int:
+    """La classe di un attaccante in gol veri: gol + rigori del 2025-26."""
+    return campi_gol(pid).get("gol_tot_2025") or 0
+
+
+def storico_gol(pid: str, ruolo: str) -> bool:
+    """Ha gia' fatto gol da bomber in Serie A, con una stagione intera dietro.
+
+    Il difetto (V3): `e_bomber` promuove anche chi ha il solo passo del
+    2026-27, tre giornate, proiettato su trentotto. E' abbastanza per contarlo
+    nel pool — se segna, segna — ma non per pagarlo come un titolare accertato:
+    Raimondo, quattro gol in tre giornate e nessun minuto in Serie A prima,
+    usciva con un tetto di 251 su un lotto che il tavolo ha chiuso a 80. Il
+    premio di scarsita' (e con lui il pavimento del prezzo di indifferenza)
+    chiede quindi lo STORICO: gol + rigori 2025-26 sopra la soglia del ruolo.
+    """
+    soglia = SOGLIA_GOL.get(ruolo)
+    return soglia is not None and livello_gol(pid) >= soglia
+
+
+def bomber_nel_pool(ruolo: str, almeno: int = 0) -> list[str]:
+    """Chi resta comprabile e fa gol: la vera offerta, non le teste (D3).
+
+    `almeno` filtra per classe. Serve perche' la scarsita' si misura sui
+    SOSTITUTI, non sulla categoria: all'evento 190 restavano undici attaccanti
+    sopra i dieci gol, ma sopra i quattordici di Malen ce n'erano tre. Contare
+    Davis K. (dieci gol, q50 venti crediti) come alternativa a Malen e' lo
+    stesso errore che il MILP fa con le riserve — e con undici «bomber» per
+    sei compratori la scarsita' risulta nulla proprio nel momento in cui il
+    tavolo si sta scannando per due nomi.
+    """
+    return [pid for pid, p in pool().items()
+            if p.role == ruolo and e_bomber(pid, ruolo)
+            and (almeno <= 0 or livello_gol(pid) >= almeno)]
+
+
+def contendenti_per(v: AuctionView, ruolo: str, soglia: int) -> int:
+    """Avversari che hanno ancora uno slot in quel ruolo E la cassa per
+    arrivare a `soglia`: la domanda vera contro cui si compete."""
+    return sum(1 for t in v.others
+               if t.slots_left(v.quotas, ruolo) > 0
+               and int(t.max_bid(v.quotas)) >= max(1, int(soglia)))
+
+
+def quota_scarsita(bomber_rimasti: int, squadre_contendenti: int) -> float:
+    """Quanta parte del mio spendibile giustifica la scarsita'.
+
+    `n` = contendenti + 1 (io). Con piu' bomber che compratori la quota e' 0
+    (ne resta uno anche al giro dopo); con un bomber solo e nove rivali sfiora
+    1: se lo lasci andare, non torna.
+    """
+    n = squadre_contendenti + 1
+    if n <= 0:
+        return 0.0
+    return max(0.0, min(1.0, (n - bomber_rimasti) / n))
+
+
+def tetto_scarsita(*, crediti: int, slot_totali: int, prezzo_indifferenza: int,
+                   bomber_rimasti: int, squadre_contendenti: int,
+                   cap_bot: int, e_bomber: bool, obbligo: bool = False,
+                   storico_gol: bool = True) -> dict:
+    """Il tetto nuovo, funzione pura: stessi ingressi, stesso numero.
+
+    Il difetto (D1): il tetto era `(q90 + 0.5 * prezzo_ombra) * calore`, e
+    basta. Non sapeva quanti crediti avevi in cassa, quanti slot ti restavano,
+    quanti bomber c'erano ancora, quante squadre potevano pagarli. Malen a 316
+    crediti con sei slot d'attacco liberi e un solo massimo legale di 311
+    usciva a 116; il tavolo lo ha pagato 275.
+
+    Qui il tetto parte dal prezzo di indifferenza — quanto puoi pagarlo prima
+    che la rosa senza di lui valga uguale — e sale verso il massimo spendibile
+    in proporzione alla scarsita'. Non lo supera mai, e non scende mai sotto il
+    tetto del bot: e' un pavimento aggiunto, non una politica sostituita.
+
+    `storico_gol` (V3) e' la condizione per ricevere quel pavimento: senza una
+    stagione di gol veri alle spalle il giocatore resta bomber (conta nel pool,
+    e la pagina lo dichiara) ma il tetto torna a essere quello del bot. Il
+    prezzo di indifferenza continua a essere calcolato e mostrato: e'
+    informazione utile — «oltre questa cifra il piano senza di lui vale
+    uguale» — ma non alza piu' il limite di chi ha tre giornate di curriculum.
+    """
+    max_spendibile = crediti - (slot_totali - 1)
+    if max_spendibile < 1:
+        return {"tetto": 0, "max_spendibile": max_spendibile,
+                "quota_scarsita": 0.0, "prezzo_indifferenza": 0,
+                "cap_bot": int(cap_bot), "premio_scarsita": 0,
+                "motivo": "cassa insufficiente per gli slot che restano"}
+    if obbligo:
+        return {"tetto": max_spendibile, "max_spendibile": max_spendibile,
+                "quota_scarsita": 1.0, "prezzo_indifferenza": int(prezzo_indifferenza),
+                "cap_bot": int(cap_bot), "premio_scarsita": 0,
+                "motivo": "obbligo di completare la rosa"}
+    p_ind = max(0, min(int(prezzo_indifferenza), max_spendibile))
+    premia = bool(e_bomber and storico_gol)
+    s = quota_scarsita(bomber_rimasti, squadre_contendenti) if premia else 0.0
+    # senza premio il pavimento resta quello del bot: `premio` a zero, cosi'
+    # nemmeno il prezzo di indifferenza puo' tirare su il tetto
+    premio = int(round(p_ind + s * (max_spendibile - p_ind))) if premia else 0
+    tetto = min(max_spendibile, max(int(cap_bot), premio))
+    if premia:
+        motivo = (f"restano {bomber_rimasti} bomber bravi quanto lui per "
+                  f"{squadre_contendenti + 1} squadre con slot e cassa: "
+                  f"indifferenza {p_ind}, tetto {tetto} su "
+                  f"{max_spendibile} spendibili")
+    elif e_bomber:
+        motivo = (f"bomber solo per il passo 2026: nessun premio di scarsita'. "
+                  f"Resta il tetto del bot {int(cap_bot)}, su {max_spendibile} "
+                  f"spendibili (pareggia a {p_ind})")
+    else:
+        motivo = (f"nessun premio di scarsita' (non fa gol da bomber): resta il "
+                  f"tetto del bot {int(cap_bot)}, su {max_spendibile} spendibili")
+    return {"tetto": tetto, "max_spendibile": max_spendibile,
+            "prezzo_indifferenza": p_ind, "quota_scarsita": round(s, 3),
+            "premio_scarsita": (premio - p_ind) if premia else 0,
+            "storico_gol": bool(storico_gol), "cap_bot": int(cap_bot),
+            "motivo": motivo}
+
+
+def cap_col_calore(pid: str, tetto_bot: int, calore: float) -> int:
+    """Il tetto di sempre, riletto col calore del RUOLO invece che del mercato.
+
+    Le due strade del bot (`_max_bid_for` per i target, il tetto del bargain
+    per gli altri) sono entrambe proporzionali al calore, quindi dividere per
+    quello globale e moltiplicare per quello di ruolo da' esattamente il tetto
+    che il bot avrebbe prodotto con l'altro calore. L'unica soglia che NON e'
+    proporzionale e' la guardia anti-zavorra dei 5 crediti (`MIN_VALUE_OVER_5CR`):
+    quella e' un limite assoluto, e riscalarla vorrebbe dire aggirarla.
+    """
+    tetto_bot = int(tetto_bot)
+    if ADVISOR is None:
+        return tetto_bot
+    if ADVISOR._q(pid, "value", 0.0) < BBot.MIN_VALUE_OVER_5CR:
+        return min(tetto_bot, 5)
+    heat = ADVISOR.market_heat()
+    if heat <= 0:
+        return tetto_bot
+    return int(tetto_bot / heat * calore)
+
+
+# ------------------------------------------------ prezzo di indifferenza
+# Il MILP costa ~0,25 s a soluzione e la bisezione ne vuole dieci: due secondi
+# e mezzo, che dentro `/copilot/advice` sono inaccettabili mentre il banditore
+# batte. Stesso schema di `piani_alternativi`: calcolo in un thread, FUORI dal
+# lock, risultato in cache con la versione dello stato nella chiave. La prima
+# risposta dice «in_calcolo» e usa il tetto del bot; al giro dopo il numero
+# c'e'. Un martelletto cambia `versione_stato()` e la cache vecchia non puo'
+# piu' essere scambiata per attuale.
+INDIFF_CACHE: dict = {}
+INDIFF_IN_CORSO: set = set()
+# due bisezioni alla volta: ogni MILP lancia un processo cbc.exe, e riempire
+# la macchina di solutori rallenta proprio la richiesta che si voleva servire
+INDIFF_LIMITE = threading.Semaphore(2)
+INDIFF_MAX_MILP = 10
+INDIFF_TIME_LIMIT = 2
+
+
+def contesto_indifferenza(ruolo: str) -> pn.Contesto:
+    """Lo stesso contesto dei piani, ma con i prezzi del RUOLO al calore del
+    ruolo: confrontare «con lui» e «senza di lui» ai prezzi di un blocco che
+    non e' quello in corso e' il modo migliore per farsi dire di lasciarlo."""
+    ctx = contesto_piani()
+    heat = ADVISOR.market_heat() if ADVISOR else 1.0
+    fattore = (calore_ruolo(ruolo) / heat) if heat > 0 else 1.0
+    prezzi = {pid: (v * fattore if PACK.players[pid].role == ruolo else v)
+              for pid, v in ctx.prezzi.items()}
+    return pn.Contesto(
+        candidati=ctx.candidati, prezzi=prezzi, valori=ctx.valori,
+        valori_up=ctx.valori_up, quote=ctx.quote, budget=ctx.budget,
+        fissati=ctx.fissati, lam=ctx.lam, forced_spend=ctx.forced_spend,
+        min_spend=ctx.min_spend, time_limit=INDIFF_TIME_LIMIT)
+
+
+def _valore_e_gol(ids_per_ruolo: dict, valori: dict) -> dict:
+    """Quanto vale un piano e quanti gol ha in attacco: le due cose che
+    l'utente confronta davvero fra «con lui» e «senza di lui»."""
+    return {"value": round(sum(valori.get(q, 0.0)
+                               for ids in ids_per_ruolo.values() for q in ids), 1),
+            "gol_2025": sum(campi_gol(q).get("gol_tot_2025") or 0
+                            for q in ids_per_ruolo.get("A", []))}
+
+
+def _lavora_indifferenza(pid: str, versione: str, ctx: pn.Contesto,
+                         foto: dict) -> None:
+    """Bisezione sul prezzo di indifferenza, in sfondo. Nessun accesso allo
+    stato: tutto quello che serve e' nella foto scattata sotto lock."""
+    esito: dict = {"stato": "non_applicabile", "prezzo": None,
+                   "con_lui": None, "senza_di_lui": None}
+    try:
+        with INDIFF_LIMITE:
+            milp = 0
+            riferimento = pn._risolvi(ctx, banned={pid})
+            milp += 1
+            if riferimento is None:
+                # senza di lui non esiste una rosa legale: e' il caso limite in
+                # cui il confronto non ha senso, e si dice invece di inventare
+                esito["stato"] = "non_applicabile"
+            else:
+                obiettivo_rif = riferimento["objective"]
+                esito["senza_di_lui"] = _valore_e_gol(riferimento["roster"],
+                                                      ctx.valori)
+                cache: dict[int, float | None] = {}
+
+                def punteggio(p: int) -> float | None:
+                    nonlocal milp
+                    if p in cache:
+                        return cache[p]
+                    milp += 1
+                    r = pn.piano_al_prezzo(ctx, pid, float(p), info_breve,
+                                           calcola_riferimento=False)
+                    cache[p] = (r.get("punteggio_modello")
+                                if r.get("stato") == "ok" else None)
+                    return cache[p]
+
+                massimo = int(foto["max_spendibile"])
+                basso, alto = 1, max(1, massimo)
+                primo = punteggio(1)
+                if primo is None or primo < obiettivo_rif:
+                    stella = 0
+                else:
+                    while basso < alto and milp < INDIFF_MAX_MILP:
+                        mezzo = (basso + alto + 1) // 2
+                        q = punteggio(mezzo)
+                        if q is not None and q >= obiettivo_rif:
+                            basso = mezzo
+                        else:
+                            alto = mezzo - 1
+                    stella = basso
+                esito["prezzo"] = int(stella)
+                esito["stato"] = "pronto"
+                # col numero vero cambia anche chi puo' permetterselo: si
+                # ricontano i rivali sulla foto delle loro casse, cosi' il
+                # piano «con lui» e' quello al tetto che la pagina mostrera'
+                soglia = max(int(stella), int(foto.get("prezzo_corrente") or 0) + 1)
+                contendenti = sum(1 for m in foto.get("max_bid_rivali") or []
+                                  if m >= max(1, soglia))
+                d = tetto_scarsita(
+                    crediti=foto["crediti"], slot_totali=foto["slot_totali"],
+                    prezzo_indifferenza=int(stella),
+                    bomber_rimasti=foto["bomber_rimasti"],
+                    squadre_contendenti=contendenti,
+                    cap_bot=foto["cap_bot"], e_bomber=foto["e_bomber"],
+                    storico_gol=bool(foto.get("storico_gol", True)))
+                r = pn.piano_al_prezzo(ctx, pid, float(max(1, d["tetto"])),
+                                       info_breve, calcola_riferimento=False)
+                if r.get("stato") == "ok":
+                    ids = {ruolo: [x["id"] for x in righe]
+                           for ruolo, righe in r["rosa"].items()}
+                    esito["con_lui"] = {"prezzo": d["tetto"],
+                                        **_valore_e_gol(ids, ctx.valori)}
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"  prezzo di indifferenza fallito per {pid}: {exc}")
+        esito = {"stato": "non_applicabile", "prezzo": None,
+                 "con_lui": None, "senza_di_lui": None, "errore": str(exc)}
+    with LOCK:
+        INDIFF_IN_CORSO.discard((versione, pid))
+        # Si potano SOLO le chiavi di versioni superate, mai quelle vive.
+        # Il difetto (V1): qui c'era `INDIFF_CACHE.clear()`, e ogni bisezione
+        # che finiva buttava via anche i risultati degli ALTRI giocatori dello
+        # stesso stato. Siccome `scalda_indifferenza` ne lancia una nuova a
+        # ogni consiglio, il numero del giocatore al banco spariva dalla cache
+        # appena il pre-riscaldamento del vicino arrivava in fondo: sul banco
+        # il tetto alternava 289 e 272 ogni due secondi, e il pre-riscaldamento
+        # cancellava proprio cio' che aveva appena scaldato.
+        corrente = versione_stato()
+        for chiave in [k for k in INDIFF_CACHE if k[0] != corrente]:
+            del INDIFF_CACHE[chiave]
+        if versione == corrente:
+            INDIFF_CACHE[(versione, pid)] = esito
+
+
+def prezzo_indifferenza(pid: str, foto: dict, *, avvia: bool = True) -> dict:
+    """Risposta immediata: il numero se c'e', altrimenti «in_calcolo».
+
+    Si chiama sotto LOCK (legge lo stato); il calcolo parte in un thread
+    demone che il lock non ce l'ha.
+    """
+    chiave = (versione_stato(), pid)
+    if chiave in INDIFF_CACHE:
+        return INDIFF_CACHE[chiave]
+    if chiave in INDIFF_IN_CORSO:
+        return {"stato": "in_calcolo", "prezzo": None,
+                "con_lui": None, "senza_di_lui": None}
+    if not avvia or ADVISOR is None or not STATE["names"]:
+        return {"stato": "in_calcolo", "prezzo": None,
+                "con_lui": None, "senza_di_lui": None}
+    try:
+        ctx = contesto_indifferenza(PACK.players[pid].role)
+    except Exception as exc:                                   # noqa: BLE001
+        print(f"  contesto indifferenza non costruito per {pid}: {exc}")
+        return {"stato": "non_applicabile", "prezzo": None,
+                "con_lui": None, "senza_di_lui": None}
+    INDIFF_IN_CORSO.add(chiave)
+    threading.Thread(target=_lavora_indifferenza,
+                     args=(pid, chiave[0], ctx, dict(foto)),
+                     daemon=True).start()
+    return {"stato": "in_calcolo", "prezzo": None,
+            "con_lui": None, "senza_di_lui": None}
+
+
+def scalda_indifferenza(ruolo: str = "A", quanti: int = 3) -> None:
+    """Pre-riscalda i primi bomber del pool: quando salgono al banco il numero
+    c'e' gia'. Si chiama sotto LOCK, come `prezzo_indifferenza`.
+
+    Non rilancia mai un calcolo gia' in cache o gia' in corso: entrambi gli
+    insiemi (`INDIFF_CACHE`, `INDIFF_IN_CORSO`) si leggono qui sotto LOCK, con
+    la versione dello stato scattata una volta sola. E ne accende UNO per
+    volta: il solutore ha due posti, e il primo deve restare al giocatore che
+    e' davvero al banco.
+    """
+    if INDIFF_IN_CORSO:
+        # c'e' gia' un calcolo in corso, e quasi sempre e' quello del
+        # giocatore al banco: il pre-riscaldamento non deve rubargli il
+        # solutore. Si riprova al giro dopo, quando la pagina richiama.
+        return
+    versione = versione_stato()
+    ordinati = sorted(bomber_nel_pool(ruolo),
+                      key=lambda q: -(campi_gol(q).get("gol_tot_2025") or 0))
+    for pid in ordinati[:quanti]:
+        if (versione, pid) in INDIFF_CACHE or (versione, pid) in INDIFF_IN_CORSO:
+            continue
+        try:
+            decisione_operativa(pid, None)
+        except Exception as exc:                               # noqa: BLE001
+            print(f"  pre-riscaldamento saltato per {pid}: {exc}")
+            return
+        if INDIFF_IN_CORSO:
+            # il calcolo e' partito: gli altri al giro dopo, quando questo
+            # sara' in cache e non verra' piu' rifatto
+            return
+
+
+def decisione_operativa(pid: str, price: int | None,
+                        *, avvia_calcolo: bool = True) -> dict:
     """La sola politica: quella del bot, troncata dai limiti legali.
 
     Il difetto riprodotto: sullo stesso giocatore (valore 100, offerta 6) il
@@ -727,7 +1288,16 @@ def decisione_operativa(pid: str, price: int | None) -> dict:
              # indicatore «chi puo' superarti»: vuoto dove il tetto e' 0, le
              # uscite con un tetto vero lo ricalcolano sotto
              "concorrenti_sopra_tetto": 0, "concorrenti_nomi": [],
-             "concorrenti_max": 0}
+             "concorrenti_max": 0,
+             # i campi del tetto nuovo esistono SEMPRE, anche nelle uscite a
+             # zero: la pagina non deve indovinare se un numero manca perche'
+             # non si applica o perche' il server e' vecchio
+             "max_spendibile": max_legale, "calore_ruolo": 1.0, "cap_bot": 0,
+             "prezzo_indifferenza": None, "stato_indifferenza": "non_applicabile",
+             "e_bomber": False, "storico_gol": False, "bomber_rimasti": 0,
+             "squadre_contendenti": 0,
+             "quota_scarsita": 0.0, "motivo_tetto": "", "con_lui": None,
+             "senza_di_lui": None}
 
     if pid in ELEGGIBILITA["esclusi"]:
         nota = (ELEGGIBILITA.get("note", {}) or {}).get(pid) or \
@@ -765,7 +1335,9 @@ def decisione_operativa(pid: str, price: int | None) -> dict:
     if liberi_ruolo <= slot_ruolo:
         return {**fuori, **extra, **concorrenti_sopra(v, ruolo, max_legale),
                 "azione": "rilancia", "max_consigliato": max_legale,
-                "obbligo": True,
+                "obbligo": True, "cap_bot": max_legale,
+                "quota_scarsita": 1.0,
+                "motivo_tetto": "obbligo di completare la rosa: massimo legale",
                 "motivo": (f"obbligo di completare la rosa: restano "
                            f"{liberi_ruolo} {ruolo} comprabili per {slot_ruolo} "
                            f"slot. Fino al massimo legale {max_legale}")}
@@ -780,9 +1352,63 @@ def decisione_operativa(pid: str, price: int | None) -> dict:
                 basso = mezzo
             else:
                 alto = mezzo - 1
-    tetto = int(basso)
-    motivo = ADVISOR.bid(v, giocatore, max(tetto, 1) - 1, None).thought
+    tetto_bot = int(basso)
+    motivo = ADVISOR.bid(v, giocatore, max(tetto_bot, 1) - 1, None).thought
+
+    # --- il tetto nuovo (D1 + D2): calore del ruolo, prezzo di indifferenza,
+    # premio di scarsita'. Il tetto del bot resta il pavimento: nessuna offerta
+    # che il bot avrebbe fatto viene tolta, se ne aggiungono.
+    calore = calore_ruolo(ruolo)
+    cap_bot = min(max_legale, cap_col_calore(pid, tetto_bot, calore))
+    bomber = e_bomber(pid, ruolo)
+    # il premio di scarsita' lo prende solo chi ha lo storico (V3): chi e'
+    # bomber per il solo passo di tre giornate resta nel pool e nel badge, ma
+    # il suo tetto torna a essere quello del bot
+    con_storico = storico_gol(pid, ruolo)
+    # due conteggi, due domande diverse: quanti bomber restano in tutto (il
+    # pannello) e quanti ne restano BRAVI QUANTO LUI (la scarsita' che decide
+    # il premio, perche' e' quella che dice se puoi aspettare il prossimo)
+    pool_ruolo = len(bomber_nel_pool(ruolo)) if ruolo in SOGLIA_GOL else 0
+    rimasti = (len(bomber_nel_pool(ruolo, almeno=livello_gol(pid)))
+               if bomber else 0)
+    indiff = {"stato": "non_applicabile", "prezzo": None,
+              "con_lui": None, "senza_di_lui": None}
+    p_ind = cap_bot
+    contendenti = contendenti_per(v, ruolo, max(cap_bot, (price or 0) + 1))
+    if bomber and cap_bot >= 1:
+        # il prezzo di indifferenza costa dieci MILP: si chiede solo per chi
+        # puo' davvero ricevere il premio, e la risposta arriva dallo sfondo
+        foto = {"crediti": int(v.me.budget), "slot_totali": int(slot_totali),
+                "max_spendibile": max_legale, "cap_bot": cap_bot,
+                "bomber_rimasti": rimasti, "squadre_contendenti": contendenti,
+                "e_bomber": True, "storico_gol": con_storico,
+                "prezzo_corrente": price,
+                "max_bid_rivali": [int(t.max_bid(v.quotas)) for t in v.others
+                                   if t.slots_left(v.quotas, ruolo) > 0]}
+        indiff = prezzo_indifferenza(pid, foto, avvia=avvia_calcolo)
+        if indiff.get("stato") == "pronto" and indiff.get("prezzo") is not None:
+            p_ind = int(indiff["prezzo"])
+            # con il numero vero cambia anche chi puo' permetterselo
+            contendenti = contendenti_per(v, ruolo, max(p_ind, (price or 0) + 1))
+    d = tetto_scarsita(crediti=int(v.me.budget), slot_totali=int(slot_totali),
+                       prezzo_indifferenza=int(p_ind), bomber_rimasti=rimasti,
+                       squadre_contendenti=contendenti, cap_bot=cap_bot,
+                       e_bomber=bomber, storico_gol=con_storico)
+    tetto = int(d["tetto"])
     prossima = fuori["prossima_offerta"]
+    nuovo = {"max_spendibile": max_legale, "calore_ruolo": round(calore, 3),
+             "cap_bot": cap_bot, "bomber_pool_ruolo": pool_ruolo,
+             "livello_gol": livello_gol(pid),
+             "prezzo_indifferenza": (int(indiff["prezzo"])
+                                     if indiff.get("prezzo") is not None else None),
+             "stato_indifferenza": indiff.get("stato", "non_applicabile"),
+             "e_bomber": bomber, "storico_gol": con_storico,
+             "bomber_rimasti": rimasti,
+             "squadre_contendenti": contendenti,
+             "quota_scarsita": d.get("quota_scarsita", 0.0),
+             "motivo_tetto": d.get("motivo", ""),
+             "con_lui": indiff.get("con_lui"),
+             "senza_di_lui": indiff.get("senza_di_lui")}
 
     if tetto < 1:
         azione = "non offrire"
@@ -792,7 +1418,9 @@ def decisione_operativa(pid: str, price: int | None) -> dict:
         motivo = f"oltre il massimo {tetto}: {motivo}"
     else:
         azione = "rilancia"
-    return {**fuori, **extra, **concorrenti_sopra(v, ruolo, tetto),
+    if tetto > tetto_bot:
+        motivo = f"{motivo}; tetto alzato a {tetto}: {d.get('motivo', '')}"
+    return {**fuori, **extra, **nuovo, **concorrenti_sopra(v, ruolo, tetto),
             "azione": azione, "max_consigliato": tetto,
             "motivo": motivo, "obbligo": False}
 
@@ -826,6 +1454,10 @@ def advice(pid: str, price: int | None) -> dict:
         out["consiglio"] = f"NEL PIANO ({quale}): rilancia fino a {tetto}"
     else:
         out["consiglio"] = f"fuori piano: rilancia al massimo fino a {tetto}"
+    # pre-riscaldamento: mentre guardi questo giocatore, lo sfondo calcola il
+    # prezzo di indifferenza dei prossimi bomber. Quando salgono al banco il
+    # numero c'e' gia' invece di arrivare due secondi dopo il martelletto.
+    scalda_indifferenza("A", 3)
     return out
 
 
@@ -840,8 +1472,11 @@ def plan() -> dict:
         if p is None:
             continue
         # STESSO tetto del banco: `_max_bid_for` e' grezzo e ignora il limite
-        # legale, quindi il piano mostrava 167,8 dove il banco diceva 167
-        dec = decisione_operativa(pid, None)
+        # legale, quindi il piano mostrava 167,8 dove il banco diceva 167.
+        # `avvia_calcolo=False`: il piano ha venticinque target, e far partire
+        # venticinque bisezioni MILP per aprire una schermata riempirebbe la
+        # macchina di solutori. Il piano usa il numero se c'e' gia' in cache.
+        dec = decisione_operativa(pid, None, avvia_calcolo=False)
         cap = dec["max_consigliato"]
         q50 = ADVISOR._q(pid, "q50") * ADVISOR.market_heat()
         tot += q50
@@ -892,7 +1527,21 @@ def contesto_piani() -> pn.Contesto:
         speso_a = sum(pr for _, pr in v.me.roster.get("A", []))
         lo_s, hi_s = obiettivo["attack_share"]
         lo = max(0.0, lo_s * STATE["budget"] - speso_a)
-        hi = max(lo, hi_s * STATE["budget"] - speso_a)
+        # D4: il tetto della quota d'attacco era 0.50 * budget TOTALE - speso_A,
+        # cioe' 250 fissi. Con sei slot A liberi, un attaccante a p obbligava
+        # p + 5 <= 250: il piano non poteva proporre 275 nemmeno con 316
+        # crediti in cassa e tutti gli altri reparti gia' chiusi, e la curva
+        # dei punteggi usciva non monotona (220 -> -2.8%, 235 -> -5.5%,
+        # 250 -> -0.9%). Ora il tetto guarda il residuo: quel che resta meno un
+        # credito per ogni slot fuori dall'attacco. Copia esatta di
+        # `BBot._replan`: le due funzioni cambiano insieme, e
+        # `test_piani_riferimento_uguale_al_piano_del_bot` le confronta.
+        slot_altri = sum(v.me.slots_left(v.quotas, r) for r in ROLES if r != "A")
+        if slot_altri == 0:
+            hi = max(lo, float(v.me.budget))
+        else:
+            hi = max(lo, min(hi_s * STATE["budget"] - speso_a,
+                             float(v.me.budget - slot_altri)))
         forzato = {"A": (lo, hi)}
     return pn.Contesto(
         candidati=candidati, prezzi=prezzi, valori=valori, valori_up=valori_up,
@@ -981,6 +1630,82 @@ def nominate(role: str) -> dict:
     kind = "esca" if "fatevi male" in d.thought else "riempitivo"
     return {"consiglio": d.thought, "tipo": kind, "giocatore": player_info(p.player_id),
             "apertura": d.opening_bid}
+
+
+# ------------------------------------------------ pannelli: cassa e gol
+def spendibile_ora() -> dict:
+    """Quanto posso spendere ADESSO su un solo giocatore, e per quanti slot.
+
+    Il numero esisteva (`max_bid`) ma viveva in `state.teams[].max_bid` e in
+    una riga da 11 px sotto la piega: chi comprava non lo vedeva.
+    """
+    v = view_for_me()
+    return {"crediti": int(v.me.budget),
+            "slot_totali": int(v.me.slots_left(v.quotas)),
+            "max_ora": int(v.me.max_bid(v.quotas))
+            if v.me.slots_left(v.quotas) > 0 else 0,
+            "slot_per_ruolo": {r: int(v.me.slots_left(v.quotas, r)) for r in ROLES}}
+
+
+def scarsita_ruoli(ruoli=("A", "C")) -> dict:
+    """Quanti bomber restano davvero e quante squadre se li contendono."""
+    v = view_for_me()
+    fuori = {}
+    for r in ruoli:
+        ids = bomber_nel_pool(r)
+        in_gara = sum(1 for t in v.others if t.slots_left(v.quotas, r) > 0)
+        top = sorted(ids, key=lambda q: -(campi_gol(q).get("gol_tot_2025") or 0))[:5]
+        fuori[r] = {
+            "bomber_pool": len(ids), "squadre_in_gara": in_gara,
+            "rapporto": round(len(ids) / (in_gara + 1), 2) if in_gara + 1 else None,
+            "top": [{"id": q, "nome": PACK.players[q].name,
+                     "squadra": PACK.players[q].team,
+                     "gol_tot_2025": campi_gol(q).get("gol_tot_2025"),
+                     "gol_2026": campi_gol(q).get("gol_2026"),
+                     "value": (PRED_ATTIVE or PACK.b_predictions).get(q, {}).get("value"),
+                     "q50": (PRED_ATTIVE or PACK.b_predictions).get(q, {}).get("q50")}
+                    for q in top]}
+    return fuori
+
+
+def gol_di_rosa(t: TeamState) -> dict:
+    """I gol veri di una rosa, per reparto. `senza_dato` non e' zero: e' la
+    quota di rosa su cui la fonte non dice niente (chi in Serie A non c'era)."""
+    per_ruolo = {r: 0 for r in ROLES}
+    tot25 = rig25 = tot26 = 0
+    senza: list[str] = []
+    for r in ROLES:
+        for pid, _pr in t.roster[r]:
+            g = campi_gol(pid)
+            if g.get("gol_tot_2025") is None:
+                senza.append(PACK.players[pid].name if pid in PACK.players else pid)
+            else:
+                per_ruolo[r] += g["gol_tot_2025"]
+                tot25 += g["gol_tot_2025"]
+                rig25 += g.get("rig_2025") or 0
+            tot26 += g.get("gol_tot_2026") or 0
+    return {"per_ruolo": per_ruolo, "tot_2025": tot25, "rig_2025": rig25,
+            "tot_2026": tot26, "senza_dato": len(senza), "senza_dato_nomi": senza}
+
+
+def gol_rosa() -> dict:
+    """La classifica dei gol: la mia rosa contro le altre nove.
+
+    E' la domanda che l'utente si e' fatto guardando la sua rosa finita
+    («questa squadra non fa gol») e a cui nessun endpoint sapeva rispondere.
+    """
+    if not STATE["names"]:
+        return {"err": "tavolo non configurato"}
+    righe = [{"index": i, "nome": t.bot_name, "mia": i == STATE["my_index"],
+              **gol_di_rosa(t)} for i, t in enumerate(teams())]
+    righe.sort(key=lambda x: -x["tot_2025"])
+    for posto, r in enumerate(righe, start=1):
+        r["posizione"] = posto
+    mia = next((r for r in righe if r["mia"]), None)
+    return {"squadre": righe,
+            "mia_posizione": mia["posizione"] if mia else None,
+            "media_lega": round(sum(r["tot_2025"] for r in righe) / len(righe), 1)
+            if righe else None}
 
 
 # ------------------------------------------------------------ http
@@ -1114,8 +1839,30 @@ class Handler(BaseHTTPRequestHandler):
                         "sessione; gli acquisti sono quelli registrati al "
                         "tavolo. Il prezzo di mercato e' un riferimento "
                         "aggregato, non un tetto.")})
+            if u.path == "/copilot/eventi":
+                # l'elenco COMPLETO degli acquisti, con la posizione nel
+                # registro: e' l'indirizzo che /copilot/evento_modifica chiede.
+                # `last_events` ne mostra quindici, e il lotto da correggere
+                # quasi mai e' fra gli ultimi quindici.
+                return self._send([
+                    {"indice": i, "player_id": e["player_id"],
+                     "nome": PACK.players[e["player_id"]].name,
+                     "ruolo": PACK.players[e["player_id"]].role,
+                     # `squadra` e' il club, come ovunque in questa API;
+                     # `acquirente` e' la squadra di fantacalcio che l'ha preso
+                     "squadra": PACK.players[e["player_id"]].team,
+                     "team_index": e["team_index"],
+                     "acquirente": (STATE["names"][e["team_index"]]
+                                    if e["team_index"] < len(STATE["names"])
+                                    else None),
+                     "prezzo": e["price"], "ts": e.get("ts"),
+                     "richiesta_id": e.get("richiesta_id")}
+                    for i, e in enumerate(STATE["events"])
+                    if e["player_id"] in PACK.players])
             if u.path == "/copilot/state":
                 ts = teams() if STATE["names"] else []
+                gol_ts = [gol_di_rosa(t) for t in ts]   # una volta sola per squadra
+                rif = indice_eventi()   # giocatore -> riga del registro
                 self._send({
                     "season": STATE["season"], "names": STATE["names"],
                     "my_index": STATE["my_index"], "budget": STATE["budget"],
@@ -1134,15 +1881,38 @@ class Handler(BaseHTTPRequestHandler):
                                # con la rosa piena `max_bid` darebbe budget+1
                                "max_bid": (t.max_bid(STATE["quotas"])
                                            if t.slots_left(STATE["quotas"]) > 0 else 0),
-                               "roster": {r: [{**player_info(pid), "prezzo": pr}
+                               # i gol veri della rosa, per confrontarsi con le
+                               # altre nove senza aprire un altro pannello
+                               "gol_2025": gol_ts[i]["tot_2025"],
+                               "gol_2025_A": gol_ts[i]["per_ruolo"]["A"],
+                               "gol_2025_C": gol_ts[i]["per_ruolo"]["C"],
+                               "gol_2026": gol_ts[i]["tot_2026"],
+                               "senza_dato": gol_ts[i]["senza_dato"],
+                               "senza_dato_nomi": gol_ts[i]["senza_dato_nomi"],
+                               # `indice` e `richiesta_id` accanto a ogni
+                               # acquisto: senza, la pagina non sa quale riga
+                               # del registro correggere
+                               "roster": {r: [{**player_info(pid), "prezzo": pr,
+                                               **rif.get(pid, {"indice": None,
+                                                               "richiesta_id": None})}
                                               for pid, pr in t.roster[r]] for r in ROLES}}
                               for i, t in enumerate(ts)],
                     "pool_size": len(pool()),
                     "heat": round(ADVISOR.market_heat(), 2) if ADVISOR else 1.0,
+                    # quanto posso spendere ora, quanto scotta ogni ruolo,
+                    # quanti bomber restano: i tre numeri che mancavano
+                    "spendibile": spendibile_ora() if STATE["names"] else None,
+                    "calore_per_ruolo": calore_per_ruolo() if ADVISOR else
+                    {r: 1.0 for r in ROLES},
+                    "scarsita": scarsita_ruoli() if STATE["names"] else {},
                     # ultimi acquisti in ordine cronologico (ticker + label undo)
                     "last_events": [{**player_info(e["player_id"]), "team_index": e["team_index"],
-                                     "price": e["price"], "ts": e.get("ts")}
-                                    for e in STATE["events"][-15:]],
+                                     "price": e["price"], "ts": e.get("ts"),
+                                     # posizione nel registro: la modifica si
+                                     # indirizza per indice, non per nome
+                                     "indice": i,
+                                     "richiesta_id": e.get("richiesta_id")}
+                                    for i, e in list(enumerate(STATE["events"]))[-15:]],
                 })
             elif u.path == "/copilot/advice":
                 pid = q.get("player_id")
@@ -1180,6 +1950,7 @@ class Handler(BaseHTTPRequestHandler):
                 out = [player_info(pid) for pid, p in pool(solo_eleggibili=not tutti).items()
                        if (not role or p.role == role) and (not sq or p.team == sq)
                        and (not text or text in senza_accenti(p.name))]
+                ordina = (q.get("ordina") or "value").lower()
                 if text:
                     # chi digita un nome vuole quel nome: prima chi comincia
                     # cosi', poi il nome piu' corto; il valore solo dopo.
@@ -1187,11 +1958,43 @@ class Handler(BaseHTTPRequestHandler):
                     # banco c'era il portiere Martinez Jo.
                     out.sort(key=lambda x: (0 if senza_accenti(x["nome"]).startswith(text) else 1,
                                             len(x["nome"]), -(x["value"] or 0)))
+                elif ordina == "gol":
+                    # D5: la lista si e' sempre ordinata per `value`, e fra i
+                    # primi 15 attaccanti per value all'evento 190 solo 3
+                    # avevano 8 gol o piu' nel 2025-26. Chi cerca un bomber
+                    # ordina per gol, e i «non lo so» finiscono in fondo
+                    # (-1 e' sotto lo zero di chi ha giocato e non ha segnato).
+                    out.sort(key=lambda x: (-(x["gol_tot_2025"] if x["gol_tot_2025"]
+                                              is not None else -1),
+                                            -(x["gol_tot_2026"] if x["gol_tot_2026"]
+                                              is not None else -1),
+                                            -(x["value"] or 0)))
+                elif ordina == "misto":
+                    # valore e gol sulla stessa scala (z), sommati: chi vale e
+                    # segna sale, chi vale e non ha mai segnato scende
+                    vals = [x["value"] or 0.0 for x in out]
+                    gols = [x["gol_tot_2025"] for x in out
+                            if x["gol_tot_2025"] is not None]
+                    mv = sum(vals) / len(vals) if vals else 0.0
+                    sv = (sum((z - mv) ** 2 for z in vals) / len(vals)) ** 0.5 if vals else 0.0
+                    mg = sum(gols) / len(gols) if gols else 0.0
+                    sg = (sum((z - mg) ** 2 for z in gols) / len(gols)) ** 0.5 if gols else 0.0
+
+                    def _misto(x):
+                        zv = ((x["value"] or 0.0) - mv) / sv if sv else 0.0
+                        if x["gol_tot_2025"] is None:
+                            return (1, -zv)          # senza dato: in fondo
+                        zg = (x["gol_tot_2025"] - mg) / sg if sg else 0.0
+                        return (0, -(zv + zg))
+
+                    out.sort(key=_misto)
                 else:
                     out.sort(key=lambda x: -(x["value"] or 0))
                 self._send(out[:80])
             elif u.path == "/copilot/rigoristi":
                 self._send(rigoristi_ora())
+            elif u.path == "/copilot/gol_rosa":
+                self._send(gol_rosa())
             elif u.path == "/copilot/squadre":
                 self._send(sorted({p.team for p in PACK.players.values()}))
             else:
@@ -1278,6 +2081,7 @@ class Handler(BaseHTTPRequestHandler):
                 # ma il registro resta valido
                 PIANI_CACHE.clear()   # lo stato e' cambiato: i piani vecchi
                                       # non sono piu' attuali
+                INDIFF_CACHE.clear()  # e nemmeno i prezzi di indifferenza
                 consiglio_disponibile = True
                 if ADVISOR is not None:
                     try:
@@ -1299,6 +2103,107 @@ class Handler(BaseHTTPRequestHandler):
                     "consiglio_disponibile": consiglio_disponibile,
                     "fuori_lista": fuori_lista,
                     "nota": "; ".join(note) or None})
+            if u.path == "/copilot/evento_modifica":
+                # Correggere UN lotto qualsiasi, non solo l'ultimo. Il 10/9 lo
+                # spostamento del lotto 42 e' costato 81 annullamenti e 82
+                # martelletti, perche' la sola correzione disponibile era
+                # `undo`, che toglie dalla coda. Qui la riga si indirizza per
+                # posizione (o per `richiesta_id`), si costruisce la lista
+                # CANDIDATA con la modifica e la si valida per intero PRIMA di
+                # renderla corrente: uno stato illegale non arriva mai su disco.
+                richiesta = body.get("richiesta_id_modifica")
+                fatte = STATE.setdefault("modifiche_fatte", [])
+                if richiesta is not None and str(richiesta) in fatte:
+                    # doppio clic o ritrasmissione: stesso esito, un effetto solo
+                    return self._send({"ok": True, "duplicato": True,
+                                       "n_events": len(STATE["events"])})
+                if not STATE["names"]:
+                    return self._send({"ok": False,
+                                       "err": "tavolo non configurato"}, 400)
+                eventi = STATE["events"]
+                idx = body.get("indice")
+                if idx is not None:
+                    # `indice_valido` parla di squadre: qui il numero e' la
+                    # riga del registro, e chi corregge di corsa dal
+                    # terminale deve leggere un messaggio che parli di righe
+                    try:
+                        idx = int(idx)
+                    except (TypeError, ValueError):
+                        return self._send({"ok": False,
+                                           "err": f"indice {idx!r} non e' un numero"}, 400)
+                    if not 0 <= idx < len(eventi):
+                        return self._send({
+                            "ok": False,
+                            "err": (f"riga {idx} inesistente: il registro ha "
+                                    f"{len(eventi)} acquisti (indici 0-"
+                                    f"{len(eventi) - 1})")}, 400)
+                else:
+                    rid = body.get("richiesta_id")
+                    if rid is None:
+                        return self._send({
+                            "ok": False,
+                            "err": "serve «indice» oppure «richiesta_id» per "
+                                   "dire quale acquisto correggere"}, 400)
+                    trovati = [i for i, e in enumerate(eventi)
+                               if e.get("richiesta_id") == str(rid)]
+                    if len(trovati) != 1:
+                        return self._send({
+                            "ok": False,
+                            "err": (f"richiesta_id {rid!r}: "
+                                    f"{len(trovati)} acquisti corrispondenti, "
+                                    "ne serve esattamente uno")}, 400)
+                    idx = trovati[0]
+                rimuovi = bool(body.get("rimuovi"))
+                nuovo_ti = body.get("team_index")
+                nuovo_prezzo = body.get("price")
+                if not rimuovi and nuovo_ti is None and nuovo_prezzo is None:
+                    return self._send({
+                        "ok": False,
+                        "err": "niente da modificare: passa «team_index», "
+                               "«price» oppure «rimuovi»"}, 400)
+                prima = dict(eventi[idx])
+                if rimuovi:
+                    dopo = None
+                    candidata = [dict(e) for j, e in enumerate(eventi) if j != idx]
+                else:
+                    dopo = dict(prima)
+                    try:
+                        if nuovo_ti is not None:
+                            dopo["team_index"] = indice_valido(
+                                nuovo_ti, len(STATE["names"]))
+                        if nuovo_prezzo is not None:
+                            dopo["price"] = intero_valido(nuovo_prezzo, minimo=1)
+                    except ValueError as exc:
+                        return self._send({"ok": False, "err": str(exc)}, 400)
+                    candidata = [dict(e) for e in eventi]
+                    candidata[idx] = dopo
+                motivo = valida_eventi(candidata)
+                if motivo is not None:
+                    # niente e' stato toccato: lo stato corrente e' quello di
+                    # prima, e chi ha chiesto la modifica sa perche' non si puo'
+                    return self._send({"ok": False, "err": motivo}, 400)
+                voce = {"ts": time.time(), "indice": idx,
+                        "prima": prima, "dopo": dopo}
+                vecchi = STATE["events"]
+                STATE["events"] = candidata
+                STATE.setdefault("modifiche", []).append(voce)
+                if richiesta is not None:
+                    fatte.append(str(richiesta))
+                    del fatte[:-50]
+                try:
+                    save()
+                except OSError as exc:
+                    STATE["events"] = vecchi
+                    STATE["modifiche"].pop()
+                    if richiesta is not None and str(richiesta) in fatte:
+                        fatte.remove(str(richiesta))
+                    return self._send({"ok": False,
+                                       "err": f"salvataggio fallito: {exc}"}, 500)
+                PIANI_CACHE.clear()    # lo stato e' cambiato: i piani vecchi
+                INDIFF_CACHE.clear()   # e i prezzi di indifferenza non valgono
+                rebuild_advisor()
+                return self._send({"ok": True, "indice": idx, "prima": prima,
+                                   "dopo": dopo, "n_events": len(STATE["events"])})
             if u.path == "/copilot/escludi":
                 # «non lo voglio nel piano»: il giocatore resta registrabile
                 # al martelletto, ma esce dal pool dei consigli e dal MILP.
@@ -1319,6 +2224,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send({"ok": False,
                                        "err": f"salvataggio fallito: {exc}"}, 500)
                 PIANI_CACHE.clear()
+                INDIFF_CACHE.clear()
                 if ADVISOR is not None and STATE["names"]:
                     rebuild_advisor()
                 return self._send({"ok": True, "escluso": escluso,
@@ -1332,6 +2238,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send({"ok": True, "duplicato": True,
                                        "n_events": len(STATE["events"])})
                 PIANI_CACHE.clear()
+                INDIFF_CACHE.clear()
                 tolto = None
                 if STATE["events"]:
                     tolto = STATE["events"].pop()

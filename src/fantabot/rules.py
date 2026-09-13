@@ -13,6 +13,20 @@ import pandas as pd
 
 MOD_DIFESA_TABLE = [(7.0, 5), (6.75, 4), (6.5, 3), (6.25, 2), (6.0, 1)]
 CLEAN_SHEET_BONUS = 1.0
+
+# Bonus gol: la fonte e la lega non pagano lo stesso prezzo.
+# `BONUS_GOL_FONTE` e' il bonus gia' sommato dentro la colonna `fantavoto` dei
+# voti grezzi di fantacalcio.it: misurato sugli eventi isolati della stagione
+# 2025-26 (575 righe di solo gol su azione e 55 di solo rigore segnato, delta
+# fantavoto-voto = +3.0 in entrambi i casi). Il modello di valore somma quei
+# fantavoto, quindi ogni gol dentro `value` vale gia' 3 punti.
+# `BONUS_GOL_LEGA` e' quello che paga DAVVERO la lega dell'utente: 5. La
+# differenza (+2 per gol) non e' nel pack e va aggiunta qui, una volta sola,
+# ai giocatori che i gol li fanno — vedi `prepara_pack` in scripts/f10_copilot.py.
+# Se i due numeri coincidono la rettifica non fa nulla: e' il caso di una lega
+# che usa il punteggio standard.
+BONUS_GOL_FONTE = 3.0
+BONUS_GOL_LEGA = 5.0
 QUOTAS = {"P": 3, "D": 8, "C": 8, "A": 6}
 BUDGET = 500
 MAX_SUBS = 3

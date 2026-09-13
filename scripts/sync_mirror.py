@@ -36,6 +36,7 @@ DA_COPIARE = [
     "requirements.txt", "LICENSE",
     "README.md", "DATA.md", "PIANO.md", "BRAINSTORMING.md",
     "RIPRESA.md", "RIPRESA_ASTA.md", "GUIDA_ASTA.md", "FantaOracle.bat",
+    "installa.py", "requirements-asta.txt", "INSTALLA.md",
 ]
 
 # `HANDOFF_SESSIONE.md` resta fuori: contiene i nomi degli account usati per il

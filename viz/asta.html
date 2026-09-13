@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FantaOracle — ASTA</title>
+<style>
+/* ============================================================
+   FantaOracle — ASTA (pagina nuova, 13/9/2026)
+   Una serata da stadio: campo verde con le linee di gesso, i
+   riflettori in alto, i numeri sul tabellone luminoso e le dieci
+   squadre come maglie da scegliere con un tasto.
+   Un solo file, zero dipendenze, stessa API di viz/copilot.html.
+   Si legge a due metri: testo grande, contrasto alto, niente rumore.
+   ============================================================ */
+:root{
+  --campo:#1c6b34; --campo-scuro:#0f3d1f; --notte:#07200f; --notte2:#061a0c;
+  --gesso:#f4f4ef; --oro:#f2c14e; --rosso:#d7263d; --azzurro:#4cc9f0;
+  --verde-ok:#5fd68a;
+  --testo:#f4f4ef; --tenue:rgba(244,244,239,.66); --fioco:rgba(244,244,239,.42);
+  --bordo:rgba(244,244,239,.16); --bordo2:rgba(244,244,239,.28);
+  --pannello:rgba(9,38,19,.86); --pannello2:rgba(7,28,14,.9);
+  --rP:#f7d117; --rD:#2d7ff9; --rC:#22c55e; --rA:#ef4444;
+  --mono:ui-monospace, "SF Mono", "Consolas", "Roboto Mono", monospace;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--notte); color:var(--testo);
+  font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  min-width:1240px; overflow-x:auto; font-size:14px;
+}
+button,input,select{font-family:inherit;}
+::-webkit-scrollbar{width:9px; height:9px;}
+::-webkit-scrollbar-thumb{background:rgba(244,244,239,.22); border-radius:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+*{scrollbar-width:thin; scrollbar-color:rgba(244,244,239,.22) transparent;}
+:focus-visible{outline:2px solid var(--oro); outline-offset:2px; border-radius:6px;}
+
+/* ---------- il campo: fondo, riflettori, linee di gesso ---------- */
+#campo{position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;}
+#campo .prato{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(120% 70% at 18% -12%, rgba(255,248,214,.20), transparent 58%),
+    radial-gradient(120% 70% at 82% -12%, rgba(255,248,214,.17), transparent 58%),
+    radial-gradient(140% 100% at 50% 120%, rgba(28,107,52,.55), transparent 65%),
+    linear-gradient(180deg, var(--campo-scuro) 0%, var(--notte) 62%, var(--notte2) 100%);
+}
+/* strisce del taglio dell'erba: appena percettibili, danno profondita' */
+#campo .righe{
+  position:absolute; inset:0; opacity:.10;
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,.10) 0 78px, transparent 78px 156px);
+}
+#campo svg{position:absolute; inset:0; width:100%; height:100%;}
+
+header{
+  position:relative; z-index:2;
+  display:flex; align-items:center; gap:16px; padding:9px 16px 8px;
+  background:linear-gradient(180deg, rgba(4,16,8,.92), rgba(4,16,8,.62));
+  border-bottom:1px solid var(--bordo);
+}
+.marchio{display:flex; align-items:baseline; gap:10px; white-space:nowrap;}
+.marchio h1{font-size:19px; font-weight:900; letter-spacing:2.5px;}
+.marchio h1 i{font-style:normal; color:var(--oro); text-shadow:0 0 24px rgba(242,193,78,.5);}
+.marchio .sub{font-size:11.5px; letter-spacing:2px; color:var(--fioco); text-transform:uppercase;}
+.collega{
+  display:flex; align-items:center; gap:7px; padding:5px 11px; border-radius:999px;
+  border:1px solid rgba(215,38,61,.5); background:rgba(215,38,61,.12);
+  font-size:11.5px; font-weight:900; letter-spacing:2px; color:var(--rosso); white-space:nowrap;
+}
+.collega .pallino{width:9px; height:9px; border-radius:50%; background:var(--rosso); animation:battito 1.5s ease-in-out infinite;}
+.collega.giu{color:var(--fioco); border-color:var(--bordo); background:transparent;}
+.collega.giu .pallino{background:var(--fioco); animation:none;}
+@keyframes battito{0%,100%{opacity:1;} 50%{opacity:.2;}}
+
+/* numeri da tabellone */
+.tab{display:flex; align-items:center; gap:14px; margin-left:auto;}
+.tv{text-align:center; white-space:nowrap; padding:0 4px;}
+.tv .n{
+  font-family:var(--mono); font-size:26px; font-weight:800; line-height:1;
+  color:var(--oro); text-shadow:0 0 18px rgba(242,193,78,.55), 0 0 3px rgba(255,255,255,.5);
+  font-variant-numeric:tabular-nums;
+}
+.tv .n.bianco{color:var(--gesso); text-shadow:0 0 16px rgba(244,244,239,.4);}
+.tv .n.azz{color:var(--azzurro); text-shadow:0 0 16px rgba(76,201,240,.5);}
+.tv .l{font-size:11.5px; font-weight:800; letter-spacing:1.8px; text-transform:uppercase; color:var(--fioco); margin-top:4px;}
+.hbtn{
+  background:rgba(244,244,239,.07); color:var(--tenue); border:1px solid var(--bordo);
+  border-radius:9px; padding:6px 10px; font-size:11.5px; font-weight:800; cursor:pointer;
+  text-decoration:none; white-space:nowrap; letter-spacing:.4px;
+}
+.hbtn:hover{background:rgba(244,244,239,.14); color:var(--testo);}
+
+/* ---------- impianto ---------- */
+main{
+  position:relative; z-index:2;
+  display:grid; grid-template-columns:396px minmax(0,1fr) 322px; gap:11px;
+  padding:11px 14px 6px; align-items:start;
+}
+.colonna{display:flex; flex-direction:column; gap:8px; min-width:0;}
+/* colonna di mezzo: qualunque cosa scriva il Copilota nel consiglio, prezzo,
+   maglie e AGGIUDICA restano sopra la piega. Se il consiglio non ci sta,
+   scorre lui dentro il suo riquadro — non scende il martelletto. */
+main > .colonna:nth-child(2){max-height:calc(100vh - 82px);}  /* testata ~64 px + margini: cosi' AGGIUDICA chiude sopra i 768 px */
+main > .colonna:nth-child(2) > *{flex:0 0 auto;}
+main > .colonna:nth-child(2) > #consiglio{flex:1 1 auto; min-height:0; overflow-y:auto;}
+.riq{
+  background:var(--pannello); border:1px solid var(--bordo); border-radius:14px;
+  padding:9px 11px; backdrop-filter:blur(3px);
+}
+.riq > h3{
+  font-size:11.5px; letter-spacing:2.4px; color:var(--fioco); font-weight:900;
+  margin-bottom:7px; display:flex; align-items:center; gap:8px; text-transform:uppercase;
+}
+.riq > h3 .dx{margin-left:auto; letter-spacing:0; font-weight:700; color:var(--tenue); text-transform:none;}
+.tasto{
+  background:rgba(244,244,239,.09); border:1px solid var(--bordo); border-radius:5px;
+  padding:0 5px; font-weight:900; color:var(--tenue); font-size:11.5px; letter-spacing:0;
+  font-family:var(--mono);
+}
+
+/* ---------- ricerca ---------- */
+.cerca-riga{display:flex; gap:8px; align-items:center;}
+#q{
+  flex:1; min-width:0; background:rgba(4,16,8,.75); border:2px solid var(--bordo2); border-radius:12px;
+  color:var(--testo); font-size:21px; font-weight:800; padding:9px 14px; outline:none; letter-spacing:.5px;
+}
+#q::placeholder{color:var(--fioco); font-weight:600; font-size:16px; letter-spacing:0;}
+#q:focus{border-color:var(--oro); box-shadow:0 0 24px -6px var(--oro);}
+.cerca-note{font-size:11.5px; color:var(--fioco); margin-top:5px; display:flex; gap:10px; flex-wrap:wrap;}
+#risultati{margin-top:7px; max-height:196px; overflow-y:auto; display:flex; flex-direction:column; gap:3px;}
+.ris{
+  display:grid; grid-template-columns:22px minmax(0,1fr) 40px 52px; gap:7px; align-items:center;
+  padding:5px 8px; border-radius:9px; background:rgba(4,16,8,.55); cursor:pointer;
+  border:1px solid transparent; flex:0 0 auto;
+}
+.ris:hover{background:rgba(244,244,239,.08);}
+.ris.qui{border-color:var(--oro); background:rgba(242,193,78,.13);}
+.ris .nm{font-size:14.5px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ris .sq{font-size:11.5px; color:var(--fioco); font-weight:700; letter-spacing:.5px;}
+.ris .n{font-family:var(--mono); font-size:11.5px; text-align:right; color:var(--tenue); font-variant-numeric:tabular-nums;}
+.ris .n b{color:var(--gesso); font-size:13px;}
+.ris .n.oro b{color:var(--oro);}
+.ris .nota{grid-column:2 / -1; font-size:11.5px; color:var(--azzurro); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:-2px;}
+.vuoto{color:var(--fioco); font-size:11.5px; padding:8px 3px; line-height:1.5;}
+
+/* pillola di ruolo */
+.rp{
+  width:21px; height:21px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center;
+  font-size:11.5px; font-weight:900; color:#0b1a0e; flex:0 0 auto; box-shadow:0 1px 3px rgba(0,0,0,.5);
+}
+.rp.g{width:30px; height:30px; font-size:17px;}
+.bmb{font-size:11.5px;}
+
+/* ---------- AL BANCO ---------- */
+#banco{position:relative; overflow:hidden; min-height:132px;}
+#banco.vuoto-b{display:flex; align-items:center; justify-content:center; text-align:center;}
+.b-testa{display:flex; align-items:center; gap:10px;}
+.b-nome{font-size:27px; font-weight:900; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.b-sotto{font-size:11.5px; color:var(--tenue); margin-top:0; display:flex; gap:7px; align-items:center; flex-wrap:wrap;}
+.chip{
+  display:inline-block; font-size:11.5px; font-weight:900; letter-spacing:1px; text-transform:uppercase;
+  padding:2px 7px; border-radius:999px; background:rgba(244,244,239,.14); color:var(--testo);
+}
+.chip.oro{background:var(--oro); color:#12240f;}
+.chip.ind{background:#e08a3c; color:#1b1004;}
+.chip.ros{background:var(--rosso); color:#fff;}
+.chip.spenta{background:rgba(244,244,239,.1); color:var(--fioco);}
+.b-x{margin-left:auto; background:none; border:none; color:var(--fioco); font-size:15px; cursor:pointer; padding:2px 6px; border-radius:6px; align-self:flex-start;}
+.b-x:hover{color:var(--rosso); background:rgba(244,244,239,.08);}
+.b-num{display:flex; gap:6px; margin-top:3px;}
+.b-num .c{flex:1; background:rgba(4,16,8,.6); border-radius:9px; padding:4px 5px; text-align:center; min-width:0;}
+.b-num .c .n{font-family:var(--mono); font-size:17px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.1;}
+.b-num .c .l{font-size:11.5px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--fioco); margin-top:2px;}
+.b-num .c.q50 .n{color:var(--oro); font-size:20px;}
+.b-num .c.gol .n{color:var(--verde-ok);}
+.b-nota{
+  margin-top:6px; font-size:11.5px; line-height:1.35; color:var(--tenue);
+  border-left:3px solid var(--azzurro); padding:3px 8px; background:rgba(76,201,240,.07); border-radius:0 8px 8px 0;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.b-ind{
+  margin-top:6px; font-size:11.5px; line-height:1.35; border-radius:8px; padding:4px 8px;
+  background:rgba(224,138,60,.14); border:1px solid rgba(224,138,60,.5); color:#f2c9a0;
+}
+
+/* ---------- CONSIGLIO ---------- */
+#consiglio{border-width:2px;}
+#consiglio .et{font-size:11.5px; font-weight:900; letter-spacing:2.4px; color:var(--fioco); text-transform:uppercase;}
+.cons-testa{display:flex; align-items:center; gap:14px; margin-top:0;}
+.cons-az{font-size:24px; font-weight:900; letter-spacing:.5px; line-height:1.1; white-space:nowrap;}
+.cons-tetto{margin-left:auto; text-align:right; line-height:1;}
+.cons-tetto .n{
+  font-family:var(--mono); font-size:56px; font-weight:800; font-variant-numeric:tabular-nums;
+  color:var(--oro); text-shadow:0 0 26px rgba(242,193,78,.55), 0 0 4px rgba(255,255,255,.45); line-height:.95;
+}
+.cons-tetto .l{font-size:11.5px; font-weight:900; letter-spacing:2.5px; color:var(--fioco); text-transform:uppercase;}
+.cons-sub{font-size:11.5px; color:var(--tenue); margin-top:4px; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+.cons-riga{font-size:11.5px; color:var(--tenue); margin-top:4px; font-variant-numeric:tabular-nums;}
+.cons-riga b{color:var(--gesso); font-family:var(--mono);}
+.cons-scar{
+  font-size:11.5px; margin-top:4px; padding:3px 8px; border-radius:7px;
+  background:rgba(244,244,239,.07); color:var(--tenue);
+}
+.cons-scar.caldo{background:rgba(215,38,61,.18); color:#ffc3cd; border:1px solid rgba(215,38,61,.5);}
+.cons-scar.tiepido{background:rgba(224,138,60,.16); color:#f6cfa8;}
+.cons-motivo{font-size:11.5px; color:var(--fioco); margin-top:4px; font-style:italic; line-height:1.35;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+.cons-conf{font-size:11.5px; color:var(--tenue); margin-top:3px; font-variant-numeric:tabular-nums;}
+#consiglio.verde{border-color:var(--verde-ok); box-shadow:0 0 34px -14px var(--verde-ok);}
+#consiglio.verde .cons-az{color:var(--verde-ok);}
+#consiglio.oro{border-color:var(--oro); box-shadow:0 0 34px -14px var(--oro);}
+#consiglio.oro .cons-az{color:var(--oro);}
+#consiglio.rosso{border-color:var(--rosso); box-shadow:0 0 34px -14px var(--rosso);}
+#consiglio.rosso .cons-az{color:var(--rosso);}
+#consiglio.rosso .cons-tetto .n{color:var(--rosso); text-shadow:0 0 22px rgba(215,38,61,.5);}
+#consiglio.grigio{border-color:var(--bordo2);}
+#consiglio.grigio .cons-az{color:var(--tenue);}
+#consiglio.batti{animation:battiCons .3s ease-out;}
+@keyframes battiCons{0%{transform:scale(.985);} 60%{transform:scale(1.012);} 100%{transform:scale(1);}}
+
+/* ---------- prezzo ---------- */
+.prezzo-riga{display:flex; align-items:center; gap:8px;}
+.prezzo-riga .et{font-size:11.5px; font-weight:900; letter-spacing:2px; color:var(--fioco); text-transform:uppercase; width:52px; line-height:1.25;}
+.prezzo-cassa{
+  display:flex; align-items:center; background:rgba(4,16,8,.75); border:2px solid var(--bordo2);
+  border-radius:12px; padding:1px 4px;
+}
+.prezzo-cassa:focus-within{border-color:var(--oro); box-shadow:0 0 24px -6px var(--oro);}
+#prezzo{
+  width:112px; background:transparent; border:none; outline:none; color:var(--oro);
+  font-family:var(--mono); font-size:38px; font-weight:800; text-align:center;
+  font-variant-numeric:tabular-nums; line-height:1.1;
+  text-shadow:0 0 22px rgba(242,193,78,.45);
+}
+#prezzo::-webkit-outer-spin-button,#prezzo::-webkit-inner-spin-button{-webkit-appearance:none; margin:0;}
+#prezzo[type=number]{-moz-appearance:textfield;}
+.pb{
+  font-size:14px; font-weight:900; padding:9px 0; min-width:48px; border-radius:10px;
+  border:1px solid var(--bordo2); background:rgba(244,244,239,.08); color:var(--testo);
+  cursor:pointer; font-family:var(--mono);
+}
+.pb:hover{background:rgba(244,244,239,.18);}
+.pb:active{transform:scale(.94);}
+.pb.meno{color:#ff9fae;}
+.pb.piu{color:var(--verde-ok);}
+
+/* ---------- le dieci maglie ---------- */
+#maglie{display:grid; grid-template-columns:repeat(5, minmax(0,1fr)); gap:6px;}
+.mag{
+  position:relative; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:3px 4px 4px; border-radius:12px; cursor:pointer; min-width:0;
+  background:rgba(4,16,8,.6); border:2px solid transparent; color:var(--testo);
+  text-align:center; transition:border-color .12s, background .12s, transform .08s;
+}
+.mag:hover{background:rgba(244,244,239,.1);}
+.mag:active{transform:scale(.97);}
+.mag.scelta{border-color:var(--oro); background:rgba(242,193,78,.16); box-shadow:0 0 22px -8px var(--oro);}
+.mag.io{border-color:rgba(242,193,78,.5);}
+.mag.spenta{opacity:.34; cursor:not-allowed;}
+.mag.spenta:hover{background:rgba(4,16,8,.6);}
+.mag.lampo{animation:lampoMag 1.1s ease-out;}
+@keyframes lampoMag{
+  0%{background:rgba(95,214,138,.55); border-color:var(--verde-ok);}
+  100%{background:rgba(4,16,8,.6); border-color:transparent;}
+}
+/* la maglia e' un SVG senza classe: si prende per figlio diretto, altrimenti
+   si allarga a tutta la card e la fila mangia mezzo schermo */
+.mag > svg{width:40px; height:38px; flex:0 0 auto;}
+.mag .nm{font-size:11.5px; font-weight:800; line-height:1.15; max-width:100%;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.mag .cr{font-family:var(--mono); font-size:16px; font-weight:800; color:var(--oro); line-height:1; font-variant-numeric:tabular-nums;}
+.mag .sl{display:flex; flex-direction:column; gap:1.5px; align-items:center; margin-top:1px;}
+.mag .sl .fila{display:flex; gap:4px; align-items:center;}
+.mag .gr{display:flex; gap:2px; align-items:center;}
+.mag .gr i{font-style:normal; font-size:11.5px; font-weight:900; color:var(--fioco); margin-right:1px;}
+.pallo{width:5px; height:5px; border-radius:50%; background:rgba(244,244,239,.2);}
+.mag .pie{font-size:11.5px; color:var(--fioco); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.mag .pie b{color:var(--tenue); font-weight:800;}
+.mag .io-b{
+  position:absolute; top:2px; right:3px; font-size:11.5px; font-weight:900; letter-spacing:.5px;
+  background:rgba(244,244,239,.14); border:1px solid var(--bordo); color:var(--fioco);
+  border-radius:5px; padding:0 4px; cursor:pointer; z-index:2;
+}
+.mag .io-b:hover{background:var(--oro); color:#12240f; border-color:var(--oro);}
+.mag .rosa-b{
+  position:absolute; top:2px; left:3px; font-size:11.5px; font-weight:900;
+  background:rgba(244,244,239,.14); border:1px solid var(--bordo); color:var(--fioco);
+  border-radius:5px; padding:0 4px; cursor:pointer; z-index:2;
+}
+.mag .rosa-b:hover{background:rgba(244,244,239,.3); color:var(--testo);}
+.mag .tuo{
+  position:absolute; bottom:-1px; left:50%; transform:translateX(-50%);
+  font-size:11.5px; font-weight:900; letter-spacing:1.5px; background:var(--oro); color:#12240f;
+  border-radius:5px 5px 0 0; padding:0 7px;
+}
+.mag-motivo{font-size:11.5px; color:#ffb0bb; line-height:1.1; min-height:9px;}
+
+/* ---------- martelletto ---------- */
+.fila-batti{display:flex; gap:8px; align-items:stretch;}
+#btnAggiudica{
+  flex:1; display:flex; align-items:center; justify-content:center; gap:10px;
+  background:linear-gradient(180deg, #ffd873, var(--oro)); color:#14260f;
+  border:none; border-radius:14px; padding:9px 12px; cursor:pointer; flex-wrap:wrap;
+  font-size:21px; font-weight:900; letter-spacing:2px; line-height:1.15;
+  box-shadow:0 8px 26px -12px rgba(242,193,78,.9);
+}
+#btnAggiudica:hover{filter:brightness(1.07);}
+#btnAggiudica:disabled{background:rgba(244,244,239,.1); color:var(--fioco); box-shadow:none; cursor:default;}
+#btnAggiudica .martello{font-size:24px; display:inline-block; transform-origin:80% 80%;}
+#btnAggiudica.colpo .martello{animation:colpisci .45s ease-out;}
+@keyframes colpisci{0%{transform:rotate(0);} 35%{transform:rotate(-42deg);} 60%{transform:rotate(14deg);} 100%{transform:rotate(0);}}
+#btnAggiudica .cosa{display:block; font-size:11.5px; font-weight:800; letter-spacing:.3px; opacity:.85;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+#battiTxt{min-width:0;}
+#btnUndo{
+  width:210px; border-radius:14px; border:1px solid var(--bordo2); background:rgba(4,16,8,.6);
+  color:var(--tenue); font-size:11.5px; font-weight:800; cursor:pointer; padding:8px 10px; text-align:left; line-height:1.3;
+}
+#btnUndo:hover{border-color:var(--rosso); color:var(--testo);}
+#btnUndo.armato{border-color:var(--rosso); color:#ffc3cd; background:rgba(215,38,61,.18);}
+#btnUndo:disabled{opacity:.4; cursor:default;}
+
+/* ---------- GOL IN ROSA: classifica ---------- */
+.cl-r{
+  display:grid; grid-template-columns:16px 20px minmax(0,1fr) 30px; gap:6px; align-items:center;
+  padding:3px 4px; border-radius:7px; font-size:11.5px;
+}
+.cl-r + .cl-r{margin-top:1px;}
+.cl-r:hover{background:rgba(244,244,239,.07);}
+.cl-r.mia{background:rgba(242,193,78,.14); box-shadow:inset 2px 0 0 var(--oro);}
+.cl-r .pos{font-family:var(--mono); font-size:11.5px; color:var(--fioco); text-align:right;}
+.cl-r .nm{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:700;}
+.cl-r .g{font-family:var(--mono); font-weight:800; text-align:right; color:var(--verde-ok); font-variant-numeric:tabular-nums;}
+.cl-r .barra{grid-column:3 / 4; height:4px; border-radius:2px; background:rgba(244,244,239,.12); overflow:hidden; margin-top:-2px;}
+.cl-r .barra i{display:block; height:100%; background:linear-gradient(90deg, var(--verde-ok), var(--oro)); border-radius:2px;}
+.cl-pie{font-size:11.5px; color:var(--fioco); margin-top:6px; border-top:1px solid var(--bordo); padding-top:5px;}
+.cl-pie b{color:var(--tenue); font-family:var(--mono);}
+
+/* ---------- tabellone acquisti ---------- */
+/* tetto d'altezza: a 1366x768 il tabellone deve finire sopra la piega,
+   altrimenti l'ultimo acquisto — quello che si corregge — resta nascosto */
+#tabellone{display:flex; flex-direction:column; gap:3px; max-height:228px; overflow-y:auto;}
+.acq{
+  display:grid; grid-template-columns:18px 40px minmax(0,1fr) auto; gap:6px; align-items:center;
+  padding:4px 7px; border-radius:8px; background:rgba(4,16,8,.55); font-size:11.5px; cursor:pointer;
+  border:1px solid transparent; flex:0 0 auto;
+}
+.acq:hover{border-color:var(--bordo2); background:rgba(244,244,239,.08);}
+.acq.nuovo{animation:entra .35s ease-out;}
+@keyframes entra{from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:none;}}
+.acq .pr{font-family:var(--mono); font-size:15px; font-weight:800; color:var(--oro); text-align:right; font-variant-numeric:tabular-nums;}
+.acq .nm{font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.acq .chi{font-size:11.5px; font-weight:800; white-space:nowrap; max-width:96px; overflow:hidden; text-overflow:ellipsis;}
+
+/* ---------- fascia bassa ---------- */
+.bassa{
+  position:relative; z-index:2;
+  display:grid; grid-template-columns:396px minmax(0,1fr); gap:11px; padding:0 14px 26px; align-items:start;
+}
+/* i rigoristi stanno nella prima colonna, sotto il banco: e' lo spazio che
+   avanza a 1366x768 e la lista si guarda prima di ogni chiamata */
+#riqRigoristi{max-height:322px; overflow-y:auto;}
+.pt{width:100%; border-collapse:collapse; font-size:12.5px;}
+.pt th,.pt td{padding:3px 6px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; font-family:var(--mono);}
+.pt th{font-size:11.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--fioco); font-weight:800;
+  border-bottom:1px solid var(--bordo); font-family:inherit;}
+.pt th:first-child,.pt td:first-child{text-align:left; font-family:inherit;}
+.pt td{border-bottom:1px dashed rgba(244,244,239,.1);}
+.pt .rl{font-weight:900; letter-spacing:.5px;}
+.pt .pv{color:var(--oro);}
+.pt tr.tot td{border-bottom:0; border-top:1px solid var(--bordo); font-weight:900;}
+.sforo{font-size:11.5px; color:#ffb0bb; margin-top:5px; font-weight:700;}
+.pl-riga{font-size:11.5px; color:var(--tenue); margin-top:6px;}
+.pl-riga b{font-family:var(--mono); color:var(--oro); font-weight:800;}
+.pl-riga b.ok{color:var(--verde-ok);}
+.pl-riga b.no{color:var(--rosso);}
+.rg-h{margin:6px 0 2px; font-size:11.5px; letter-spacing:1.6px; font-weight:900; color:var(--tenue);
+  border-bottom:1px solid var(--bordo); padding-bottom:2px;}
+.rg-r{display:flex; gap:6px; align-items:baseline; flex-wrap:wrap; padding:1px 4px; border-radius:5px; font-size:11.5px; cursor:pointer;}
+.rg-r:hover{background:rgba(244,244,239,.08);}
+.rg-r .nm{font-weight:800;}
+.rg-r .sq{font-size:11.5px; color:var(--fioco);}
+.rg-r .g{font-family:var(--mono); font-size:11.5px; color:var(--tenue);}
+/* colonne larghe abbastanza da leggere nome e squadra: sotto i 235 px il nome
+   si riduce a due lettere e il tabellone non serve piu' a niente */
+.tutti-acq{display:grid; grid-template-columns:repeat(auto-fill, minmax(235px, 1fr)); gap:3px; max-height:300px; overflow-y:auto;}
+
+/* ---------- pannelli sovrapposti (rosa, correggi, setup) ---------- */
+.velo{
+  position:fixed; inset:0; z-index:90; display:flex; align-items:center; justify-content:center;
+  background:rgba(3,12,6,.82); backdrop-filter:blur(4px); padding:20px;
+}
+.velo[hidden]{display:none;}
+.foglio{
+  background:linear-gradient(180deg, rgba(16,54,27,.98), rgba(7,28,14,.99));
+  border:1px solid var(--bordo2); border-radius:18px; padding:18px 22px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.9); max-height:92vh; overflow-y:auto;
+}
+.foglio h2{font-size:22px; font-weight:900; margin-bottom:3px;}
+.foglio h2 i{font-style:normal; color:var(--oro);}
+.foglio .guida{color:var(--tenue); font-size:12.5px; line-height:1.5; margin-bottom:13px;}
+.chiudi{
+  position:absolute; top:10px; right:14px; background:none; border:none; color:var(--fioco);
+  font-size:20px; cursor:pointer; padding:2px 8px; border-radius:8px;
+}
+.chiudi:hover{color:var(--rosso); background:rgba(244,244,239,.08);}
+.grande{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  background:var(--oro); color:#14260f; font-weight:900; font-size:15px;
+  border:none; border-radius:11px; padding:11px 20px; cursor:pointer;
+}
+.grande:hover{filter:brightness(1.08);}
+.grande:disabled{opacity:.4; cursor:default; filter:none;}
+.grande.spenta2{background:rgba(244,244,239,.12); color:var(--tenue);}
+.grande.rossa{background:var(--rosso); color:#fff;}
+.grande.fantasma{background:rgba(244,244,239,.09); color:var(--testo); border:1px solid var(--bordo2); font-size:13px; padding:9px 14px;}
+
+/* setup */
+#setup .foglio{width:740px; position:relative;}
+.riga-set{display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap;}
+.riga-set label{font-size:11.5px; font-weight:900; letter-spacing:1.5px; text-transform:uppercase; color:var(--fioco);}
+.riga-set input{
+  width:76px; background:rgba(4,16,8,.7); border:1px solid var(--bordo2); border-radius:9px;
+  color:var(--oro); font-weight:900; font-size:17px; padding:6px 8px; text-align:center; outline:none;
+  font-family:var(--mono);
+}
+#nomi{display:grid; grid-template-columns:repeat(2, 1fr); gap:7px 14px; margin:4px 0 14px;}
+.nrow{display:flex; align-items:center; gap:7px;}
+.nrow .i{width:20px; font-size:11.5px; color:var(--fioco); font-weight:900; text-align:right; font-family:var(--mono);}
+.nrow input[type=text]{
+  flex:1; min-width:0; background:rgba(4,16,8,.7); border:1px solid var(--bordo2); border-radius:9px;
+  color:var(--testo); font-size:14px; font-weight:700; padding:7px 11px; outline:none;
+}
+.nrow.me input[type=text]{border-color:var(--oro); color:var(--oro);}
+.melbl{
+  display:flex; align-items:center; gap:4px; font-size:11.5px; font-weight:900; letter-spacing:1px;
+  color:var(--fioco); cursor:pointer; user-select:none; padding:5px 8px; border-radius:8px;
+  border:1px solid var(--bordo2); white-space:nowrap;
+}
+.melbl input{display:none;}
+.nrow.me .melbl{color:#14260f; background:var(--oro); border-color:var(--oro);}
+#setupErr{color:var(--rosso); font-size:12.5px; font-weight:800; min-height:16px; margin-left:auto;}
+
+/* rosa di una squadra */
+#rosa .foglio{width:520px; position:relative;}
+.rosa-sez{margin-top:9px;}
+.rosa-h{display:flex; justify-content:space-between; font-size:11.5px; font-weight:900; letter-spacing:1.4px;
+  border-bottom:1px dashed var(--bordo); padding-bottom:3px; margin-bottom:3px;}
+.rosa-r{display:flex; align-items:center; gap:8px; padding:3px 4px; font-size:13px; border-radius:7px; cursor:pointer;}
+.rosa-r:hover{background:rgba(244,244,239,.09);}
+.rosa-r .nm{flex:1; min-width:0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.rosa-r .pr{font-family:var(--mono); background:var(--oro); color:#14260f; font-weight:900; border-radius:6px; padding:1px 7px; font-size:11.5px;}
+.rosa-r .corr{font-size:11.5px; font-weight:900; letter-spacing:.5px; border:1px solid var(--bordo2);
+  border-radius:6px; padding:1px 6px; color:var(--fioco); background:transparent; cursor:pointer;}
+.rosa-r .corr:hover{color:var(--testo); border-color:var(--oro);}
+.rosa-r .corr:disabled{opacity:.35; cursor:not-allowed;}
+
+/* correggi */
+#correggi .foglio{width:620px; position:relative;}
+.corr-maglie{display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; margin:8px 0 12px;}
+.corr-m{
+  display:flex; flex-direction:column; align-items:center; gap:2px; padding:5px 3px; border-radius:10px;
+  background:rgba(4,16,8,.6); border:2px solid transparent; cursor:pointer; color:var(--testo); min-width:0;
+}
+.corr-m.scelta{border-color:var(--oro); background:rgba(242,193,78,.16);}
+.corr-m .nm{font-size:11.5px; font-weight:800; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.corr-m svg{width:32px; height:30px;}
+.corr-avviso{
+  font-size:11.5px; line-height:1.5; border-radius:10px; padding:8px 12px; margin-bottom:12px;
+  background:rgba(224,138,60,.14); border:1px solid rgba(224,138,60,.55); color:#f6cfa8;
+}
+.corr-azioni{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+.corr-prezzo{
+  width:110px; background:rgba(4,16,8,.7); border:1px solid var(--bordo2); border-radius:10px;
+  color:var(--oro); font-family:var(--mono); font-weight:800; font-size:22px; padding:5px 8px; text-align:center; outline:none;
+}
+
+/* messaggi */
+#giu{
+  position:fixed; top:106px; left:50%; transform:translateX(-50%); z-index:120;
+  background:rgba(215,38,61,.2); border:1px solid var(--rosso); color:#ffc3cd;
+  padding:8px 18px; border-radius:11px; font-weight:800; font-size:13px; white-space:nowrap;
+}
+#giu[hidden]{display:none;}
+/* nell'angolo: al centro copriva AGGIUDICA, in alto copriva il consiglio.
+   Un messaggio che nasconde il numero grande fa perdere un lotto. */
+#avviso{
+  position:fixed; right:16px; bottom:16px; transform:translateY(18px); z-index:130;
+  background:rgba(4,16,8,.96); border:1px solid var(--bordo2); color:var(--testo);
+  padding:10px 20px; border-radius:12px; font-weight:800; font-size:14px; white-space:nowrap;
+  opacity:0; transition:opacity .18s, transform .18s; pointer-events:none; max-width:92vw;
+}
+#avviso.vedi{opacity:1; transform:translateY(0);}
+#avviso.err{border-color:var(--rosso); color:#ffc3cd;}
+#avviso.ok{border-color:var(--verde-ok); color:#c9f7d9;}
+#gol{
+  position:fixed; inset:0; z-index:125; display:flex; align-items:center; justify-content:center;
+  pointer-events:none; opacity:0; flex-direction:column; gap:6px;
+}
+#gol.spara{animation:sparaGol 1.5s ease-out;}
+@keyframes sparaGol{
+  0%{opacity:0; transform:scale(.85);} 14%{opacity:1; transform:scale(1);}
+  70%{opacity:1;} 100%{opacity:0; transform:scale(1.04);}
+}
+#gol .g1{
+  font-size:88px; font-weight:900; letter-spacing:10px; color:var(--oro);
+  text-shadow:0 0 60px rgba(242,193,78,.85), 0 6px 0 rgba(0,0,0,.4); font-family:var(--mono);
+}
+#gol .g2{font-size:22px; font-weight:800; color:var(--gesso); text-shadow:0 2px 18px rgba(0,0,0,.9);}
+</style>
+</head>
+<body>
+
+<!-- ============ il campo ============ -->
+<div id="campo" aria-hidden="true">
+  <div class="prato"></div>
+  <div class="righe"></div>
+  <svg viewBox="0 0 1366 768" preserveAspectRatio="none">
+    <g fill="none" stroke="#f4f4ef" stroke-opacity=".085" stroke-width="2.5">
+      <rect x="34" y="26" width="1298" height="716" rx="2"/>
+      <line x1="683" y1="26" x2="683" y2="742"/>
+      <circle cx="683" cy="384" r="118"/>
+      <circle cx="683" cy="384" r="5" fill="#f4f4ef" fill-opacity=".10" stroke="none"/>
+      <rect x="34" y="180" width="196" height="408"/>
+      <rect x="34" y="288" width="74" height="192"/>
+      <rect x="1136" y="180" width="196" height="408"/>
+      <rect x="1258" y="288" width="74" height="192"/>
+      <path d="M230 300 A 118 118 0 0 1 230 468"/>
+      <path d="M1136 300 A 118 118 0 0 0 1136 468"/>
+      <path d="M34 56 A 30 30 0 0 0 64 26"/>
+      <path d="M1332 56 A 30 30 0 0 1 1302 26"/>
+      <path d="M34 712 A 30 30 0 0 1 64 742"/>
+      <path d="M1332 712 A 30 30 0 0 0 1302 742"/>
+    </g>
+  </svg>
+</div>
+
+<!-- ============ testata / tabellone ============ -->
+<header>
+  <a class="hbtn" href="index.html" title="torna al menu">&#8962;</a>
+  <div class="marchio">
+    <h1>FANTA<i>ORACLE</i></h1>
+    <span class="sub">asta dal vivo</span>
+  </div>
+  <div class="collega" id="collega"><span class="pallino"></span><span id="collegaTxt">COLLEGO…</span></div>
+  <div class="tab">
+    <div class="tv"><div class="n" id="tvCrediti">—</div><div class="l">i miei crediti</div></div>
+    <div class="tv"><div class="n bianco" id="tvOra">—</div><div class="l">puoi spendere ora</div></div>
+    <div class="tv"><div class="n azz" id="tvTetto">—</div><div class="l">tetto al banco</div></div>
+    <div class="tv"><div class="n bianco" id="tvAcq">—</div><div class="l">lotti battuti</div></div>
+    <div class="tv"><div class="n bianco" id="tvCalore">—</div><div class="l">calore reparto</div></div>
+  </div>
+  <a class="hbtn" id="lnkClassica" href="copilot.html" title="la pagina di prima, con piani e alternative">pagina classica</a>
+  <button class="hbtn" id="btnSetup" hidden>tavolo</button>
+</header>
+
+<div id="giu" hidden>&#9888; il Copilota non risponde — gli acquisti sono salvati sul server, riprova</div>
+
+<!-- ============ il tavolo ============ -->
+<main>
+  <!-- colonna 1: cerca + al banco -->
+  <div class="colonna">
+    <div class="riq">
+      <h3>chi hanno chiamato? <span class="dx"><span class="tasto">&#8593;&#8595;</span> scorri &middot; <span class="tasto">Invio</span> al banco</span></h3>
+      <div class="cerca-riga">
+        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="scrivi il nome…">
+      </div>
+      <div class="cerca-note">
+        <span><span class="tasto">1</span>&hellip;<span class="tasto">0</span> squadra</span>
+        <span><span class="tasto">+</span><span class="tasto">-</span> prezzo</span>
+        <span><span class="tasto">U</span> annulla</span>
+        <span><span class="tasto">Esc</span> pulisci</span>
+      </div>
+      <div id="risultati"></div>
+    </div>
+    <div class="riq" id="banco"></div>
+    <div class="riq" id="riqRigoristi">
+      <h3>rigoristi ancora liberi <span class="dx">clicca: va al banco</span></h3>
+      <div id="rigoristi"></div>
+    </div>
+  </div>
+
+  <!-- colonna 2: consiglio, prezzo, maglie, martelletto -->
+  <div class="colonna">
+    <div class="riq" id="consiglio"></div>
+    <div class="riq">
+      <div class="prezzo-riga">
+        <span class="et">prezzo<br>battuto</span>
+        <button class="pb meno" data-d="-1" title="meno 1 (tasto -)">&minus;1</button>
+        <div class="prezzo-cassa"><input id="prezzo" type="number" min="0" max="9999" value="1"></div>
+        <button class="pb piu" data-d="1" title="piu' 1 (tasto +)">+1</button>
+        <button class="pb piu" data-d="5">+5</button>
+        <button class="pb piu" data-d="10">+10</button>
+        <span style="margin-left:auto; font-size:11.5px; color:var(--fioco); text-align:right; line-height:1.35">
+          scrivi il prezzo e premi <span class="tasto">Invio</span><br>poi il numero della maglia
+        </span>
+      </div>
+    </div>
+    <div class="riq">
+      <h3>a chi &egrave; andato? <span class="dx" id="magliaScelta">nessuna maglia scelta</span></h3>
+      <div id="maglie"></div>
+    </div>
+    <div class="fila-batti">
+      <button id="btnAggiudica" disabled><span class="martello">&#128296;</span><span id="battiTxt">AGGIUDICA</span></button>
+      <button id="btnUndo" disabled>&#8630; nessun acquisto da annullare</button>
+    </div>
+  </div>
+
+  <!-- colonna 3: classifica gol + tabellone -->
+  <div class="colonna">
+    <div class="riq">
+      <h3>&#9917; gol in rosa <span class="dx">stagione scorsa</span></h3>
+      <div id="classifica"></div>
+    </div>
+    <div class="riq">
+      <h3>ultimi acquisti <span class="dx">clicca per correggere</span></h3>
+      <div id="tabellone"></div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ fascia bassa ============ -->
+<div class="bassa">
+  <div class="riq">
+    <h3>il mio piano <span class="dx" id="pianoDx"></span></h3>
+    <div id="pianoTab"></div>
+    <div id="pianoRiga"></div>
+  </div>
+  <div class="riq">
+    <h3>tutti gli acquisti <span class="dx" id="acqDx"></span></h3>
+    <div class="tutti-acq" id="tuttiAcq"></div>
+  </div>
+</div>
+
+<!-- ============ setup ============ -->
+<div class="velo" id="setup" hidden>
+  <div class="foglio">
+    <h2>apparecchia il <i>tavolo</i></h2>
+    <div class="guida">Scrivi i nomi delle squadre nell'ordine in cui siedono: il numero a sinistra &egrave; il tasto che le sceglie durante l'asta. Segna quale sei tu.</div>
+    <div class="riga-set">
+      <label for="nPart">squadre</label>
+      <input id="nPart" type="number" min="2" max="14" value="10">
+      <label for="budgetIn">crediti a testa</label>
+      <input id="budgetIn" type="number" min="1" max="9999" value="500">
+    </div>
+    <div id="nomi"></div>
+    <div class="riga-set">
+      <button class="grande" id="btnConferma">&#127942; VIA ALL'ASTA</button>
+      <span id="setupErr"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ rosa di una squadra ============ -->
+<div class="velo" id="rosa" hidden>
+  <div class="foglio">
+    <button class="chiudi" data-chiudi="rosa">&#10005;</button>
+    <div id="rosaCorpo"></div>
+  </div>
+</div>
+
+<!-- ============ correggi un lotto ============ -->
+<div class="velo" id="correggi" hidden>
+  <div class="foglio">
+    <button class="chiudi" data-chiudi="correggi">&#10005;</button>
+    <div id="corrCorpo"></div>
+  </div>
+</div>
+
+<div id="gol"><div class="g1">GOOOL</div><div class="g2" id="golTxt"></div></div>
+<div id="avviso"></div>
+
+<script>
+"use strict";
+/* ============================================================
+ * FantaOracle — ASTA. Pagina nuova per la serata del 13/9.
+ *  - SORGENTE: scripts/f10_copilot.py, aperta con ?live=http://host:porta
+ *    (default http://localhost:8770), esattamente come viz/copilot.html.
+ *    Lo stato vive tutto sul server: un reload riprende da li'.
+ *  - FLUSSO: cerca -> Invio (al banco) -> prezzo -> Invio -> numero della
+ *    maglia -> Invio (AGGIUDICA). Poi il fuoco torna alla ricerca.
+ *  - Ogni campo che il server non manda diventa «—»: mai un NaN al tavolo.
+ * ============================================================ */
+const $ = id => document.getElementById(id);
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c])); }
+
+const RUOLI = ["P","D","C","A"];
+const RUOLO_NOME = {P:"PORTIERE", D:"DIFENSORE", C:"CENTROCAMPISTA", A:"ATTACCANTE"};
+const RUOLO_PLUR = {P:"PORTIERI", D:"DIFENSORI", C:"CENTROCAMPISTI", A:"ATTACCANTI"};
+/* colori dei ruoli come in FantaAsta: P giallo, D blu, C verde, A rosso */
+const RUOLO_COL = {P:"#f7d117", D:"#2d7ff9", C:"#22c55e", A:"#ef4444"};
+/* dieci maglie, dieci colori fissi per indice: la squadra 3 e' sempre quella
+   arancione, per tutta la serata e in tutti i pannelli */
+const MAGLIE_COL = ["#e63946","#4cc9f0","#f2c14e","#7cd992","#b388ff",
+                    "#ff8fab","#ff9f45","#ffffff","#25c6b0","#9aa7ff",
+                    "#c98bdb","#8ecae6","#ffd166","#9bf6a3"];
+
+/* --- numeri: niente NaN, niente undefined, «—» dove il dato manca --- */
+function num(x){
+  if(x === null || x === undefined || x === "") return null;
+  const v = +x;
+  return Number.isFinite(v) ? v : null;
+}
+function d0(x){ const v = num(x); return v == null ? "—" : String(Math.round(v)); }
+function d1(x){ const v = num(x); return v == null ? "—" : (Math.round(v*10)/10).toString().replace(/\.0$/, ""); }
+
+/* colore del testo sopra una maglia: nero sulle chiare, bianco sulle scure */
+function inchiostro(hex){
+  const h = String(hex).replace("#","");
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return (0.299*r + 0.587*g + 0.114*b) > 150 ? "#12240f" : "#ffffff";
+}
+function colMaglia(i){ return MAGLIE_COL[i % MAGLIE_COL.length]; }
+/* il tasto che sceglie la maglia: 1..9 e poi 0 per la decima */
+function tastoDi(i){ return i < 9 ? String(i+1) : (i === 9 ? "0" : ""); }
+function maglietta(i, grande){
+  const c = colMaglia(i), t = inchiostro(c), n = tastoDi(i) || (i+1);
+  return `<svg viewBox="0 0 64 60" aria-hidden="true">
+    <path d="M23 3 L9 9 L3 25 L14 30 L14 57 L50 57 L50 30 L61 25 L55 9 L41 3 L38 8 Q32 14 26 8 Z"
+      fill="${c}" stroke="rgba(0,0,0,.5)" stroke-width="2" stroke-linejoin="round"/>
+    <text x="32" y="${grande ? 46 : 47}" text-anchor="middle" fill="${t}"
+      font-family="ui-monospace, Consolas, monospace" font-size="${grande ? 26 : 24}" font-weight="700">${n}</text>
+  </svg>`;
+}
+function pillolaRuolo(r, grande){
+  const c = RUOLO_COL[r] || "rgba(244,244,239,.3)";
+  return `<span class="rp${grande ? " g" : ""}" style="background:${c}">${esc(r || "?")}</span>`;
+}
+
+/* ---------- stato della pagina ---------- */
+const params = new URLSearchParams(location.search);
+const BASE = String(params.get("live") || "http://localhost:8770").replace(/\/+$/, "");
+const S = {
+  stato:null, piano:null, giu:false,
+  ultimiN:-1, sel:null, prezzo:1, consiglio:null,
+  advTimer:null, advSeq:0, indTimer:null,
+  cercaTimer:null, risultati:[], cur:0,
+  squadra:null,              // indice della maglia scelta
+  occupato:false, armaUndo:null, armaTimer:null,
+  capEventi:false,           // il server ha GET /copilot/eventi
+  eventi:null,               // elenco completo, quando c'e'
+  corr:null,                 // lotto in correzione
+};
+/* la pagina classica resta a un click, sulla stessa porta */
+$("lnkClassica").href = "copilot.html?live=" + encodeURIComponent(BASE);
+
+async function api(path, opts){
+  const res = await fetch(BASE + path, Object.assign({cache:"no-store"}, opts || {}));
+  return res.json();
+}
+async function post(path, corpo){
+  return api(path, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(corpo || {})});
+}
+let avvisoT = null;
+function avviso(msg, cls){
+  const t = $("avviso");
+  t.textContent = msg; t.className = "vedi " + (cls || "");
+  clearTimeout(avvisoT);
+  avvisoT = setTimeout(() => t.className = "", 2600);
+}
+
+/* ============================================================
+ * POLLING — ogni 2 s, come la pagina classica
+ * ============================================================ */
+let pollTimer = null;
+async function poll(){
+  clearTimeout(pollTimer);
+  let st = null;
+  try{
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 2500);
+    st = await api("/copilot/state", {signal: ctl.signal});
+    clearTimeout(t);
+    if(S.giu){ S.giu = false; $("giu").hidden = true; }
+    $("collega").classList.remove("giu"); $("collegaTxt").textContent = "COLLEGATO";
+  }catch(e){
+    S.giu = true; $("giu").hidden = false;
+    $("collega").classList.add("giu"); $("collegaTxt").textContent = "SERVER GIU'";
+  }
+  if(st) suStato(st);          // fuori dal try: un errore di disegno non e' «server giu'»
+  pollTimer = setTimeout(poll, 2000);
+}
+
+function suStato(st){
+  const primo = !S.stato;
+  S.stato = st;
+  disegnaTabellone(st);
+  if(!st.names || !st.names.length){ apriSetup(); disegnaMaglie(); disegnaAcquisti(st, false); return; }
+  $("setup").hidden = true;
+  $("btnSetup").hidden = st.n_events > 0;
+  const cambiato = st.n_events !== S.ultimiN;
+  disegnaMaglie();
+  const firmaGol = st.n_events + "/" + st.my_index;
+  if(GR.firma !== firmaGol) caricaGolRosa(firmaGol);
+  const firmaRig = st.n_events + "/" + (st.esclusi_manuali || []).length;
+  if(RIG.firma !== firmaRig) caricaRigoristi(firmaRig);
+  if(cambiato){
+    disegnaAcquisti(st, !primo && st.n_events > S.ultimiN);
+    S.ultimiN = st.n_events;
+    aggiornaPiano();
+    caricaEventi();
+    if(S.sel){
+      const venduto = (st.last_events || []).some(e => e.id === S.sel.id);
+      if(venduto){ if(!S.occupato) sbancaLotto(); }
+      else chiediConsiglio(0);
+    }
+    disegnaUndo();
+    disegnaTuttiAcquisti();
+  }
+}
+
+/* ---------- testata ---------- */
+function disegnaTabellone(st){
+  const mia = (st.teams || []).find(t => t.index === st.my_index);
+  $("tvCrediti").textContent = mia ? d0(mia.budget) : d0(st.budget);
+  const sp = st.spendibile || null;
+  $("tvOra").textContent = sp ? d0(sp.max_ora) : "—";
+  $("tvAcq").textContent = d0(st.n_events);
+  const cal = st.calore_per_ruolo || null;
+  const r = S.sel ? S.sel.ruolo : null;
+  $("tvCalore").textContent = (cal && r && cal[r] != null) ? "×" + d1(cal[r])
+    : (st.heat != null ? "×" + d1(st.heat) : "—");
+}
+
+/* ============================================================
+ * SETUP DEL TAVOLO
+ * ============================================================ */
+function nomiSalvati(){
+  /* solo comodita': se manca, il setup parte comunque (niente in localStorage
+     di cui la serata abbia bisogno) */
+  try{ return JSON.parse(localStorage.getItem("fantaoracle_copilot_names") || "null"); }catch(e){ return null; }
+}
+function costruisciNomi(n){
+  const box = $("nomi");
+  const prima = [...box.querySelectorAll("input[type=text]")].map(i => i.value);
+  const mr = box.querySelector("input[type=radio]:checked");
+  const mio = mr ? +mr.value : 0;
+  const sal = nomiSalvati();
+  let h = "";
+  for(let i = 0; i < n; i++){
+    const v = prima[i] != null ? prima[i] : ((sal && sal.names && sal.names[i]) || "");
+    h += `<div class="nrow ${i === mio ? "me" : ""}" data-i="${i}">
+      <span class="i">${tastoDi(i) || (i+1)}</span>
+      <input type="text" value="${esc(v)}" placeholder="${i === mio ? "il tuo nome (IO)" : "squadra " + (i+1)}">
+      <label class="melbl"><input type="radio" name="me" value="${i}" ${i === mio ? "checked" : ""}>IO</label>
+    </div>`;
+  }
+  box.innerHTML = h;
+  box.querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => {
+    box.querySelectorAll(".nrow").forEach(row => row.classList.toggle("me", row.dataset.i === r.value));
+  });
+}
+function apriSetup(){
+  const s = $("setup");
+  if(!s.hidden) return;
+  const st = S.stato || {}, sal = nomiSalvati();
+  const n = (st.names && st.names.length) || (sal && sal.names && sal.names.length) || 10;
+  $("nPart").value = n;
+  $("budgetIn").value = st.budget || (sal && sal.budget) || 500;
+  $("nomi").innerHTML = "";
+  costruisciNomi(n);
+  if(st.names && st.names.length){
+    [...$("nomi").querySelectorAll("input[type=text]")].forEach((i, k) => i.value = st.names[k] || "");
+    const r = $("nomi").querySelector(`input[type=radio][value="${st.my_index || 0}"]`);
+    if(r){ r.checked = true; r.onchange(); }
+  }
+  $("setupErr").textContent = "";
+  s.hidden = false;
+  const primoVuoto = [...$("nomi").querySelectorAll("input[type=text]")].find(i => !i.value);
+  (primoVuoto || $("nomi").querySelector("input[type=text]")).focus();
+}
+$("nPart").onchange = () => {
+  const n = Math.max(2, Math.min(14, +$("nPart").value | 0));
+  $("nPart").value = n; costruisciNomi(n);
+};
+$("btnSetup").onclick = () => { if(S.stato && S.stato.n_events === 0) apriSetup(); };
+$("setup").addEventListener("keydown", e => {
+  if(e.key === "Enter" && e.target.tagName === "INPUT"){ e.preventDefault(); $("btnConferma").click(); }
+});
+$("btnConferma").onclick = async () => {
+  const names = [...$("nomi").querySelectorAll("input[type=text]")].map(i => i.value.trim());
+  const mr = $("nomi").querySelector("input[type=radio]:checked");
+  const my_index = mr ? +mr.value : 0;
+  const budget = +$("budgetIn").value;
+  const manca = names.map((n, i) => n ? null : i + 1).filter(Boolean);
+  if(manca.length){ $("setupErr").textContent = "manca il nome n. " + manca.join(", "); return; }
+  const dup = names.find((n, i) => names.findIndex(m => m.toLowerCase() === n.toLowerCase()) !== i);
+  if(dup){ $("setupErr").textContent = `"${dup}" compare due volte`; return; }
+  if(!(budget > 0)){ $("setupErr").textContent = "crediti non validi"; return; }
+  $("btnConferma").disabled = true;
+  try{
+    const d = await post("/copilot/setup", {names, my_index, budget});
+    if(!d.ok){ $("setupErr").textContent = d.err || "errore"; return; }
+    try{ localStorage.setItem("fantaoracle_copilot_names", JSON.stringify({names, my_index, budget})); }catch(e){}
+    $("setup").hidden = true;
+    S.ultimiN = -1;
+    avviso("Tavolo pronto: buona asta", "ok");
+    await poll();
+    $("q").focus();
+  }catch(e){ $("setupErr").textContent = "server non raggiungibile"; }
+  finally{ $("btnConferma").disabled = false; }
+};
+
+/* ============================================================
+ * RICERCA
+ * ============================================================ */
+function programmaRicerca(){
+  clearTimeout(S.cercaTimer);
+  S.cur = 0;
+  S.cercaTimer = setTimeout(cerca, 180);
+}
+async function cerca(){
+  const q = $("q").value.trim();
+  if(!q){ S.risultati = []; disegnaRisultati(); return; }
+  const qs = new URLSearchParams();
+  qs.set("q", q);
+  qs.set("tutti", "1");        // anche fuori lista ed esclusi: l'acquisto altrui va registrato lo stesso
+  try{
+    const righe = await api("/copilot/players?" + qs.toString());
+    S.risultati = Array.isArray(righe) ? righe : [];
+  }catch(e){ S.risultati = []; }
+  if(S.cur >= S.risultati.length) S.cur = 0;
+  disegnaRisultati();
+}
+function disegnaRisultati(){
+  const box = $("risultati");
+  if(!S.risultati.length){
+    box.innerHTML = $("q").value.trim()
+      ? `<div class="vuoto">nessuno con questo nome</div>`
+      : (S.sel ? "" : `<div class="vuoto">Scrivi il nome di chi hanno appena chiamato.<br>Invio lo porta al banco.</div>`);
+    return;
+  }
+  box.innerHTML = S.risultati.slice(0, 30).map((p, i) => {
+    const nota = p.nota_esperto ? String(p.nota_esperto).replace(/\s+/g, " ").trim() : "";
+    return `<div class="ris ${i === S.cur ? "qui" : ""}" data-id="${esc(p.id)}">
+      ${pillolaRuolo(p.ruolo)}
+      <span class="nm">${esc(p.nome)} <span class="sq">${esc(p.squadra || "")}</span>${
+        p.bomber ? ` <span class="bmb" title="bomber del reparto">⚽</span>` : ""}</span>
+      <span class="n" title="gol veri 2025 &middot; 2026">${d0(p.gol_tot_2025)}·${d0(p.gol_tot_2026)}</span>
+      <span class="n oro" title="mediana della lega">q50 <b>${d0(p.q50)}</b></span>
+      ${nota ? `<span class="nota" title="${esc(nota)}">\u{1F4AC} ${esc(nota)}</span>` : ""}
+    </div>`;
+  }).join("") + (S.risultati.length > 30 ? `<div class="vuoto">…e altri ${S.risultati.length - 30}</div>` : "");
+  const riga = box.children[S.cur];
+  if(riga && riga.scrollIntoView) riga.scrollIntoView({block:"nearest"});
+}
+$("q").addEventListener("input", programmaRicerca);
+$("risultati").addEventListener("click", e => {
+  const riga = e.target.closest(".ris"); if(!riga) return;
+  const p = S.risultati.find(x => String(x.id) === riga.dataset.id);
+  if(p) alBanco(p);
+});
+
+/* ============================================================
+ * AL BANCO
+ * ============================================================ */
+function alBanco(p, prezzo){
+  S.sel = p; S.consiglio = null; S.squadra = null;
+  S.prezzo = Math.max(1, (prezzo | 0) || 1);
+  $("prezzo").value = S.prezzo;
+  $("q").value = ""; S.risultati = []; S.cur = 0;
+  disegnaRisultati(); disegnaBanco(); disegnaConsiglio(); disegnaMaglie(); disegnaBottoneBatti();
+  chiediConsiglio(0);
+  const inp = $("prezzo"); inp.focus(); inp.select();
+}
+function sbancaLotto(){
+  clearTimeout(S.indTimer);
+  S.sel = null; S.consiglio = null; S.squadra = null; S.prezzo = 1;
+  $("prezzo").value = 1;
+  disegnaBanco(); disegnaConsiglio(); disegnaMaglie(); disegnaBottoneBatti(); disegnaRisultati();
+  if(S.stato) disegnaTabellone(S.stato);
+  $("q").focus(); $("q").select();
+}
+function cambiaPrezzo(v, daInput){
+  v = Math.max(0, Math.min(9999, v | 0));
+  S.prezzo = v;
+  if(!daInput) $("prezzo").value = v;
+  disegnaMaglie(); disegnaBottoneBatti();
+  chiediConsiglio(200);
+}
+/* `zitto`: stessa richiesta senza animazione. Il prezzo di indifferenza lo
+   calcola un thread del server e arriva al giro dopo: la riga deve cambiare
+   da sola, non sfarfallare sotto gli occhi del banditore. */
+function chiediConsiglio(ritardo, zitto){
+  if(!S.sel) return;
+  clearTimeout(S.advTimer);
+  clearTimeout(S.indTimer);
+  const seq = ++S.advSeq;
+  S.advTimer = setTimeout(async () => {
+    const pid = S.sel && S.sel.id, prezzo = S.prezzo;
+    if(!pid) return;
+    try{
+      const a = await api(`/copilot/advice?player_id=${encodeURIComponent(pid)}&price=${prezzo}`);
+      if(seq !== S.advSeq || !S.sel || String(a.id) !== String(S.sel.id)) return;
+      S.consiglio = a;
+      disegnaConsiglio(!zitto);
+      disegnaBanco();
+      if(S.stato) disegnaTabellone(S.stato);
+      if(a.stato_indifferenza === "in_calcolo" && S.sel.id === pid && S.prezzo === prezzo)
+        S.indTimer = setTimeout(() => chiediConsiglio(0, true), 2000);
+    }catch(e){ /* il banner rosso lo dice gia' */ }
+  }, ritardo || 0);
+}
+
+function datiBanco(){
+  if(!S.sel) return null;
+  const a = (S.consiglio && String(S.consiglio.id) === String(S.sel.id)) ? S.consiglio : null;
+  return a ? Object.assign({}, S.sel, a) : S.sel;
+}
+function testoIndisponibile(p){
+  if(!p || !p.indisponibile) return null;
+  const i = p.indisponibile;
+  if(typeof i === "string") return {tipo:i, testo:p.indisponibile_testo || ""};
+  return {tipo:i.tipo || "indisponibile", testo:i.testo || p.indisponibile_testo || ""};
+}
+function disegnaBanco(){
+  const box = $("banco");
+  const p = datiBanco();
+  if(!p){
+    box.classList.add("vuoto-b");
+    box.innerHTML = `<div class="vuoto" style="font-size:14px">
+      <div style="font-size:34px; margin-bottom:4px">\u{1F3DF}️</div>
+      Nessuno al banco.<br>Scrivi un nome qui sopra.</div>`;
+    return;
+  }
+  box.classList.remove("vuoto-b");
+  const ind = testoIndisponibile(p);
+  let chips = "";
+  if(p.bomber) chips += `<span class="chip oro">⚽ bomber</span>`;
+  if(S.consiglio && String(S.consiglio.id) === String(p.id)){
+    chips += S.consiglio.in_piano
+      ? `<span class="chip oro">${S.consiglio.titolare_di_piano ? "★ titolare di piano" : "nel piano"}</span>`
+      : `<span class="chip spenta">fuori piano</span>`;
+  }
+  if(ind) chips += `<span class="chip ind" title="${esc(ind.testo)}">indisponibile</span>`;
+  if(p.fuori_lista) chips += `<span class="chip ros">fuori serie A</span>`;
+  if(p.senza_previsione) chips += `<span class="chip spenta">senza previsione</span>`;
+  if(p.escluso_manuale) chips += `<span class="chip spenta">escluso da te</span>`;
+  const nota = p.nota_esperto ? String(p.nota_esperto).replace(/\s+/g, " ").trim() : "";
+  box.innerHTML = `
+    <div class="b-testa">
+      ${pillolaRuolo(p.ruolo, true)}
+      <div style="min-width:0; flex:1">
+        <div class="b-nome">${esc(p.nome)}</div>
+        <div class="b-sotto"><span>${RUOLO_NOME[p.ruolo] || "?"} · ${esc(p.squadra || "")}</span>${chips}</div>
+      </div>
+      <button class="b-x" id="bancoX" title="togli dal banco (Esc)">✕</button>
+    </div>
+    <div class="b-num">
+      <div class="c"><div class="n">${d0(p.q10)}</div><div class="l">q10</div></div>
+      <div class="c q50"><div class="n">${d0(p.q50)}</div><div class="l">q50 mediana</div></div>
+      <div class="c"><div class="n">${d0(p.q90)}</div><div class="l">q90</div></div>
+      <div class="c"><div class="n">${d0(p.value)}</div><div class="l">valore</div></div>
+      <div class="c gol"><div class="n">${d0(p.gol_tot_2025)}·${d0(p.gol_tot_2026)}</div><div class="l">gol 25 · 26</div></div>
+      <div class="c"><div class="n">${d1(p.prezzo_mercato)}</div><div class="l">mercato</div></div>
+    </div>
+    ${ind ? `<div class="b-ind"><b>⚠ ${esc(ind.tipo)}</b>${ind.testo ? " — " + esc(ind.testo) : ""}</div>` : ""}
+    ${nota ? `<div class="b-nota" title="${esc(nota)}">\u{1F4AC} ${esc(nota)}</div>` : ""}`;
+  $("bancoX").onclick = sbancaLotto;
+}
+
+/* Come si legge il consiglio. L'autorita' e' il campo `azione` del server, non
+   il testo: cambiare una frase nel Copilota non deve spostare un cartello. */
+function vistaConsiglio(a){
+  const az = String(a.azione || "");
+  const lim = a.max_consigliato;
+  const legale = a.offerta_massima_legale;
+  const motivo = String(a.motivo || a.consiglio || "");
+  if(a.escluso_manuale) return {cls:"grigio", az:"ESCLUSO DA TE", tetto:lim, sub:motivo};
+  if(a.fuori_lista) return {cls:"rosso", az:"FUORI SERIE A", tetto:lim,
+    sub:motivo + " — l'acquisto altrui si registra lo stesso: il budget deve restare giusto."};
+  if(a.obbligo) return {cls:"verde", az:"DEVI PRENDERLO", tetto:lim, sub:motivo};
+  if(az === "nessuna offerta") return {cls:"grigio", az:"NON OFFRIRE", tetto:lim, sub:motivo};
+  if(num(legale) != null && num(legale) < 1) return {cls:"rosso", az:"NON PUOI RILANCIARE", tetto:legale,
+    sub:"la cassa serve tutta per gli slot che restano: un credito per ognuno."};
+  if(az === "non offrire") return {cls:"rosso", az:"LASCIALO", tetto:lim, sub:motivo};
+  if(az === "lascia") return {cls:"rosso", az:"LASCIALO", tetto:lim, sub:motivo};
+  if(az === "rilancia"){
+    if(a.in_piano) return {cls:"verde", az:"RILANCIA", tetto:lim,
+      sub:`${a.titolare_di_piano ? "titolare" : "panchina"} del tuo piano · costo-ombra se lo perdi ${d1(a.prezzo_ombra)} · mediana lega ${d0(a.q50)}`};
+    return {cls:"oro", az:"AL MASSIMO", tetto:lim, sub:"fuori piano: " + motivo};
+  }
+  return {cls:"grigio", az:String(a.consiglio || "…"), tetto:lim, sub:""};
+}
+function disegnaConsiglio(batti){
+  const box = $("consiglio");
+  if(!S.sel){
+    box.className = "riq grigio";
+    box.innerHTML = `<div class="et">consiglio dell'oracolo</div>
+      <div class="cons-testa"><div class="cons-az" style="font-size:19px">nessuno al banco</div>
+      <div class="cons-tetto"><div class="n">—</div><div class="l">tetto</div></div></div>
+      <div class="cons-sub">Appena porti un nome al banco qui compare fin dove puoi spingerti.</div>`;
+    $("tvTetto").textContent = "—";
+    return;
+  }
+  const a = S.consiglio;
+  if(!a || String(a.id) !== String(S.sel.id)){
+    box.className = "riq grigio";
+    box.innerHTML = `<div class="et">consiglio dell'oracolo · al prezzo ${S.prezzo}</div>
+      <div class="cons-testa"><div class="cons-az" style="font-size:19px">chiedo al modello…</div>
+      <div class="cons-tetto"><div class="n">—</div><div class="l">tetto</div></div></div>`;
+    $("tvTetto").textContent = "—";
+    return;
+  }
+  const v = vistaConsiglio(a);
+  const ind = a.stato_indifferenza === "in_calcolo" ? "in calcolo…"
+            : a.stato_indifferenza === "non_applicabile" ? "n/a" : d0(a.prezzo_indifferenza);
+  const cal = num(a.calore_ruolo);
+  let extra = `<div class="cons-riga">spendibili <b>${d0(a.max_spendibile)}</b> · indifferenza <b>${ind}</b>`
+    + ` · cap bot <b>${d0(a.cap_bot)}</b> · calore ${esc(a.ruolo || "")} <b>${cal == null ? "—" : "×" + d1(cal)}</b></div>`;
+  const q = num(a.quota_scarsita);
+  if(q != null || a.bomber_rimasti != null || a.squadre_contendenti != null){
+    const cont = num(a.squadre_contendenti);
+    const cls = q == null ? "" : q >= 0.8 ? "caldo" : q >= 0.5 ? "tiepido" : "";
+    const grido = (q != null && q >= 0.8) ? ` — <b>SCARSO: puoi spingerti a ${d0(a.max_consigliato)}</b>` : "";
+    extra += `<div class="cons-scar ${cls}">⚽ ${d0(a.bomber_rimasti)} bomber come lui per `
+      + `${cont == null ? "—" : cont + 1} squadre con slot e cassa · quota ${d1(q)}${grido}</div>`;
+  }
+  if(num(a.concorrenti_sopra_tetto) > 0)
+    extra += `<div class="cons-scar tiepido">possono superarti: ${d0(a.concorrenti_sopra_tetto)}`
+      + ` (${esc((a.concorrenti_nomi || []).join(", "))})</div>`;
+  const con = a.con_lui, senza = a.senza_di_lui;
+  if(con && senza)
+    extra += `<div class="cons-conf">con lui a ${d0(con.prezzo)}: ${d0(con.value)} pt · ${d0(con.gol_2025)} gol`
+      + ` | senza di lui: ${d0(senza.value)} pt · ${d0(senza.gol_2025)} gol</div>`;
+  if(a.motivo_tetto) extra += `<div class="cons-motivo">${esc(a.motivo_tetto)}</div>`;
+
+  box.className = "riq " + v.cls + (batti ? " batti" : "");
+  box.innerHTML = `<div class="et">consiglio dell'oracolo · al prezzo ${S.prezzo}</div>
+    <div class="cons-testa">
+      <div class="cons-az">${esc(v.az)}</div>
+      <div class="cons-tetto"><div class="n">${d0(v.tetto)}</div><div class="l">tetto</div></div>
+    </div>
+    ${v.sub ? `<div class="cons-sub">${esc(v.sub)}</div>` : ""}
+    ${extra}`;
+  $("tvTetto").textContent = d0(v.tetto);
+}
+$("prezzo").addEventListener("input", () => cambiaPrezzo(+$("prezzo").value, true));
+$("prezzo").addEventListener("keydown", e => {
+  if(e.key === "+" || e.key === "="){ e.preventDefault(); cambiaPrezzo(S.prezzo + 1); }
+  else if(e.key === "-"){ e.preventDefault(); cambiaPrezzo(S.prezzo - 1); }
+  else if(e.key === "Enter"){
+    e.preventDefault();
+    /* il prezzo e' scritto: se la maglia c'e' gia' si batte, altrimenti il
+       fuoco lascia il campo cosi' i tasti 1..0 scelgono la squadra */
+    if(S.squadra != null) aggiudica(S.squadra);
+    else{ e.target.blur(); avviso("ora la maglia: premi il suo numero (1…0)"); }
+  }
+  else if(e.key === "Escape"){ e.target.blur(); }
+});
+document.querySelectorAll(".pb").forEach(b => b.onclick = () => cambiaPrezzo(S.prezzo + (+b.dataset.d)));
+
+/* ============================================================
+ * LE DIECI MAGLIE
+ * ============================================================ */
+function firmaMaglie(st){
+  return (st.teams || []).map(t => t.index + ":" + t.name).join("|") + "#" + st.my_index;
+}
+/* perche' una squadra non puo' prendere questo lotto a questo prezzo */
+function perche(st, t){
+  if(S.sel){
+    const quo = (st.quotas || {})[S.sel.ruolo] || 0;
+    const presi = ((t.roster || {})[S.sel.ruolo] || []).length;
+    if(quo && presi >= quo) return RUOLO_PLUR[S.sel.ruolo].toLowerCase() + " al completo";
+  }
+  const max = num(t.max_bid);
+  if(max != null && S.prezzo > max) return "puo' al massimo " + d0(max);
+  return "";
+}
+function disegnaMaglie(){
+  const st = S.stato;
+  const box = $("maglie");
+  if(!st || !st.teams || !st.teams.length){
+    if(box.dataset.firma !== "vuoto"){ box.dataset.firma = "vuoto"; box.innerHTML = `<div class="vuoto">nessuna squadra al tavolo</div>`; }
+    return;
+  }
+  const firma = firmaMaglie(st);
+  if(box.dataset.firma !== firma){
+    box.dataset.firma = firma;
+    box.innerHTML = st.teams.map(t => {
+      const io = t.index === st.my_index;
+      return `<div class="mag ${io ? "io" : ""}" data-ti="${t.index}" tabindex="0" role="button">
+        <button class="rosa-b" data-rosa="${t.index}" title="vedi la rosa e correggi">rosa</button>
+        ${io ? "" : `<button class="io-b" data-io="${t.index}" title="il piano e i consigli passano a questa squadra">io?</button>`}
+        ${maglietta(t.index)}
+        <span class="nm" title="${esc(t.name)}">${esc(t.name)}</span>
+        <span class="cr" data-cr="${t.index}">—</span>
+        <span class="sl" data-sl="${t.index}"></span>
+        <span class="pie" data-pie="${t.index}"></span>
+        <span class="mag-motivo" data-mot="${t.index}"></span>
+        ${io ? `<span class="tuo">IO</span>` : ""}
+      </div>`;
+    }).join("");
+  }
+  /* il resto si aggiorna in loco: riscrivere l'HTML a ogni giro faceva morire
+     i click cominciati un istante prima del ridisegno */
+  const ultimoDi = {};
+  (st.last_events || []).forEach(e => { ultimoDi[e.team_index] = e; });
+  st.teams.forEach(t => {
+    const card = box.querySelector(`.mag[data-ti="${t.index}"]`); if(!card) return;
+    const cr = box.querySelector(`[data-cr="${t.index}"]`);
+    if(cr && cr.textContent !== d0(t.budget)) cr.textContent = d0(t.budget);
+    const sl = box.querySelector(`[data-sl="${t.index}"]`);
+    if(sl){
+      const h = [["P","D"],["C","A"]].map(coppia => `<span class="fila">` + coppia.map(r => {
+        const tot = (st.quotas || {})[r] || 0, presi = ((t.roster || {})[r] || []).length;
+        let pal = "";
+        for(let i = 0; i < tot; i++)
+          pal += `<span class="pallo" style="${i < presi ? "background:" + RUOLO_COL[r] : ""}"></span>`;
+        return `<span class="gr" title="${r}: ${presi} su ${tot}"><i>${r}</i>${pal}</span>`;
+      }).join("") + `</span>`).join("");
+      if(sl.dataset.h !== h){ sl.dataset.h = h; sl.innerHTML = h; }
+    }
+    const pie = box.querySelector(`[data-pie="${t.index}"]`);
+    if(pie){
+      const u = ultimoDi[t.index];
+      const h = `⚽ <b>${d0(t.gol_2025)}</b>` + (u ? ` · ${esc(u.nome)} ${d0(u.price)}` : "");
+      if(pie.dataset.h !== h){ pie.dataset.h = h; pie.innerHTML = h; }
+    }
+    const mot = perche(st, t);
+    const cm = box.querySelector(`[data-mot="${t.index}"]`);
+    if(cm && cm.textContent !== mot) cm.textContent = mot;
+    const spenta = !!(S.sel && mot);
+    card.classList.toggle("spenta", spenta);
+    card.classList.toggle("scelta", S.squadra === t.index);
+    card.title = mot ? t.name + ": " + mot : t.name;
+  });
+  const sc = S.squadra != null ? (st.teams.find(t => t.index === S.squadra) || null) : null;
+  $("magliaScelta").textContent = sc
+    ? `maglia ${tastoDi(sc.index)} · ${sc.name}`
+    : (st.teams.length ? "premi il numero della maglia" : "");
+}
+$("maglie").addEventListener("click", e => {
+  const io = e.target.closest("[data-io]");
+  if(io){ e.stopPropagation(); diventaIo(+io.dataset.io); return; }
+  const rosa = e.target.closest("[data-rosa]");
+  if(rosa){ e.stopPropagation(); apriRosa(+rosa.dataset.rosa); return; }
+  const card = e.target.closest(".mag"); if(!card) return;
+  scegliMaglia(+card.dataset.ti);
+});
+function scegliMaglia(ti){
+  const st = S.stato; if(!st) return;
+  const t = (st.teams || []).find(x => x.index === ti);
+  if(!t){ return; }
+  if(!S.sel){ avviso("prima porta un giocatore al banco", "err"); $("q").focus(); return; }
+  const mot = perche(st, t);
+  if(mot){ avviso(t.name + ": " + mot, "err"); return; }
+  S.squadra = ti;
+  disegnaMaglie(); disegnaBottoneBatti();
+}
+function disegnaBottoneBatti(){
+  const b = $("btnAggiudica"), txt = $("battiTxt");
+  const st = S.stato;
+  const t = (st && S.squadra != null) ? (st.teams || []).find(x => x.index === S.squadra) : null;
+  const pronto = !!(S.sel && t && S.prezzo >= 1);
+  b.disabled = !pronto;
+  txt.innerHTML = pronto
+    ? `AGGIUDICA <span class="cosa">${esc(S.sel.nome)} → ${esc(t.name)} per ${S.prezzo}</span>`
+    : (S.sel ? `AGGIUDICA <span class="cosa">scegli la maglia (1…0)</span>` : `AGGIUDICA`);
+}
+$("btnAggiudica").onclick = () => { if(S.squadra != null) aggiudica(S.squadra); };
+
+async function aggiudica(ti){
+  const st = S.stato;
+  if(!S.sel || !st || S.occupato) return;
+  const t = (st.teams || []).find(x => x.index === ti);
+  if(!t){ avviso("squadra sconosciuta", "err"); return; }
+  if(!(S.prezzo >= 1)){ avviso("scrivi il prezzo battuto (almeno 1)", "err"); $("prezzo").focus(); return; }
+  const mot = perche(st, t);
+  if(mot){ avviso(t.name + ": " + mot, "err"); return; }
+  S.occupato = true;
+  const p = S.sel, prezzo = S.prezzo;
+  /* identificativo della richiesta: un doppio invio non registra due acquisti */
+  const rid = `${p.id}-${ti}-${prezzo}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  try{
+    const d = await post("/copilot/hammer", {player_id: p.id, team_index: ti, price: prezzo, richiesta_id: rid});
+    if(!d.ok){ avviso("⚠ " + (d.err || "rifiutato"), "err"); return; }
+    if(d.duplicato){ avviso("gia' registrato", "err"); return; }
+    if(d.nota) avviso(d.nota);
+    const b = $("btnAggiudica");
+    b.classList.remove("colpo"); void b.offsetWidth; b.classList.add("colpo");
+    const card = document.querySelector(`.mag[data-ti="${ti}"]`);
+    if(card){ card.classList.remove("lampo"); void card.offsetWidth; card.classList.add("lampo"); }
+    if(ti === st.my_index) urlaGol(`${p.nome} è tuo per ${prezzo}`);
+    else avviso(`${p.nome} → ${t.name} per ${prezzo}`, "ok");
+    S.eventi = null;
+    setTimeout(() => { if(S.sel && S.sel.id === p.id) sbancaLotto(); }, 420);
+    await poll();
+  }catch(e){ avviso("server non raggiungibile", "err"); }
+  finally{ S.occupato = false; }
+}
+function urlaGol(sotto){
+  const g = $("gol");
+  $("golTxt").textContent = sotto;
+  g.classList.remove("spara"); void g.offsetWidth; g.classList.add("spara");
+}
+
+/* «sono io»: stessi nomi, stesso budget, cambia solo my_index. Il server
+   rifiuta se la cassa di quella squadra non copre gli acquisti gia' fatti. */
+async function diventaIo(ti){
+  const st = S.stato;
+  if(!st || !st.names || S.occupato || ti === st.my_index) return;
+  S.occupato = true;
+  try{
+    const d = await post("/copilot/setup", {names: st.names, my_index: ti, budget: st.budget});
+    if(!d.ok){ avviso("⚠ " + (d.err || "cambio rifiutato"), "err"); return; }
+    try{ localStorage.setItem("fantaoracle_copilot_names",
+      JSON.stringify({names: st.names, my_index: ti, budget: st.budget})); }catch(e){}
+    S.ultimiN = -1; GR.firma = null;
+    $("maglie").dataset.firma = "";
+    await poll();
+    aggiornaPiano();
+    avviso("ora sei " + (st.names[ti] || ("#" + ti)), "ok");
+  }catch(e){ avviso("server non raggiungibile", "err"); }
+  finally{ S.occupato = false; }
+}
+
+/* ============================================================
+ * ANNULLA L'ULTIMO — primo colpo arma, secondo conferma (3 s)
+ * ============================================================ */
+function disegnaUndo(){
+  const b = $("btnUndo"), st = S.stato;
+  const ev = ((st && st.last_events) || []).slice(-1)[0];
+  if(!ev){ b.disabled = true; b.classList.remove("armato"); b.innerHTML = "↶ nessun acquisto da annullare"; return; }
+  const t = (st.teams || []).find(x => x.index === ev.team_index);
+  b.disabled = false;
+  const armato = S.armaUndo === "si";
+  b.classList.toggle("armato", armato);
+  b.innerHTML = armato
+    ? `❗ confermi? annullo <b>${esc(ev.nome)}</b> → ${esc(t ? t.name : "?")} (${d0(ev.price)})`
+    : `↶ ANNULLA ULTIMO<br><span style="font-size:11.5px; color:var(--fioco)">${esc(ev.nome)} → ${esc(t ? t.name : "?")} per ${d0(ev.price)} · tasto U</span>`;
+}
+$("btnUndo").onclick = () => annulla();
+function annulla(){
+  const st = S.stato;
+  if(!st || !(st.last_events || []).length){ avviso("niente da annullare"); return; }
+  if(S.armaUndo !== "si"){
+    S.armaUndo = "si"; disegnaUndo();
+    clearTimeout(S.armaTimer);
+    S.armaTimer = setTimeout(() => { S.armaUndo = null; disegnaUndo(); }, 3000);
+    return;
+  }
+  S.armaUndo = null; clearTimeout(S.armaTimer);
+  if(S.occupatoUndo) return;
+  S.occupatoUndo = true;
+  const ev = st.last_events.slice(-1)[0];
+  const rid = `undo-${ev.id}-${ev.ts}-${Math.random().toString(36).slice(2,8)}`;
+  post("/copilot/undo", {richiesta_id: rid})
+    .finally(() => { S.occupatoUndo = false; })
+    .then(async d => {
+      if(d && d.ok){ avviso(`annullato: ${ev.nome} torna nel listino`, "ok"); S.eventi = null; await poll(); }
+      else avviso("⚠ " + ((d && d.err) || "annullamento rifiutato"), "err");
+    })
+    .catch(() => avviso("server non raggiungibile", "err"));
+}
+
+/* ============================================================
+ * IL TABELLONE DEGLI ACQUISTI + la correzione di un lotto
+ * ============================================================ */
+/* Il Copilota potrebbe non avere ancora GET /copilot/eventi e
+   POST /copilot/evento_modifica: si prova una volta e, se non c'e', la
+   pagina lo dice e spegne il bottone invece di rompersi. */
+async function caricaEventi(){
+  try{
+    const r = await fetch(BASE + "/copilot/eventi", {cache:"no-store"});
+    if(!r.ok){ S.capEventi = false; S.eventi = null; disegnaTuttiAcquisti(); return; }
+    const d = await r.json();
+    const lista = Array.isArray(d) ? d : (d && Array.isArray(d.eventi) ? d.eventi : null);
+    S.capEventi = !!lista;
+    S.eventi = lista;
+  }catch(e){ S.capEventi = false; S.eventi = null; }
+  disegnaTuttiAcquisti();
+}
+/* si puo' correggere un lotto? serve l'endpoint nuovo, oppure almeno un
+   riferimento (indice o richiesta_id) dentro gli acquisti */
+function siPuoCorreggere(){
+  if(S.capEventi) return true;
+  const st = S.stato || {};
+  if((st.last_events || []).some(e => e.indice != null || e.richiesta_id)) return true;
+  return (st.teams || []).some(t => RUOLI.some(r => ((t.roster || {})[r] || [])
+    .some(p => p.indice != null || p.richiesta_id)));
+}
+const SPIEGA_CORR = "Questo Copilota non ha ancora POST /copilot/evento_modifica: "
+  + "aggiorna il Copilota per spostare un lotto o cambiargli prezzo. "
+  + "Nel frattempo si puo' annullare l'ultimo acquisto (tasto U) e ribatterlo.";
+
+function disegnaAcquisti(st, animaUltimo){
+  const box = $("tabellone");
+  const evs = (st.last_events || []).slice().reverse();
+  if(!evs.length){ box.innerHTML = `<div class="vuoto">ancora nessun martelletto</div>`; return; }
+  box.innerHTML = evs.map((e, i) => {
+    const t = (st.teams || []).find(x => x.index === e.team_index);
+    const mio = e.team_index === st.my_index;
+    return `<div class="acq ${i === 0 && animaUltimo ? "nuovo" : ""}" data-ev="${esc(String(e.id))}"
+        data-ti="${e.team_index}" data-pr="${d0(e.price)}" data-nm="${esc(e.nome)}"
+        data-ind="${e.indice != null ? esc(String(e.indice)) : ""}" data-rid="${esc(e.richiesta_id || "")}"
+        title="clicca per correggere">
+      ${pillolaRuolo(e.ruolo)}
+      <span class="pr">${d0(e.price)}</span>
+      <span class="nm">${esc(e.nome)} <span class="sq" style="font-size:11.5px; color:var(--fioco)">${esc(e.squadra || "")}</span></span>
+      <span class="chi" style="color:${mio ? "var(--oro)" : colMaglia(e.team_index)}">${esc(t ? t.name : "#" + e.team_index)}</span>
+    </div>`;
+  }).join("") + (st.n_events > evs.length
+    ? `<div class="vuoto">…e altri ${st.n_events - evs.length} prima (sotto, in «tutti gli acquisti»)</div>` : "");
+}
+$("tabellone").addEventListener("click", e => {
+  const riga = e.target.closest(".acq"); if(!riga) return;
+  apriCorreggi({id: riga.dataset.ev, nome: riga.dataset.nm, team_index: +riga.dataset.ti,
+                price: +riga.dataset.pr, indice: riga.dataset.ind === "" ? null : +riga.dataset.ind,
+                richiesta_id: riga.dataset.rid || null});
+});
+
+function disegnaTuttiAcquisti(){
+  const box = $("tuttiAcq"), st = S.stato;
+  if(!st){ box.innerHTML = ""; return; }
+  let righe = [];
+  if(Array.isArray(S.eventi)){
+    /* /copilot/eventi parla la lingua del ledger: `player_id` e `prezzo`.
+       Il resto della pagina usa `id` e `price`: si traduce qui, una volta. */
+    righe = S.eventi.map((e, i) => ({
+      id: e.id != null ? e.id : e.player_id,
+      nome: e.nome, ruolo: e.ruolo, squadra: e.squadra,
+      price: e.price != null ? e.price : e.prezzo,
+      team_index: e.team_index,
+      indice: e.indice != null ? e.indice : i,
+      richiesta_id: e.richiesta_id || null,
+    }));
+    $("acqDx").textContent = `${righe.length} lotti · dal registro del Copilota`;
+  }else{
+    /* ripiego: gli acquisti si leggono dalle rose: c'e' tutto tranne l'ordine
+       in cui sono stati battuti */
+    (st.teams || []).forEach(t => RUOLI.forEach(r => ((t.roster || {})[r] || []).forEach(p =>
+      righe.push({id:p.id, nome:p.nome, ruolo:r, squadra:p.squadra, price:p.prezzo,
+                  team_index:t.index, indice:p.indice != null ? p.indice : null,
+                  richiesta_id:p.richiesta_id || null}))));
+    $("acqDx").textContent = `${righe.length} lotti · dalle rose (il Copilota non manda /copilot/eventi)`;
+  }
+  righe = righe.slice().reverse();
+  if(!righe.length){ box.innerHTML = `<div class="vuoto">nessun acquisto</div>`; return; }
+  box.innerHTML = righe.map(e => {
+    const t = (st.teams || []).find(x => x.index === e.team_index);
+    return `<div class="acq" data-ev="${esc(String(e.id))}" data-ti="${e.team_index}" data-pr="${d0(e.price)}"
+        data-nm="${esc(e.nome)}" data-ind="${e.indice != null ? esc(String(e.indice)) : ""}"
+        data-rid="${esc(e.richiesta_id || "")}" title="clicca per correggere">
+      ${pillolaRuolo(e.ruolo)}
+      <span class="pr">${d0(e.price)}</span>
+      <span class="nm">${esc(e.nome)}</span>
+      <span class="chi" style="color:${colMaglia(e.team_index)}">${esc(t ? t.name : "#" + e.team_index)}</span>
+    </div>`;
+  }).join("");
+}
+$("tuttiAcq").addEventListener("click", e => {
+  const riga = e.target.closest(".acq"); if(!riga) return;
+  apriCorreggi({id: riga.dataset.ev, nome: riga.dataset.nm, team_index: +riga.dataset.ti,
+                price: +riga.dataset.pr, indice: riga.dataset.ind === "" ? null : +riga.dataset.ind,
+                richiesta_id: riga.dataset.rid || null});
+});
+
+function apriCorreggi(lotto){
+  const st = S.stato; if(!st) return;
+  S.corr = Object.assign({}, lotto, {nuovoTeam: lotto.team_index, nuovoPrezzo: lotto.price});
+  const puo = siPuoCorreggere();
+  const maglie = (st.teams || []).map(t => `
+    <div class="corr-m ${t.index === lotto.team_index ? "scelta" : ""}" data-cti="${t.index}">
+      ${maglietta(t.index)}<span class="nm">${esc(t.name)}</span></div>`).join("");
+  $("corrCorpo").innerHTML = `
+    <h2>correggi <i>${esc(lotto.nome)}</i></h2>
+    <div class="guida">Adesso risulta di <b>${esc((st.names || [])[lotto.team_index] || ("#" + lotto.team_index))}</b>
+      per <b>${d0(lotto.price)}</b> crediti. Cambia squadra, prezzo, oppure toglilo del tutto.</div>
+    ${puo ? "" : `<div class="corr-avviso">⚠ ${esc(SPIEGA_CORR)}</div>`}
+    <div class="corr-maglie">${maglie}</div>
+    <div class="corr-azioni">
+      <label style="font-size:11.5px; font-weight:900; letter-spacing:1.5px; color:var(--fioco)">PREZZO</label>
+      <input class="corr-prezzo" id="corrPrezzo" type="number" min="1" max="9999" value="${d0(lotto.price)}" ${puo ? "" : "disabled"}>
+      <button class="grande" id="corrOk" ${puo ? "" : "disabled"}>✓ SALVA LA CORREZIONE</button>
+      <button class="grande rossa" id="corrVia" ${puo ? "" : "disabled"}>✕ TOGLI IL LOTTO</button>
+      <button class="grande fantasma" data-chiudi="correggi">annulla</button>
+    </div>`;
+  $("correggi").hidden = false;
+  if(puo){
+    $("corrCorpo").querySelectorAll("[data-cti]").forEach(m => m.onclick = () => {
+      S.corr.nuovoTeam = +m.dataset.cti;
+      $("corrCorpo").querySelectorAll("[data-cti]").forEach(x =>
+        x.classList.toggle("scelta", +x.dataset.cti === S.corr.nuovoTeam));
+    });
+    $("corrOk").onclick = () => salvaCorrezione(false);
+    $("corrVia").onclick = () => salvaCorrezione(true);
+  }
+}
+async function salvaCorrezione(rimuovi){
+  const c = S.corr; if(!c) return;
+  const corpo = {richiesta_id_modifica: `mod-${c.id}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`};
+  if(c.indice != null) corpo.indice = c.indice;
+  if(c.richiesta_id) corpo.richiesta_id = c.richiesta_id;
+  if(corpo.indice == null && !corpo.richiesta_id){
+    avviso("questo acquisto non ha un riferimento: aggiorna il Copilota", "err"); return;
+  }
+  if(rimuovi) corpo.rimuovi = true;
+  else{
+    corpo.team_index = c.nuovoTeam;
+    const p = +($("corrPrezzo").value || 0);
+    if(!(p >= 1)){ avviso("prezzo non valido", "err"); return; }
+    corpo.price = p;
+  }
+  try{
+    const r = await fetch(BASE + "/copilot/evento_modifica",
+      {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(corpo), cache:"no-store"});
+    if(r.status === 404){ avviso("il Copilota non ha /copilot/evento_modifica: aggiornalo", "err"); return; }
+    const d = await r.json();
+    if(!d || d.ok === false){ avviso("⚠ " + ((d && d.err) || "rifiutato"), "err"); return; }
+    avviso(rimuovi ? "lotto tolto" : "correzione salvata", "ok");
+    $("correggi").hidden = true;
+    S.corr = null; S.eventi = null; S.ultimiN = -1;
+    await poll();
+  }catch(e){ avviso("server non raggiungibile", "err"); }
+}
+
+/* ---------- rosa di una squadra ---------- */
+function apriRosa(ti){
+  const st = S.stato; if(!st) return;
+  const t = (st.teams || []).find(x => x.index === ti); if(!t) return;
+  const puo = siPuoCorreggere();
+  const sez = RUOLI.map(r => {
+    const righe = (t.roster || {})[r] || [];
+    const spesa = righe.reduce((a, p) => a + (num(p.prezzo) || 0), 0);
+    const corpo = righe.map(p => `
+      <div class="rosa-r" data-ev="${esc(String(p.id))}" data-ti="${ti}" data-pr="${d0(p.prezzo)}"
+           data-nm="${esc(p.nome)}" data-ind="${p.indice != null ? esc(String(p.indice)) : ""}"
+           data-rid="${esc(p.richiesta_id || "")}">
+        ${pillolaRuolo(r)}<span class="nm">${esc(p.nome)} <span style="font-size:11.5px;color:var(--fioco)">${esc(p.squadra || "")}</span></span>
+        <span class="pr">${d0(p.prezzo)}</span>
+        <button class="corr" ${puo ? "" : `disabled title="${esc(SPIEGA_CORR)}"`}>correggi</button>
+      </div>`).join("") || `<div class="vuoto">nessuno</div>`;
+    return `<div class="rosa-sez"><div class="rosa-h" style="color:${RUOLO_COL[r]}">
+      <span>${RUOLO_PLUR[r]} ${righe.length}/${(st.quotas || {})[r] || 0}</span><span>${d0(spesa)} cr</span></div>${corpo}</div>`;
+  }).join("");
+  $("rosaCorpo").innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px">
+      <div style="width:52px">${maglietta(ti, true)}</div>
+      <div><h2>${esc(t.name)}${ti === st.my_index ? ' <i>&middot; sei tu</i>' : ""}</h2>
+      <div class="guida" style="margin:0">crediti <b>${d0(t.budget)}</b> · massimo su un lotto <b>${d0(t.max_bid)}</b>
+        · ⚽ <b>${d0(t.gol_2025)}</b> gol in rosa</div></div>
+    </div>
+    ${puo ? "" : `<div class="corr-avviso" style="margin-top:10px">⚠ ${esc(SPIEGA_CORR)}</div>`}
+    ${sez}`;
+  $("rosa").hidden = false;
+}
+$("rosaCorpo").addEventListener("click", e => {
+  const riga = e.target.closest(".rosa-r"); if(!riga) return;
+  const b = e.target.closest(".corr");
+  if(b && b.disabled) return;
+  $("rosa").hidden = true;
+  apriCorreggi({id: riga.dataset.ev, nome: riga.dataset.nm, team_index: +riga.dataset.ti,
+                price: +riga.dataset.pr, indice: riga.dataset.ind === "" ? null : +riga.dataset.ind,
+                richiesta_id: riga.dataset.rid || null});
+});
+document.querySelectorAll("[data-chiudi]").forEach(b => b.onclick = () => { $(b.dataset.chiudi).hidden = true; });
+document.querySelectorAll(".velo").forEach(v => v.addEventListener("click", e => {
+  if(e.target === v && v.id !== "setup") v.hidden = true;
+}));
+
+/* ============================================================
+ * GOL IN ROSA — la classifica del campionato dei gol
+ * ============================================================ */
+let GR = {dati:null, firma:null, caricando:false};
+async function caricaGolRosa(firma){
+  if(GR.caricando) return;
+  GR.caricando = true;
+  try{
+    const d = await api("/copilot/gol_rosa");
+    GR.dati = (d && Array.isArray(d.squadre) && d.squadre.length) ? d : null;
+  }catch(e){ GR.dati = null; }
+  GR.firma = firma; GR.caricando = false;
+  disegnaClassifica();
+}
+function disegnaClassifica(){
+  const box = $("classifica"), d = GR.dati;
+  if(!d){ box.innerHTML = `<div class="vuoto">questo Copilota non manda ancora i gol in rosa</div>`; return; }
+  const righe = d.squadre || [];
+  const max = Math.max(1, ...righe.map(s => num(s.tot_2025) || 0));
+  box.innerHTML = righe.map(s => {
+    const tot = num(s.tot_2025) || 0;
+    const pr = s.per_ruolo || {};
+    const nd = num(s.senza_dato) || 0;
+    return `<div class="cl-r ${s.mia ? "mia" : ""}" title="${esc(s.nome || "")} — A ${d0(pr.A)} · C ${d0(pr.C)} · D ${d0(pr.D)} · rigori ${d0(s.rig_2025)}${
+        nd ? " — senza storico: " + esc((s.senza_dato_nomi || []).join(", ")) : ""}">
+      <span class="pos">${d0(s.posizione)}</span>
+      <span style="width:20px">${maglietta(num(s.index) || 0)}</span>
+      <span class="nm">${esc(s.nome || "?")}</span>
+      <span class="g">${d0(s.tot_2025)}</span>
+      <span class="barra"><i style="width:${(100*tot/max).toFixed(1)}%"></i></span>
+    </div>`;
+  }).join("") + (d.media_lega != null
+    ? `<div class="cl-pie">media della lega <b>${d0(d.media_lega)}</b> gol${
+        d.mia_posizione != null ? ` · tu sei <b>${d0(d.mia_posizione)}°</b> su ${righe.length}` : ""}</div>`
+    : "");
+}
+/* le maglie della classifica sono minuscole: si stringe l'SVG con il CSS */
+const stile = document.createElement("style");
+stile.textContent = ".cl-r svg{width:20px; height:19px; display:block;}";
+document.head.appendChild(stile);
+
+/* ============================================================
+ * IL MIO PIANO (ridotto: spesa per reparto contro il piano)
+ * ============================================================ */
+async function aggiornaPiano(){
+  try{
+    const pl = await api("/copilot/plan");
+    if(pl && pl.err){ $("pianoTab").innerHTML = `<div class="vuoto">${esc(pl.err)}</div>`; return; }
+    S.piano = pl; disegnaPiano(pl);
+  }catch(e){ /* il banner lo dice gia' */ }
+}
+function miaRosa(){
+  const st = S.stato || {};
+  const t = (st.teams || []).find(x => x.index === st.my_index);
+  return (t && t.roster) || {};
+}
+function disegnaPiano(pl){
+  const st = S.stato || {}, quote = st.quotas || {}, rosa = miaRosa();
+  let sT = 0, pT = 0, oT = 0, qT = 0;
+  const sfori = [];
+  const righe = RUOLI.map(r => {
+    const lst = rosa[r] || [];
+    const speso = lst.reduce((a, p) => a + (num(p.prezzo) || 0), 0);
+    const prev = ((pl.target || {})[r] || []).reduce((a, p) => a + (num(p.prezzo_atteso) || 0), 0);
+    const occ = lst.length, quo = num(quote[r]) || 0;
+    sT += speso; pT += prev; oT += occ; qT += quo;
+    /* sforo: speso oltre un quarto in piu' del previsto, detto mentre l'asta
+       va avanti e si puo' ancora rimediare */
+    if(prev > 0 && speso > prev * 1.25) sfori.push([r, Math.round(speso - prev)]);
+    return `<tr><td class="rl" style="color:${RUOLO_COL[r]}">${RUOLO_PLUR[r]}</td>
+      <td>${d0(speso)}</td><td class="pv">${d0(prev)}</td><td>${occ}/${quo}</td></tr>`;
+  }).join("");
+  $("pianoTab").innerHTML = `<table class="pt">
+    <thead><tr><th>reparto</th><th>speso</th><th>previsto</th><th>slot</th></tr></thead>
+    <tbody>${righe}<tr class="tot"><td>TUTTI</td><td>${d0(sT)}</td><td>${d0(pT)}</td><td>${oT}/${qT}</td></tr></tbody>
+  </table>` + sfori.map(([r, n]) =>
+    `<div class="sforo">⚠ hai sforato ${RUOLO_PLUR[r].toLowerCase()} di ${n} crediti</div>`).join("");
+  const oltre = num(pl.costo_atteso_piano) > num(pl.budget);
+  $("pianoRiga").innerHTML = `<div class="pl-riga">il piano prevede ancora <b>${d0(pl.costo_atteso_piano)}</b>
+    su <b class="ok">${d0(pl.budget)}</b> crediti · ${oltre
+      ? `<b class="no">oltre di ${d0(num(pl.costo_atteso_piano) - num(pl.budget))}</b>`
+      : `avanzano <b class="ok">${d0(num(pl.budget) - num(pl.costo_atteso_piano))}</b>`}</div>`;
+  $("pianoDx").textContent = pl.heat != null ? "calore mercato ×" + d1(pl.heat) : "";
+}
+
+/* ============================================================
+ * RIGORISTI ancora liberi
+ * ============================================================ */
+let RIG = {dati:null, firma:null, caricando:false};
+async function caricaRigoristi(firma){
+  if(RIG.caricando) return;
+  RIG.caricando = true;
+  try{ RIG.dati = await api("/copilot/rigoristi"); RIG.firma = firma; }
+  catch(e){ RIG.dati = null; RIG.firma = null; }
+  RIG.caricando = false;
+  disegnaRigoristi();
+}
+function disegnaRigoristi(){
+  const box = $("rigoristi"), d = RIG.dati;
+  if(!d || !d.per_ruolo){ box.innerHTML = `<div class="vuoto">nessuna lista rigoristi</div>`; return; }
+  const sez = RUOLI.map(r => {
+    /* solo chi si puo' ancora comprare: al tavolo il resto e' rumore */
+    const lista = (d.per_ruolo[r] || []).filter(v => String(v.stato || "") === "disponibile");
+    if(!lista.length) return "";
+    const righe = lista.slice(0, 8).map(v => `
+      <div class="rg-r" data-pid="${esc(v.player_id || "")}">
+        <span class="nm">${esc(v.nome)}</span><span class="sq">(${esc(v.squadra || "")})</span>
+        <span class="g">${d0(v.ordine)}° rig · gol 25 ${d0(v.gol_tot_2025)} · 26 ${d0(v.gol_tot_2026)}</span>
+      </div>`).join("");
+    return `<div class="rg-h" style="color:${RUOLO_COL[r]}">${RUOLO_PLUR[r]}</div>${righe}`;
+  }).join("");
+  box.innerHTML = sez || `<div class="vuoto">nessun rigorista libero</div>`;
+}
+$("rigoristi").addEventListener("click", async e => {
+  const n = e.target.closest(".rg-r"); if(!n || !n.dataset.pid) return;
+  try{
+    const a = await api(`/copilot/advice?player_id=${encodeURIComponent(n.dataset.pid)}&price=1`);
+    if(a && a.id) alBanco(a, 1);
+    else avviso("non e' nel listino residuo", "err");
+  }catch(err){ avviso("non e' nel listino residuo", "err"); }
+});
+
+/* ============================================================
+ * TASTIERA — il cuore della serata
+ *  ricerca a fuoco: le lettere cercano, Invio porta al banco
+ *  fuori dai campi: 1..0 scelgono la maglia, +/- il prezzo,
+ *  Invio aggiudica, U annulla, Esc chiude tutto
+ * ============================================================ */
+function velato(){
+  return ["setup","rosa","correggi"].some(id => !$(id).hidden);
+}
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape"){
+    if(!$("correggi").hidden){ $("correggi").hidden = true; S.corr = null; return; }
+    if(!$("rosa").hidden){ $("rosa").hidden = true; return; }
+    if(!$("setup").hidden) return;                 // il tavolo si apparecchia, non si scappa
+    if(document.activeElement === $("prezzo")){ $("prezzo").blur(); return; }
+    if($("q").value){ $("q").value = ""; S.risultati = []; disegnaRisultati(); return; }
+    if(S.sel){ sbancaLotto(); return; }
+    return;
+  }
+  if(velato()) return;
+  const el = document.activeElement;
+  const dentroCampo = el && (el.tagName === "INPUT" || el.tagName === "SELECT" || el.tagName === "TEXTAREA");
+  const nellaRicerca = el === $("q");
+  const testoScritto = $("q").value.trim().length > 0;
+
+  /* frecce e Invio della ricerca */
+  if(nellaRicerca && (e.key === "ArrowDown" || e.key === "ArrowUp")){
+    if(!S.risultati.length) return;
+    e.preventDefault();
+    S.cur = Math.max(0, Math.min(S.risultati.length - 1, S.cur + (e.key === "ArrowDown" ? 1 : -1)));
+    disegnaRisultati();
+    return;
+  }
+  if(nellaRicerca && e.key === "Enter"){
+    e.preventDefault();
+    if(S.risultati.length){ alBanco(S.risultati[S.cur] || S.risultati[0]); return; }
+    /* ricerca vuota e tutto pronto: Invio batte il martelletto */
+    if(!testoScritto && S.sel && S.squadra != null) aggiudica(S.squadra);
+    return;
+  }
+  if(dentroCampo && !nellaRicerca) return;         // il campo del prezzo ha le sue regole
+  if(nellaRicerca && testoScritto) return;         // si sta scrivendo un nome: nessuna scorciatoia
+
+  /* da qui in poi: ricerca vuota (o fuoco sul corpo) */
+  if(e.key === "Enter"){
+    e.preventDefault();
+    if(S.sel && S.squadra != null) aggiudica(S.squadra);
+    else if(S.sel) avviso("scegli la maglia: 1…0", "err");
+    return;
+  }
+  if(e.key >= "0" && e.key <= "9"){
+    const st = S.stato;
+    if(!st || !(st.teams || []).length) return;
+    e.preventDefault();
+    const i = e.key === "0" ? 9 : (+e.key - 1);
+    if(i < st.teams.length) scegliMaglia(st.teams[i].index);
+    return;
+  }
+  if(e.key === "+" || e.key === "="){ if(S.sel){ e.preventDefault(); cambiaPrezzo(S.prezzo + 1); } return; }
+  if(e.key === "-"){ if(S.sel){ e.preventDefault(); cambiaPrezzo(S.prezzo - 1); } return; }
+  if(e.key === "u" || e.key === "U"){ e.preventDefault(); annulla(); return; }
+  if(e.key === "p" || e.key === "P"){ if(S.sel){ e.preventDefault(); $("prezzo").focus(); $("prezzo").select(); } return; }
+});
+/* il fuoco torna sempre alla ricerca: chi batte deve poter scrivere il nome
+   successivo senza cercare il mouse */
+document.addEventListener("click", e => {
+  if(velato() || S.occupato) return;
+  if(e.target.closest("input, button, .ris, .acq, .mag, .rg-r, a")) return;
+  $("q").focus();
+});
+
+/* ---------- avvio ---------- */
+disegnaBanco();
+disegnaConsiglio();
+disegnaRisultati();
+caricaEventi();
+poll();
+setTimeout(() => $("q").focus(), 60);
+</script>
+</body>
+</html>

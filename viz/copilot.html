@@ -723,6 +723,109 @@ main{
 @media (prefers-reduced-motion: reduce){
   *, *::before, *::after{animation-duration:.001s !important; animation-iteration-count:1 !important; transition-duration:.001s !important;}
 }
+
+/* ============================================================
+   ASTA DEL 13/9 — «puoi spendere ora», gol veri, scarsita' dei bomber
+   Tutto additivo. I campi nuovi del Copilota (spendibile, calore per
+   ruolo, prezzo di indifferenza, gol, scarsita') possono non esserci
+   ancora: dove manca il dato si scrive «—», mai un NaN, e la pagina
+   non cambia forma.
+   ============================================================ */
+
+/* ---- intestazione appiccicata: il numero che al tavolo si guarda piu'
+   di tutti non deve sparire quando si scorre la pagina ---- */
+header{position:sticky; top:0; z-index:60;}
+/* il pannello IL TAVOLO era appiccicato a 12 px dal bordo: ora sopra di lui
+   c'e' l'intestazione, e senza questo scorreva sotto ai numeri di testata */
+#tavolo{top:76px; max-height:calc(100vh - 88px);}
+.hstat.spend .n{font-size:31px; color:var(--green);
+  text-shadow:0 0 24px color-mix(in srgb, var(--green) 30%, transparent);}
+.hstat.spend .l{color:var(--green);}
+
+/* ---- IL MIO PIANO: cinque riquadri, l'ultimo con l'etichetta lunga ---- */
+.plan-stats{grid-template-columns:repeat(5, minmax(0,1fr)); gap:8px;}
+.ps{padding:8px 9px;}
+.ps.spend .n{color:var(--green);}
+.ps.spend .l{text-transform:none; letter-spacing:.2px; font-size:9.5px; line-height:1.25;}
+/* «speso finora» in rosso: al tavolo si sbaglia per eccesso, non per difetto */
+.pt td.sp{color:var(--red);}
+.sforo{margin-top:6px; font-size:12px; font-weight:800; color:var(--red); line-height:1.4;}
+
+/* ---- risultati della ricerca: colonna gol e distintivo bomber ---- */
+.res-row{grid-template-columns:22px 22px minmax(0,1fr) 44px 54px 54px;}
+.res-row .num.gol b{color:var(--peach);}
+.mk.bmb{background:color-mix(in srgb, var(--peach) 25%, transparent); color:var(--peach);}
+/* le pillole dell'ordinamento vanno a capo sotto quelle dei ruoli */
+.role-pills{flex-wrap:wrap;}
+.ord-pills{flex:1 0 100%; display:flex; gap:5px; align-items:center; margin-top:6px;}
+.ord-pills .ol{font-size:9.5px; font-weight:800; letter-spacing:1.5px;
+  text-transform:uppercase; color:var(--overlay1);}
+.op{
+  padding:3px 10px; border-radius:7px; font-weight:800; font-size:11.5px;
+  background:var(--surface0); color:var(--overlay1); border:1px solid transparent; cursor:pointer;
+}
+.op:hover{color:var(--text);}
+.op.on{color:var(--crust); background:var(--peach);}
+
+/* ---- al banco: gol nella forchetta, righe del tetto sotto il consiglio ---- */
+.q.gol .n{color:var(--peach); font-size:15px;}
+.q.gol .bmb{display:inline-block; font-size:8.5px; font-weight:900; letter-spacing:.5px;
+  color:var(--crust); background:var(--peach); border-radius:4px; padding:1px 5px; margin-top:2px;}
+.chip.bomber{background:var(--peach);}
+#lotMeta{margin-top:7px; margin-bottom:0;}
+#advice .adv-line{font-size:11.5px; margin-top:5px; color:var(--subtext1);
+  font-variant-numeric:tabular-nums; line-height:1.35;}
+#advice .adv-line b{color:var(--text); font-weight:900;}
+#advice .adv-scar{
+  font-size:11.5px; margin-top:4px; line-height:1.35; font-weight:700;
+  color:var(--subtext0); font-variant-numeric:tabular-nums;
+}
+#advice .adv-scar.arancio{color:var(--peach);}
+#advice .adv-scar.rosso{color:var(--red); font-weight:900;}
+#advice .adv-conf{font-size:11.5px; margin-top:4px; color:var(--sky); line-height:1.35;
+  font-variant-numeric:tabular-nums;}
+#advice .adv-motivo{font-size:10.5px; margin-top:4px; color:var(--overlay1); line-height:1.3;}
+
+/* ---- riga SCARSITA' sotto il banco ---- */
+#scarsita{
+  background:var(--base); border:1px solid var(--surface0); border-radius:12px;
+  padding:8px 12px; font-size:12px; line-height:1.4;
+}
+#scarsita[hidden]{display:none;}
+.sc-line + .sc-line{margin-top:6px; border-top:1px dashed var(--surface0); padding-top:6px;}
+.sc-line b{color:var(--subtext1);}
+.sc-line .sc-v{color:var(--green);}
+.sc-line.stretto .sc-v{color:var(--red);}
+.sc-top{margin-top:3px; display:flex; gap:12px; flex-wrap:wrap; font-size:10.5px; color:var(--overlay1);}
+.sc-top b{color:var(--peach); font-weight:900;}
+
+/* ---- GOL IN ROSA: dieci righe, la mia in evidenza ---- */
+.gr-row{
+  display:grid; grid-template-columns:17px minmax(0,1fr) 58px;
+  grid-template-areas:"pos nm tot" "pos sub tot" "bar bar bar";
+  column-gap:6px; row-gap:1px; padding:3px 7px; border-radius:8px;
+  background:var(--mantle); font-size:12px;
+}
+.gr-row + .gr-row{margin-top:4px;}
+.gr-pos{grid-area:pos; align-self:center; font-size:11px; font-weight:900; color:var(--overlay0);
+  font-variant-numeric:tabular-nums;}
+.gr-nm{grid-area:nm; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.gr-tot{grid-area:tot; align-self:center; text-align:right; font-size:16px; font-weight:900;
+  color:var(--peach); font-variant-numeric:tabular-nums;}
+.gr-sub{grid-area:sub; font-size:10px; color:var(--overlay1); font-variant-numeric:tabular-nums;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.gr-sub .nd{color:var(--yellow);}
+.gr-bar{grid-area:bar; height:5px; border-radius:3px; background:var(--surface0);
+  overflow:hidden; margin-top:3px;}
+.gr-bar i{display:block; height:100%; border-radius:3px; background:var(--peach);}
+.gr-row.mia{border:1px solid var(--yellow); box-shadow:0 0 12px -5px var(--yellow);
+  background:color-mix(in srgb, var(--yellow) 9%, var(--mantle));}
+.gr-row.mia .gr-nm{color:var(--yellow);}
+.gr-row.mia .gr-bar i{background:var(--yellow);}
+.gr-foot{margin-top:7px; font-size:10.5px; color:var(--overlay1); line-height:1.4;}
+
+/* ---- IL TAVOLO: i gol della rosa accanto alla cassa ---- */
+.team-row .head .tgol{font-size:10.5px; font-weight:900; color:var(--peach); white-space:nowrap;}
 </style>
 </head>
 <body>
@@ -735,6 +838,7 @@ main{
   </div>
   <span class="live-pill down" id="livePill" title="collegamento al Copilota"><span class="dot"></span><span id="livePillTxt">CERCO IL TAVOLO</span></span>
   <div class="hstats">
+    <div class="hstat spend" id="hSpendibileBox" title="il massimo che puoi mettere su UN solo giocatore tenendo un credito per ogni altro slot"><div class="n" id="hSpendibile">—</div><div class="l">puoi spendere ora</div></div>
     <div class="hstat"><div class="n" id="hSeason">—</div><div class="l">stagione</div></div>
     <div class="hstat"><div class="n" id="hEvents">0</div><div class="l">acquisti</div></div>
     <div class="hstat"><div class="n" id="hPool">—</div><div class="l">nel listino</div></div>
@@ -761,6 +865,12 @@ main{
         <button class="rp" data-role="D">D</button>
         <button class="rp" data-role="C">C</button>
         <button class="rp" data-role="A">A</button>
+        <div class="ord-pills" id="ordPills">
+          <span class="ol">ordina</span>
+          <button class="op" data-ord="valore">valore</button>
+          <button class="op" data-ord="gol">gol</button>
+          <button class="op" data-ord="misto">misto</button>
+        </div>
       </div>
       <label class="tutti-row" title="include chi il listone dà fuori dalla Serie A e chi hai escluso a mano: si può comunque registrare l'acquisto"><input type="checkbox" id="tuttiChk">anche fuori lista ed esclusi</label>
       <div class="results" id="results"><div class="res-empty">scrivi un nome, o scegli ruolo/squadra</div></div>
@@ -770,6 +880,9 @@ main{
       <div id="lotInner"><div class="lot-empty"><div class="big">🎙️</div>Nessuno al banco.<br>Cerca chi hanno appena chiamato.</div></div>
       <div id="soldFlash"></div>
     </section>
+    <!-- quanti bomber restano e quante squadre li vogliono: si legge sotto il
+         banco, dove l'occhio torna dopo il consiglio -->
+    <div id="scarsita" hidden></div>
     <!-- undo SEMPRE visibile, anche senza nessuno al banco -->
     <div class="undo-row"><button class="undo" id="btnUndo" disabled><span>↶ nessun acquisto da annullare</span></button></div>
   </div>
@@ -838,6 +951,10 @@ main{
   <!-- il ticker sta SOPRA il tavolo: il tavolo e' sticky e alto, sotto di lui
        gli ultimi martelletti finivano fuori dalla piega. -->
   <div class="col">
+    <section class="panel" id="golRosa">
+      <h3>GOL IN ROSA <span style="color:var(--subtext0); letter-spacing:0; font-weight:700">(stagione scorsa)</span></h3>
+      <div id="golRosaOut"><div class="tick-empty">…</div></div>
+    </section>
     <section class="panel">
       <h3>ULTIMI ACQUISTI</h3>
       <div id="ticker"><div class="tick-empty">ancora nessun martelletto</div></div>
@@ -921,6 +1038,17 @@ function roleChip(r){ return `<span class="rc" style="background:${ROLE_COLOR[r]
 function budgetColor(frac){ return `hsl(${Math.round(Math.max(0,Math.min(1,frac))*115)} 55% 62%)`; }
 function fmt1(x){ return x == null ? "—" : (Math.round(x*10)/10).toString().replace(/\.0$/, ""); }
 function r0(x){ return x == null ? "—" : String(Math.round(x)); }
+/* I campi nuovi del Copilota (spendibile, calore per ruolo, prezzo di
+   indifferenza, gol, scarsita') possono mancare: il server viene aggiornato
+   in parallelo alla pagina. `num` riduce tutto a numero-o-niente, `d0`/`d1`
+   scrivono «—» dove non c'e' dato. Mai un NaN sullo schermo dell'asta. */
+function num(x){
+  if(x === null || x === undefined || x === "") return null;
+  const v = +x;
+  return Number.isFinite(v) ? v : null;
+}
+function d0(x){ const v = num(x); return v == null ? "—" : String(Math.round(v)); }
+function d1(x){ const v = num(x); return v == null ? "—" : (Math.round(v*10)/10).toString().replace(/\.0$/, ""); }
 
 /* ---------- stato ---------- */
 const params = new URLSearchParams(location.search);
@@ -929,7 +1057,7 @@ const C = {
   state:null, plan:null, down:false, lastN:-1, lastBids:-1,
   sel:null,           // giocatore al banco (oggetto player_info)
   price:1,
-  advice:null, advTimer:null, advSeq:0,
+  advice:null, advTimer:null, advSeq:0, indTimer:null,
   role:"", squadra:"", searchTimer:null, results:[],
   popTeam:null, arm:null, armTimer:null,
   busy:false,
@@ -991,9 +1119,13 @@ function onState(st){
   $("btnSetup").hidden = st.n_events > 0;
   const changed = st.n_events !== C.lastN;
   renderTeams(st);
+  renderScarsita(st);
   // rigoristi: lo stato dipende solo dagli acquisti e dalle esclusioni a mano
   const rigSig = st.n_events + "/" + (st.esclusi_manuali || []).length;
   if(RIG.sig !== rigSig) caricaRigoristi(rigSig);
+  // gol in rosa: cambia solo quando cambia una rosa, cioe' a ogni martelletto
+  const golSig = st.n_events + "/" + st.my_index;
+  if(GR.sig !== golSig) caricaGolRosa(golSig);
   // i rilanci cambiano senza che cambino le aggiudicazioni: si aggiornano sempre
   if(st.n_bids !== C.lastBids){
     C.lastBids = st.n_bids;
@@ -1048,6 +1180,15 @@ function renderProvenienza(){
 }
 
 function renderHeader(st){
+  /* «puoi spendere ora»: il massimo su UN giocatore tenendo un credito per
+     ogni altro slot. Lo calcola il server (state.spendibile.max_ora) perche'
+     e' lo stesso numero con cui taglia il tetto del consiglio. */
+  const sp = st.spendibile || null;
+  $("hSpendibile").textContent = sp ? d0(sp.max_ora) : "—";
+  const box = $("hSpendibileBox");
+  if(box) box.title = sp
+    ? `${d0(sp.crediti)} crediti, ${d0(sp.slot_totali)} slot da riempire: su un solo giocatore ${d0(sp.max_ora)}`
+    : "il Copilota non manda ancora questo dato";
   $("hSeason").textContent = st.season || "—";
   $("hEvents").textContent = st.n_events ?? 0;
   $("hPool").textContent = st.pool_size ?? "—";
@@ -1205,11 +1346,64 @@ async function doSearch(){
   if(C.tutti) qs.set("tutti", "1");
   try{
     const rows = await api("/copilot/players?" + qs.toString());
-    C.results = Array.isArray(rows) ? rows : [];
+    C.results = riordinaRisultati(Array.isArray(rows) ? rows : []);
     ricordaNote(C.results);
   }catch(e){ C.results = []; }
   if(C.cur >= C.results.length) C.cur = 0;
   renderResults();
+}
+
+/* ============================================================
+ * ORDINE DELLA LISTA — valore | gol | misto
+ * Il criterio e' quello del server (`ordina=` di /copilot/players), ma
+ * applicato qui: cambiare pillola non deve costare una richiesta durante
+ * l'asta. Con del testo nel campo di ricerca comanda la pertinenza del
+ * nome, come sempre: cercando «Martinez» il primo deve restare Martinez.
+ * ============================================================ */
+const ORD_KEY = "ordinaLista";
+let ORDINA = null;                       // null = deciso dal ruolo scelto
+try{ const v = localStorage.getItem(ORD_KEY); if(v === "valore" || v === "gol" || v === "misto") ORDINA = v; }catch(e){}
+/* con i reparti dove i gol contano (A e C) si parte dai gol, altrove dal valore */
+function ordinaDefault(){ return (C.role === "A" || C.role === "C") ? "gol" : "valore"; }
+function ordinaAttivo(){ return ORDINA || ordinaDefault(); }
+function zeta(vals){
+  const buoni = vals.filter(v => v != null);
+  const n = buoni.length;
+  if(!n) return () => 0;
+  const m = buoni.reduce((a, b) => a + b, 0) / n;
+  const sd = Math.sqrt(buoni.reduce((a, b) => a + (b - m) * (b - m), 0) / n) || 1;
+  return v => v == null ? null : (v - m) / sd;
+}
+function riordinaRisultati(rows){
+  if($("q").value.trim()) return rows;      // ricerca per nome: comanda la pertinenza
+  const mod = ordinaAttivo();
+  const r = rows.slice();
+  if(mod === "gol"){
+    /* i null in fondo: «nessun dato» non e' «zero gol» */
+    const g = p => num(p.gol_tot_2025) ?? -1, h = p => num(p.gol_tot_2026) ?? -1;
+    r.sort((a, b) => (g(b) - g(a)) || (h(b) - h(a)) || ((num(b.value) || 0) - (num(a.value) || 0)));
+  }else if(mod === "misto"){
+    const zv = zeta(rows.map(p => num(p.value))), zg = zeta(rows.map(p => num(p.gol_tot_2025)));
+    const s = p => {
+      const a = zv(num(p.value)), b = zg(num(p.gol_tot_2025));
+      return (b == null) ? null : (a || 0) + b;      // senza gol si va in fondo
+    };
+    r.sort((a, b) => {
+      const x = s(a), y = s(b);
+      if(x == null && y == null) return (num(b.value) || 0) - (num(a.value) || 0);
+      if(x == null) return 1;
+      if(y == null) return -1;
+      return y - x;
+    });
+  }else{
+    r.sort((a, b) => (num(b.value) || 0) - (num(a.value) || 0));
+  }
+  return r;
+}
+function renderOrdPills(){
+  const att = ordinaAttivo();
+  document.querySelectorAll("#ordPills .op").forEach(b =>
+    b.classList.toggle("on", b.dataset.ord === att));
 }
 function marcatori(p){
   let m = "";
@@ -1219,6 +1413,8 @@ function marcatori(p){
   if(p.senza_previsione) m += `<span class="mk nopred" title="nessuna previsione nel pack">NO PREV</span>`;
   // 💬: l'esperto ha detto qualcosa su di lui (il testo intero e' al banco)
   if(p.nota_esperto) m += `<span class="mk esp" title="l'esperto (video 3-4/9): ${esc(p.nota_esperto)}">💬</span>`;
+  // ⚽: il Copilota lo conta fra i bomber del suo reparto
+  if(p.bomber) m += `<span class="mk bmb" title="bomber del reparto: gol veri sopra la soglia">⚽</span>`;
   return m;
 }
 function renderResults(){
@@ -1234,6 +1430,8 @@ function renderResults(){
     <div class="res-row ${i === C.cur ? "first" : ""} ${C.enterArm === p.id && i === C.cur ? "armato" : ""} ${C.sel && C.sel.id === p.id ? "sel" : ""}" data-id="${esc(p.id)}">
       ${roleChip(p.ruolo)}${clubBadge(p.squadra, "md")}
       <span class="pn">${esc(p.nome)}${marcatori(p)}</span>
+      <span class="num gol" title="gol veri della stagione scorsa (gol + rigori)">⚽ <b>${
+        num(p.gol_tot_2025) == null ? "ND" : Math.round(num(p.gol_tot_2025))}</b></span>
       <span class="num">q50 <b>${r0(p.q50)}</b></span>
       <span class="num">val <b>${r0(p.value)}</b></span>
     </div>`).join("") + (C.results.length > 40 ? `<div class="res-empty">…e altri ${C.results.length - 40}: affina la ricerca</div>` : "");
@@ -1275,7 +1473,18 @@ $("rolePills").addEventListener("click", e => {
     const on = x === b; x.classList.toggle("on", on);
     x.style.background = on && x.dataset.role ? ROLE_COLOR[x.dataset.role] : (on ? "var(--subtext0)" : "");
   });
+  renderOrdPills();       // senza scelta esplicita l'ordine dipende dal ruolo
   doSearch();
+});
+$("ordPills").addEventListener("click", e => {
+  const b = e.target.closest(".op"); if(!b) return;
+  e.stopPropagation();
+  ORDINA = b.dataset.ord;
+  try{ localStorage.setItem(ORD_KEY, ORDINA); }catch(err){}
+  renderOrdPills();
+  C.results = riordinaRisultati(C.results);
+  C.cur = 0; C.enterArm = null;
+  renderResults();
 });
 $("results").addEventListener("click", e => {
   const row = e.target.closest(".res-row"); if(!row) return;
@@ -1296,6 +1505,7 @@ function selectPlayer(p, price){
   const inp = $("priceIn"); if(inp){ inp.focus(); inp.select(); }
 }
 function clearLot(){
+  clearTimeout(C.indTimer);
   C.sel = null; C.advice = null; C.price = 1;
   renderLot(); renderResults();
   $("q").focus(); $("q").select();
@@ -1310,17 +1520,25 @@ function setPrice(v, fromInput){
   renderBidGrid();
   requestAdvice(200);
 }
-function requestAdvice(delay){
+/* `silenzioso`: stessa richiesta, senza velo grigio e senza animazione. Serve
+   al prezzo di indifferenza, che il server calcola in sfondo e consegna al
+   giro dopo: la riga deve cambiare da sola, non sfarfallare ogni due secondi. */
+function requestAdvice(delay, silenzioso){
   if(!C.sel) return;
   clearTimeout(C.advTimer);
+  clearTimeout(C.indTimer);
   const seq = ++C.advSeq;
-  const box = $("advice"); if(box) box.classList.add("wait");
+  const box = $("advice"); if(box && !silenzioso) box.classList.add("wait");
   C.advTimer = setTimeout(async () => {
+    const pid = C.sel && C.sel.id, prezzo = C.price;
+    if(!pid) return;
     try{
-      const a = await api(`/copilot/advice?player_id=${encodeURIComponent(C.sel.id)}&price=${C.price}`);
+      const a = await api(`/copilot/advice?player_id=${encodeURIComponent(pid)}&price=${prezzo}`);
       if(seq !== C.advSeq || !C.sel || a.id !== C.sel.id) return;
       C.advice = a;
-      renderAdvice(true);
+      renderAdvice(!silenzioso);
+      if(a.stato_indifferenza === "in_calcolo" && C.sel.id === pid && C.price === prezzo)
+        C.indTimer = setTimeout(() => requestAdvice(0, true), 2000);
     }catch(e){ /* server giù: il banner lo dice già */ }
   }, delay);
 }
@@ -1360,6 +1578,56 @@ function adviceView(a){
       sub:`fuori piano: ${motivo}`};
   }
   return {cls:"grey", head:esc(String(a.consiglio || "…")), sub:""};
+}
+
+/* Le righe sotto il numero grande: da dove viene il tetto e quanto stringe il
+   mercato. Il numero grande resta `max_consigliato` — qui si legge PERCHE'.
+   Ogni campo che il Copilota non manda diventa «—»: la pagina va anche
+   contro un server che non li ha ancora. */
+function adviceExtra(a){
+  const parti = [];
+  const cal = num(a.calore_ruolo);
+  const ind = a.stato_indifferenza === "in_calcolo" ? "in calcolo…"
+            : a.stato_indifferenza === "non_applicabile" ? "n/a"
+            : d0(a.prezzo_indifferenza);
+  parti.push(`<div class="adv-line">spendibili <b>${d0(a.max_spendibile)}</b>`
+    + ` · cap bot <b>${d0(a.cap_bot)}</b>`
+    + ` · indifferenza <b>${ind}</b>`
+    + ` · calore reparto <b>${cal == null ? "—" : "×" + d1(cal)}</b></div>`);
+
+  const q = num(a.quota_scarsita);
+  if(q != null || a.bomber_rimasti != null || a.squadre_contendenti != null){
+    const cont = num(a.squadre_contendenti);
+    const cls = q == null ? "" : q >= 0.8 ? "rosso" : q >= 0.5 ? "arancio" : "";
+    const grido = (q != null && q >= 0.8)
+      ? ` — <b>SCARSO: vai fino a ${d0(a.max_consigliato)}</b>` : "";
+    parti.push(`<div class="adv-scar ${cls}">${d0(a.bomber_rimasti)} bomber per `
+      + `${cont == null ? "—" : cont + 1} squadre con slot e cassa · quota ${d1(q)}${grido}</div>`);
+  }
+
+  /* V2: la riga diceva «con lui a 289: 4685 pt | senza: 5243 pt» sotto un
+     «RILANCIA fino a 289», e al tavolo si leggeva come una contraddizione.
+     Non lo era — al TETTO il piano con lui vale meno per costruzione, il
+     tetto e' un limite e non un prezzo consigliato — ma la seconda frase
+     spaventava piu' di quanto la prima aiutasse. Ora si dice il solo numero
+     che serve a decidere: quanto vale la rosa senza di lui, e dove sta il
+     pareggio. */
+  const con = a.con_lui, senza = a.senza_di_lui;
+  if(con && senza)
+    parti.push(`<div class="adv-conf">senza di lui il miglior piano fa ${d0(senza.value)} pt`
+      + ` · ${d0(senza.gol_2025)} gol in attacco · pareggi a ${d0(a.prezzo_indifferenza)};`
+      + ` oltre paghi la scarsità</div>`);
+
+  /* chi puo' superarti: stava fra i «meta» sotto il banco, che ora e' ridotto
+     a due numeri. E' informazione da martelletto, resta accanto al consiglio. */
+  if((a.concorrenti_sopra_tetto ?? 0) > 0)
+    parti.push(`<div class="adv-scar arancio">possono superarti: ${a.concorrenti_sopra_tetto}`
+      + ` (${esc((a.concorrenti_nomi || []).join(", "))})</div>`);
+  else if((num(a.max_consigliato) ?? 0) > 0)
+    parti.push(`<div class="adv-line" style="color:var(--green)">nessuno puo' superarti</div>`);
+
+  if(a.motivo_tetto) parti.push(`<div class="adv-motivo">${esc(a.motivo_tetto)}</div>`);
+  return parti.join("");
 }
 
 /* ---------------- piani con bomber diversi ---------------- */
@@ -1604,6 +1872,7 @@ function renderLot(){
       <div class="q mid"><div class="n">${r0(mid)}</div><div class="l">q50 · mediana</div></div>
       <div class="q"><div class="n">${r0(hi)}</div><div class="l">q90</div></div>
       <div class="q val"><div class="n" id="lotValore">${r0(p.value)}</div><div class="l">valore</div></div>
+      <div class="q gol" id="lotGolBox"><div class="n" id="lotGol">— · —</div><div class="l" id="lotGolLbl">gol 25 · 26</div></div>
     </div>
     <div class="fork">
       <div class="bar"><i style="left:${(100*lo/span).toFixed(1)}%; width:${(100*(hi-lo)/span).toFixed(1)}%"></i><span class="cur" id="forkCur" style="left:${(100*Math.min(C.price, span)/span).toFixed(1)}%"></span></div>
@@ -1620,12 +1889,12 @@ function renderLot(){
       <button class="pbtn plus p5" data-d="5">+5</button>
       <button class="pbtn plus p5" data-d="10">+10</button>
     </div>
+    <div class="meta" id="lotMeta"></div>
     <div id="advice" class="wait"><div class="tag">consiglio dell'oracolo</div><div class="head">…</div><div class="sub">chiedo al modello</div></div>
     <div class="hammer-title" id="hammerTitle"></div>
     <div class="hammer-grid" id="hammerGrid"></div>
     <div class="lot-act" id="lotAct"></div>
     ${p.motivi ? `<div class="motivi">${esc(p.motivi)}</div>` : ""}
-    <div class="meta" id="lotMeta"></div>
     <div class="sez-rilanci">
       <button class="riltog" id="rilTog"></button>
       <div class="rilbody" id="rilBody"${C.rilAperti ? "" : " hidden"}>
@@ -1710,9 +1979,16 @@ function renderInfoBanco(){
   if(esp) esp.innerHTML = p.nota_esperto
     ? `<div class="esperto"><div class="et">💬 cosa dice l'esperto (video 3-4/9)</div><div class="ex">${esc(p.nota_esperto)}</div></div>`
     : "";
+  /* gol veri (gol + rigori) della stagione scorsa e di quella in corso: senza
+     questi il valore del modello non dice quanti gol ti porta in rosa */
+  const gol = $("lotGol");
+  if(gol) gol.textContent = `${d0(p.gol_tot_2025)} · ${d0(p.gol_tot_2026)}`;
+  const glbl = $("lotGolLbl");
+  if(glbl) glbl.innerHTML = "gol 25 · 26" + (p.bomber ? `<br><span class="bmb">⚽ BOMBER</span>` : "");
   const chips = $("lotChips");
   if(chips){
     let h = "";
+    if(p.bomber) h += `<span class="chip bomber" title="gol veri sopra la soglia del reparto">⚽ bomber</span>`;
     if(C.advice && C.advice.id === p.id){
       h += C.advice.in_piano
         ? (C.advice.titolare_di_piano ? `<span class="chip star">★ titolare di piano</span>` : `<span class="chip plan">nel piano · panchina</span>`)
@@ -1783,19 +2059,16 @@ function renderAdvice(pop){
   const box = $("advice"); if(!box || !C.advice) return;
   const a = C.advice, v = adviceView(a);
   box.className = v.cls + (pop ? " pop" : "");
-  box.innerHTML = `<div class="tag">consiglio dell'oracolo · al prezzo ${C.price}</div><div class="head">${v.head}</div>${v.sub ? `<div class="sub">${v.sub}</div>` : ""}`;
+  box.innerHTML = `<div class="tag">consiglio dell'oracolo · al prezzo ${C.price}</div><div class="head">${v.head}</div>${
+    v.sub ? `<div class="sub">${v.sub}</div>` : ""}${adviceExtra(a)}`;
   renderInfoBanco();
+  /* i «meta» ora stanno SOPRA il consiglio e portano due soli numeri: tutto
+     il resto (calore di reparto, indifferenza, scarsita', concorrenti) e'
+     dentro il riquadro del consiglio, dove serve. */
   const meta = $("lotMeta");
   if(meta) meta.innerHTML = `
-    <span>slot liberi ${a.ruolo}: <b>${a.slot_liberi_ruolo}</b></span>
-    <span>tua offerta max legale: <b>${a.offerta_massima_legale}</b></span>
-    <span>calore mercato: <b>×${(a.heat ?? 1).toFixed(2)}</b></span>
-    ${a.max_consigliato != null ? `<span>max consigliato: <b style="color:var(--yellow)">${r0(a.max_consigliato)}</b></span>` : ""}
-    <span>affare sotto: <b>${r0(a.bargain_sotto)}</b></span>
-    ${(a.concorrenti_sopra_tetto ?? 0) > 0
-      ? `<span style="color:var(--peach)">possono superarti: <b>${a.concorrenti_sopra_tetto}</b> (${esc((a.concorrenti_nomi || []).join(", "))})</span>`
-      : ((a.max_consigliato ?? 0) > 0
-         ? `<span style="color:var(--green)">nessuno puo' superarti</span>` : "")}`;
+    <span>max legale: <b>${d0(a.offerta_massima_legale)}</b></span>
+    <span>slot liberi ${esc(String(a.ruolo || ""))}: <b>${d0(a.slot_liberi_ruolo)}</b></span>`;
   const cur = $("forkCur");
   if(cur && C.sel){ const span = Math.max((C.sel.q90 ?? 0) * 1.15, 5); cur.style.left = (100*Math.min(C.price, span)/span).toFixed(1) + "%"; }
   assicuraMartelletto();
@@ -1993,21 +2266,33 @@ function renderPlan(pl){
   aggiornaPrezziMiei();
   ROLE_ORDER.forEach(r => ricordaNote(pl.target[r]));
   const totFree = ROLE_ORDER.reduce((a, r) => a + (pl.slot_liberi[r] || 0), 0);
+  /* quinto riquadro: lo stesso numero dell'intestazione, con scritto perche'
+     e' quello — un credito va tenuto da parte per ogni altro slot da riempire */
+  const sp = st.spendibile || null;
+  const altri = sp && sp.slot_totali != null
+    ? Math.max(0, Math.round(num(sp.slot_totali) || 0) - 1)
+    : Math.max(0, totFree - 1);
   $("planStats").innerHTML = `
     <div class="ps budget"><div class="n">${pl.budget}</div><div class="l">crediti residui</div></div>
     <div class="ps"><div class="n">${totFree}</div><div class="l">slot da riempire</div>
       <div class="slots">${ROLE_ORDER.map(r => `<span style="color:${ROLE_COLOR[r]}">${r}${pl.slot_liberi[r]}<span style="color:var(--subtext0);font-weight:700">/${quotas[r] ?? "?"}</span></span>`).join("")}</div></div>
     <div class="ps"><div class="n" style="color:${pl.costo_atteso_piano > pl.budget ? "var(--red)" : "var(--text)"}">${r0(pl.costo_atteso_piano)}</div><div class="l">spesa prevista</div></div>
-    <div class="ps heat"><div class="n">×${(pl.heat ?? 1).toFixed(2)}</div><div class="l">calore mercato</div></div>`;
+    <div class="ps heat"><div class="n">×${(pl.heat ?? 1).toFixed(2)}</div><div class="l">calore mercato</div></div>
+    <div class="ps spend"><div class="n">${sp ? d0(sp.max_ora) : "—"}</div>
+      <div class="l">su un solo giocatore, tenendo 1 per gli altri ${altri} slot</div></div>`;
 
   const rost = miaRosa();
   let sT = 0, pT = 0, oT = 0, qT = 0;
+  const sfori = [];
   const righe = ROLE_ORDER.map(r => {
     const lst = rost[r] || [];
     const speso = lst.reduce((a, p) => a + (+p.prezzo || 0), 0);
     const prev = (pl.target[r] || []).reduce((a, p) => a + (+p.prezzo_atteso || 0), 0);
     const occ = lst.length, quo = quotas[r] ?? 0;
     sT += speso; pT += prev; oT += occ; qT += quo;
+    /* sforo: speso oltre un quarto in piu' del previsto. Si dice mentre l'asta
+       va avanti, non a rosa finita, quando non si puo' piu' rimediare. */
+    if(prev > 0 && speso > prev * 1.25) sfori.push([r, Math.round(speso - prev)]);
     return `<tr>
       <td class="rl" style="color:${ROLE_COLOR[r]}">${ROLE_NAME[r].toUpperCase()}</td>
       <td class="sp">${r0(speso)}</td>
@@ -2017,7 +2302,8 @@ function renderPlan(pl){
   $("planTab").innerHTML = `<table class="pt">
     <thead><tr><th>reparto</th><th>speso finora</th><th>previsto dal piano</th><th>slot</th></tr></thead>
     <tbody>${righe}<tr class="tot"><td>TUTTI</td><td>${r0(sT)}</td><td>${r0(pT)}</td><td><b>${oT}</b>/${qT}</td></tr></tbody>
-  </table>`;
+  </table>` + sfori.map(([r, n]) =>
+    `<div class="sforo">⚠ hai sforato ${ROLE_NAME[r].toLowerCase()} di ${n} crediti</div>`).join("");
 
   const frac = pl.budget > 0 ? pl.costo_atteso_piano / pl.budget : 1;
   const over = frac > 1;
@@ -2182,7 +2468,7 @@ document.querySelectorAll(".nb").forEach(b => b.onclick = async () => {
 function firmaTavolo(st){
   return [st.budget, st.my_index, st.n_events,
           ROLE_ORDER.map(r => (st.quotas || {})[r]).join(","),
-          (st.teams || []).map(t => `${t.index}:${t.name}:${t.budget}:${t.max_bid}:` +
+          (st.teams || []).map(t => `${t.index}:${t.name}:${t.budget}:${t.max_bid}:${t.gol_2025 ?? ""}:` +
              ROLE_ORDER.map(r => (t.roster[r] || []).length).join("-")).join("|")].join("#");
 }
 function renderTeams(st){
@@ -2211,6 +2497,7 @@ function renderTeams(st){
     return `<div class="team-row ${me ? "human" : ""} ${C.popTeam === t.index ? "open" : ""}" data-ti="${t.index}">
       <span class="dot" style="background:${TEAM_COLORS[t.index % TEAM_COLORS.length]}"></span>
       <div class="head"><b>${esc(t.name)}</b><span class="mx">max <b>${t.max_bid}</b></span>${
+        t.gol_2025 != null ? `<span class="tgol" title="gol veri della rosa nella stagione scorsa">⚽ ${Math.round(t.gol_2025)}</span>` : ""}${
         me ? "" : `<button class="io-btn" data-io="${t.index}" title="il piano e i consigli passano a ${esc(t.name)}">sono io</button>`}</div>
       <span class="credits" style="color:${budgetColor(frac)}">${t.budget}</span>
       <div class="bar"><i style="${barStyle}"></i></div>
@@ -2304,6 +2591,79 @@ function updateTeamPopover(st){
   }
 }
 
+/* ============================================================
+ * GOL IN ROSA — chi ha comprato i gol dell'anno scorso
+ * Il pannello vive da solo: se il Copilota non ha ancora
+ * /copilot/gol_rosa lo dice e non rompe niente.
+ * ============================================================ */
+let GR = {dati:null, sig:null, caricando:false};
+
+async function caricaGolRosa(sig){
+  if(GR.caricando) return;
+  GR.caricando = true;
+  try{
+    const d = await api('/copilot/gol_rosa');
+    GR.dati = (d && Array.isArray(d.squadre) && d.squadre.length) ? d : null;
+  }catch(e){ GR.dati = null; }
+  GR.sig = sig;
+  GR.caricando = false;
+  renderGolRosa();
+}
+
+function renderGolRosa(){
+  const box = $("golRosaOut"); if(!box) return;
+  const d = GR.dati;
+  if(!d){
+    box.innerHTML = `<div class="tick-empty">questo Copilota non manda ancora i gol in rosa</div>`;
+    return;
+  }
+  const righe = d.squadre || [];
+  const max = Math.max(1, ...righe.map(s => num(s.tot_2025) || 0));
+  box.innerHTML = righe.map(s => {
+    const tot = num(s.tot_2025) || 0;
+    const pr = s.per_ruolo || {};
+    const nd = num(s.senza_dato) || 0;
+    return `<div class="gr-row ${s.mia ? "mia" : ""}" title="${esc(s.nome || "")}${
+        nd ? " — senza storico Serie A: " + esc((s.senza_dato_nomi || []).join(", ")) : ""}">
+      <span class="gr-pos">${d0(s.posizione)}</span>
+      <span class="gr-nm">${esc(s.nome || "?")}</span>
+      <span class="gr-tot">${d0(s.tot_2025)}</span>
+      <span class="gr-sub">di cui ${d0(s.rig_2025)} rig · A ${d0(pr.A)} · C ${d0(pr.C)} · 2026 ${d0(s.tot_2026)}${
+        nd ? ` · <span class="nd">${Math.round(nd)} senza storico Serie A</span>` : ""}</span>
+      <span class="gr-bar"><i style="width:${(100*tot/max).toFixed(1)}%"></i></span>
+    </div>`;
+  }).join("") + (d.media_lega != null
+    ? `<div class="gr-foot">media della lega <b>${d0(d.media_lega)}</b> gol${
+        d.mia_posizione != null ? ` · tu sei ${d0(d.mia_posizione)}° su ${righe.length}` : ""}</div>`
+    : "");
+}
+
+/* ============================================================
+ * SCARSITA' — quanti bomber restano e quante squadre li vogliono
+ * ============================================================ */
+function renderScarsita(st){
+  const box = $("scarsita"); if(!box) return;
+  const sc = st && st.scarsita;
+  const sig = sc ? JSON.stringify(sc) : "";
+  if(box.dataset.sig === sig) return;
+  box.dataset.sig = sig;
+  if(!sc){ box.innerHTML = ""; box.hidden = true; return; }
+  const ET = {A:"ATTACCO", C:"CENTROCAMPO"};
+  const blocchi = ["A","C"].map(r => {
+    const s = sc[r]; if(!s) return "";
+    const bp = num(s.bomber_pool), sq = num(s.squadre_in_gara), rap = num(s.rapporto);
+    /* «stretto» = meno di un bomber a testa per le squadre ancora in gara */
+    const stretto = rap != null ? rap < 1 : (bp != null && sq != null && bp < sq);
+    const top = (s.top || []).slice(0, 3).map(t =>
+      `<span class="sc-t">${esc(t.nome || "?")} <b>${d0(t.gol_tot_2025)}</b> gol · q50 ${d0(t.q50)}</span>`).join("");
+    return `<div class="sc-line ${stretto ? "stretto" : ""}">
+      <b>${ET[r]}:</b> ${d0(bp)} bomber per ${d0(sq)} squadre in gara — <b class="sc-v">${stretto ? "STRETTO" : "OK"}</b>
+      ${top ? `<div class="sc-top">${top}</div>` : ""}</div>`;
+  }).join("");
+  box.innerHTML = blocchi;
+  box.hidden = !blocchi;
+}
+
 /* ---------- ticker ultimi acquisti ---------- */
 function renderTicker(st, animateLast){
   const box = $("ticker");
@@ -2366,8 +2726,11 @@ function pieghevole(id, bodyId, apertoDiDefault){
 }
 
 /* ---------- avvio ---------- */
-pieghevole("rigoristi", "rigBody", false);
+/* RIGORISTI aperto: con i gol veri accanto ai nomi e' la lista che al tavolo
+   si guarda prima di ogni chiamata, non piu' un di piu' da aprire a mano. */
+pieghevole("rigoristi", "rigBody", true);
 pieghevole("sessione", "sessBody", false);
+renderOrdPills();
 renderRosaIdeale();
 loadSquadre();
 poll();
