@@ -36,6 +36,22 @@ lo trova da solo. Si può rilanciare: non rifà quello che c'è già.
 Opzioni: `--playwright` installa anche Chrome per il ponte FantaAsta;
 `--senza-prova` salta la prova di fumo; `--porta-prova N` cambia la porta.
 
+## Alternativa: chiavetta, senza GitHub
+
+Sul computer che ha tutto:
+
+```bash
+python scripts/prepara_chiavetta.py F:\FantaOracle
+```
+
+Copia il progetto intero (codice, pack, eleggibilità, note, voti, mercato,
+registri delle aste già fatte; fuori solo profilo Chrome, istantanee, dati
+grezzi pesanti e backup: ~80 MB) e ci mette `AVVIA_SU_PORTATILE.bat` e un
+`LEGGIMI_CHIAVETTA.txt`. Sul portatile: copia la cartella sul disco, doppio
+click su `AVVIA_SU_PORTATILE.bat` (serve solo Python 3.11+ già installato):
+crea `.venv`, installa i pacchetti, prova il Copilota, apre il menu. Le
+volte dopo basta `FantaOracle.bat`.
+
 ## 3. Avviare
 
 Doppio click su `FantaOracle.bat` (usa `.venv` se c'è), oppure:
